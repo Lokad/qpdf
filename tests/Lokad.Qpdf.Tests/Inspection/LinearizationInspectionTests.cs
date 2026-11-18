@@ -1,5 +1,5 @@
-using System.Text;
 using Lokad.Qpdf.Hosting;
+using static Lokad.Qpdf.Tests.Inspection.LinearizationFixtureEdits;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -26,43 +26,6 @@ public sealed class LinearizationInspectionTests
     {
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         return Assert.Single(result.Diagnostics);
-    }
-
-    private static byte[] ReplaceUnique(byte[] input, string needle, string replacement)
-    {
-        byte[] needleBytes = Encoding.ASCII.GetBytes(needle);
-        byte[] replacementBytes = Encoding.ASCII.GetBytes(replacement);
-        Assert.Equal(needleBytes.Length, replacementBytes.Length);
-        int at = IndexOf(input, needleBytes);
-        Assert.NotEqual(-1, at);
-        Assert.Equal(-1, IndexOf(input, needleBytes, at + 1));
-        byte[] output = new byte[input.Length];
-        Buffer.BlockCopy(input, 0, output, 0, input.Length);
-        Buffer.BlockCopy(replacementBytes, 0, output, at, replacementBytes.Length);
-        return output;
-    }
-
-    private static int IndexOf(byte[] haystack, byte[] needle, int start = 0)
-    {
-        for (int i = start; i + needle.Length <= haystack.Length; i++)
-        {
-            bool match = true;
-            for (int k = 0; k < needle.Length; k++)
-            {
-                if (haystack[i + k] != needle[k])
-                {
-                    match = false;
-                    break;
-                }
-            }
-
-            if (match)
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     [Fact]

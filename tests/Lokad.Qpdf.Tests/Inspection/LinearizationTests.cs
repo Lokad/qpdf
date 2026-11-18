@@ -1,10 +1,10 @@
-using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using static Lokad.Qpdf.Tests.Inspection.LinearizationFixtureEdits;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -32,14 +32,6 @@ public sealed class LinearizationTests
         return Assert.Single(result.Checks, check => check.Name == "linearization");
     }
 
-    public static IEnumerable<object[]> FirstPageCases()
-    {
-        foreach (string value in new[] { "absent", "null", "0", "/Bad", "1.0", "true" })
-        foreach (string operation in new[] { "typed", "check", "check-linearization", "show-linearization" })
-        foreach (string route in operation == "typed" ? new[] { "typed" } : new[] { "argv", "job" })
-        { yield return [value, operation, route]; }
-    }
-
     private static async Task<byte[]> WithFirstPage(string value)
     {
         byte[] bytes = await FixtureBytes("linearized-2page.pdf");
@@ -50,31 +42,56 @@ public sealed class LinearizationTests
     }
 
     [Theory]
-    [MemberData(nameof(FirstPageCases))]
-    public async Task OptionalFirstPageDefaultsAndInvalidTypesAgreeAcrossEntryPoints(string value, string operation, string route)
+    [InlineData("absent", true)]
+    [InlineData("null", true)]
+    [InlineData("0", true)]
+    [InlineData("/Bad", false)]
+    [InlineData("1.0", false)]
+    [InlineData("true", false)]
+    public async Task OptionalFirstPageAcceptsDefaultsAndRejectsNonIntegers(string value, bool valid)
     {
-        bool valid = value is "absent" or "null" or "0";
         using InMemoryQpdfHost host = HostWith("input", await WithFirstPage(value));
-        if (route == "typed")
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
+        Assert.Equal(valid, result.Passed);
+        QpdfCheckOutcome outcome = LinearizationOutcome(result);
+        Assert.Equal(valid ? QpdfCheckStatus.Passed : QpdfCheckStatus.Failed, outcome.Status);
+        Assert.Contains(valid ? "hint tables valid" : "/P must be an integer", outcome.Detail, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("check", "check", false, true)]
+    [InlineData("check", "check", true, false)]
+    [InlineData("check-linearization", "checkLinearization", true, true)]
+    [InlineData("check-linearization", "checkLinearization", false, false)]
+    [InlineData("show-linearization", "showLinearization", false, true)]
+    [InlineData("show-linearization", "showLinearization", true, false)]
+    public async Task FirstPageValidationReachesEachCommand(string flag, string jobKey, bool job, bool valid)
+    {
+        using InMemoryQpdfHost host = HostWith("input", await WithFirstPage(valid ? "null" : "/Bad"));
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input", [jobKey] = "" }),
+                CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--" + flag]), CancellationToken.None);
+        Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+        Assert.Equal(valid ? QpdfExecutionStatus.Completed : QpdfExecutionStatus.Failed, result.Status);
+        if (!valid)
         {
-            QpdfCheckResult result = await Qpdf.CheckAsync(host, QpdfPath.From("input"), CancellationToken.None);
-            Assert.Equal(valid, result.Passed);
-            QpdfCheckOutcome outcome = LinearizationOutcome(result);
-            Assert.Equal(valid ? QpdfCheckStatus.Passed : QpdfCheckStatus.Failed, outcome.Status);
-            if (!valid) { Assert.Contains("/P must be an integer", outcome.Detail, StringComparison.Ordinal); }
+            QpdfDiagnostic failed = Assert.Single(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.CheckFailed);
+            Assert.Contains("/P must be an integer", failed.Message, StringComparison.Ordinal);
         }
-        else
+        else if (flag == "check-linearization")
         {
-            string key = operation switch { "check-linearization" => "checkLinearization", "show-linearization" => "showLinearization", _ => "check" };
-            QpdfExecutionResult result = route == "argv"
-                ? await Qpdf.ExecuteAsync(host, new(["input", "--" + operation]), CancellationToken.None)
-                : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input", [key] = "" }), CancellationToken.None);
-            Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
-            Assert.Equal(valid ? QpdfExecutionStatus.Completed : QpdfExecutionStatus.Failed, result.Status);
-            if (!valid) { Assert.Contains(result.Diagnostics, d => d.Message.Contains("/P must be an integer", StringComparison.Ordinal)); }
-            else if (operation == "show-linearization") { Assert.Contains(result.Diagnostics, d => d.Message == "first_page: 0"); }
-            Assert.Null(result.OutputBytes);
+            QpdfDiagnostic report = Assert.Single(result.Diagnostics);
+            Assert.Equal(QpdfDiagnosticCode.LinearizationReport, report.Code);
+            Assert.Equal("input: no linearization errors", report.Message);
         }
+        else if (flag == "show-linearization")
+        {
+            Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.LinearizationReport && item.Message == "first_page: 0");
+        }
+        else { Assert.Empty(result.Diagnostics); }
+        Assert.Null(result.OutputBytes);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
@@ -90,43 +107,6 @@ public sealed class LinearizationTests
         Assert.Equal(QpdfCheckStatus.Failed, LinearizationOutcome(result).Status);
         Assert.Contains("/N", LinearizationOutcome(result).Detail, StringComparison.Ordinal);
         Assert.Equal(0L, host.OpenLeaseCount);
-    }
-
-    private static byte[] ReplaceUnique(byte[] input, string needle, string replacement)
-    {
-        byte[] needleBytes = Encoding.ASCII.GetBytes(needle);
-        byte[] replacementBytes = Encoding.ASCII.GetBytes(replacement);
-        Assert.Equal(needleBytes.Length, replacementBytes.Length);
-        int at = IndexOf(input, needleBytes);
-        Assert.NotEqual(-1, at);
-        Assert.Equal(-1, IndexOf(input, needleBytes, at + 1));
-        byte[] output = new byte[input.Length];
-        Buffer.BlockCopy(input, 0, output, 0, input.Length);
-        Buffer.BlockCopy(replacementBytes, 0, output, at, replacementBytes.Length);
-        return output;
-    }
-
-    private static int IndexOf(byte[] haystack, byte[] needle, int start = 0)
-    {
-        for (int i = start; i + needle.Length <= haystack.Length; i++)
-        {
-            bool match = true;
-            for (int k = 0; k < needle.Length; k++)
-            {
-                if (haystack[i + k] != needle[k])
-                {
-                    match = false;
-                    break;
-                }
-            }
-
-            if (match)
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     [Theory]
@@ -241,11 +221,11 @@ public sealed class LinearizationTests
     public async Task CorruptHintEncodingFails()
     {
         byte[] bytes = await FixtureBytes("linearized-2page.pdf");
-        byte[] marker = Encoding.ASCII.GetBytes("/S 43");
-        int dictAt = IndexOf(bytes, marker);
+        int dictAt = bytes.AsSpan().IndexOf("/S 43"u8);
         Assert.NotEqual(-1, dictAt);
-        byte[] streamMarker = Encoding.ASCII.GetBytes("stream\n");
-        int dataAt = IndexOf(bytes, streamMarker, dictAt) + streamMarker.Length + 10;
+        int streamAt = bytes.AsSpan(dictAt).IndexOf("stream\n"u8);
+        Assert.NotEqual(-1, streamAt);
+        int dataAt = dictAt + streamAt + "stream\n"u8.Length + 10;
         Assert.True(dataAt < bytes.Length);
         byte[] edited = new byte[bytes.Length];
         Buffer.BlockCopy(bytes, 0, edited, 0, bytes.Length);
