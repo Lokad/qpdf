@@ -7485,14 +7485,13 @@
           "SplitReplaceTests.SplitPercentDPatternApplies",
           "SplitReplaceTests.SplitPrunesUnsharedObjects",
           "SplitReplaceTests.SplitSizeAndNumericOutputHaveExplicitPrecedence",
-          "SplitReplaceTests.JobSplitMatchesArgv",
+          "SplitReplaceTests.JobSplitDefaultsToOnePageInThePlan",
           "SplitReplaceTests.JobSplitGroupsApply",
           "SplitReplaceTests.JobSplitWholeFile",
-          "SplitReplaceTests.ArgvSplitEmptyEqualsBare",
+          "SplitReplaceTests.ArgvSplitDefaultsToOnePageInThePlan",
           "SplitReplaceTests.TypedSplitWritesNamedGroups",
           "SplitReplaceTests.TypedSplitMergesSourcesBeforeGrouping",
           "SplitReplaceTests.TypedSplitMatchesArgv",
-          "SplitReplaceTests.TypedSplitMatchesJob",
           "PublicationAdmissionTests.InactiveFirstPassDoesNotCreateOrOverwriteCapture",
           "SplitLabelContinuationTests.EverySplitKeepsTheSelectedPagesEffectiveLabels",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
@@ -7514,9 +7513,8 @@
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
-          "SplitReplaceTests.JobSplitMatchesArgv",
+          "SplitReplaceTests.JobSplitDefaultsToOnePageInThePlan",
           "SplitReplaceTests.TypedSplitMatchesArgv",
-          "SplitReplaceTests.TypedSplitMatchesJob",
           "SplitInputCollisionTests.ExplicitEmptyPrimaryDoesNotProtectAnUnopenedHostInput"
         ],
         "resource": [

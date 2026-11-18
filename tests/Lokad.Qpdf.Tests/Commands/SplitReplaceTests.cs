@@ -1,5 +1,7 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Jobs;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Commands;
@@ -36,6 +38,13 @@ public sealed class SplitReplaceTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         return Assert.Single(result.Diagnostics);
+    }
+
+    private static string[] PageText(InMemoryQpdfHost host, string name)
+    {
+        Assert.True(host.TryGetOutput(QpdfPath.From(name), out byte[] bytes));
+        using UglyToad.PdfPig.PdfDocument document = UglyToad.PdfPig.PdfDocument.Open(bytes);
+        return document.GetPages().Select(page => page.Text).ToArray();
     }
 
     [Fact]
@@ -312,59 +321,44 @@ public sealed class SplitReplaceTests
     }
 
     [Theory]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "splitPages": ""}""")]
-    [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "splitPages": "1"}""")]
-    public async Task JobSplitMatchesArgv(string job)
+    [InlineData("")]
+    [InlineData("1")]
+    public async Task JobSplitDefaultsToOnePageInThePlan(string value)
     {
-        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        QpdfExecutionResult argvResult = await Qpdf.ExecuteAsync(
-            argvHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, argvResult.ExitCode);
-        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] first));
-        Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/s-2.pdf"), out byte[] second));
-        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        QpdfExecutionResult jobResult = await Qpdf.ExecuteJobAsync(
-            jobHost,
-            job,
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, jobResult.ExitCode);
-        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] a));
-        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/s-2.pdf"), out byte[] b));
-        Assert.Equal(first, a);
-        Assert.Equal(second, b);
-        await using QpdfDocument reopened = await Reopen(jobHost, "outputs/s-1.pdf");
-        Assert.Equal(1, reopened.PageCount);
+        using InMemoryQpdfHost host = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        string settings = System.Text.Json.JsonSerializer.Serialize(new
+        { inputFile = "input.pdf", outputFile = "output.pdf", splitPages = value });
+        using JobJsonLoader.LoadedJob job = await JobJsonLoader.ParseAsync(host, settings, QpdfLimits.Default,
+            governor, CancellationToken.None);
+        Assert.Equal(1, job.Plan.SplitPages);
+        Assert.Equal(0L, governor.Snapshot().HostOperations);
     }
 
     [Fact]
     public async Task JobSplitGroupsApply()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
             host,
-            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "1"}, {"file": ".", "range": "2"}], "splitPages": "2"}""",
+            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "pages": [{"file": ".", "range": "2"}, {"file": ".", "range": "1"}], "splitPages": "2"}""",
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        await using QpdfDocument both = await Reopen(host, "outputs/s-1-2.pdf");
-        Assert.Equal(2, both.PageCount);
+        Assert.Equal(["Second", "First"], PageText(host, "outputs/s-1-2.pdf"));
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/s.pdf"), out byte[] _));
     }
 
     [Fact]
     public async Task JobSplitWholeFile()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(
             host,
             """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/s.pdf", "splitPages": ""}""",
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        await using QpdfDocument first = await Reopen(host, "outputs/s-1.pdf");
-        Assert.Equal(1, first.PageCount);
-        await using QpdfDocument second = await Reopen(host, "outputs/s-2.pdf");
-        Assert.Equal(1, second.PageCount);
+        Assert.Equal(["First"], PageText(host, "outputs/s-1.pdf"));
+        Assert.Equal(["Second"], PageText(host, "outputs/s-2.pdf"));
     }
 
     [Theory]
@@ -382,24 +376,18 @@ public sealed class SplitReplaceTests
         Assert.False(host.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] _));
     }
 
-    [Fact]
-    public async Task ArgvSplitEmptyEqualsBare()
+    [Theory]
+    [InlineData("--split-pages")]
+    [InlineData("--split-pages=")]
+    [InlineData("--split-pages=1")]
+    public async Task ArgvSplitDefaultsToOnePageInThePlan(string flag)
     {
-        InMemoryQpdfHost bareHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        QpdfExecutionResult bareResult = await Qpdf.ExecuteAsync(
-            bareHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, bareResult.ExitCode);
-        Assert.True(bareHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] bare));
-        InMemoryQpdfHost valuedHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        QpdfExecutionResult valuedResult = await Qpdf.ExecuteAsync(
-            valuedHost,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages=", "--pages", ".", "1", ".", "2", "--", "outputs/s.pdf"]),
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, valuedResult.ExitCode);
-        Assert.True(valuedHost.TryGetOutput(QpdfPath.From("outputs/s-1.pdf"), out byte[] valued));
-        Assert.Equal(bare, valued);
+        using InMemoryQpdfHost host = new();
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using JobJsonLoader.LoadedJob job = await JobJsonLoader.ParseArgvAsync(host,
+            ["input.pdf", flag, "output.pdf"], QpdfLimits.Default, governor, CancellationToken.None);
+        Assert.Equal(1, job.Plan.SplitPages);
+        Assert.Equal(0L, governor.Snapshot().HostOperations);
     }
 
     [Fact]
@@ -424,7 +412,7 @@ public sealed class SplitReplaceTests
     [Fact]
     public async Task TypedSplitMergesSourcesBeforeGrouping()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         host.AddInput(QpdfPath.From("inputs/b.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Copy);
         PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(
             host,
@@ -434,16 +422,14 @@ public sealed class SplitReplaceTests
             CancellationToken.None);
         Assert.Equal(3, result.PageCount);
         Assert.Equal(["outputs/split-1-2.pdf", "outputs/split-3.pdf"], result.OutputPaths.Select(path => path.Value));
-        await using QpdfDocument first = await Reopen(host, "outputs/split-1-2.pdf");
-        Assert.Equal(2, first.PageCount);
-        await using QpdfDocument second = await Reopen(host, "outputs/split-3.pdf");
-        Assert.Equal(1, second.PageCount);
+        Assert.Equal(["First", "Second"], PageText(host, "outputs/split-1-2.pdf"));
+        Assert.Equal(["Hello"], PageText(host, "outputs/split-3.pdf"));
     }
 
     [Fact]
     public async Task TypedSplitMatchesArgv()
     {
-        InMemoryQpdfHost typedHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost typedHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         await Qpdf.SelectPagesAsync(
             typedHost,
             [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), PdfPageSelectionOptions.FromPages([1, 2]))],
@@ -452,7 +438,7 @@ public sealed class SplitReplaceTests
             CancellationToken.None);
         Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/typed-1.pdf"), out byte[] a));
         Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/typed-2.pdf"), out byte[] b));
-        InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost argvHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(
             argvHost,
             new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1-2", "--", "outputs/argv.pdf"]),
@@ -462,27 +448,6 @@ public sealed class SplitReplaceTests
         Assert.True(argvHost.TryGetOutput(QpdfPath.From("outputs/argv-2.pdf"), out byte[] d));
         await Writing.StreamObservation.SameDecodedGraph(a, c);
         await Writing.StreamObservation.SameDecodedGraph(b, d);
-    }
-
-    [Fact]
-    public async Task TypedSplitMatchesJob()
-    {
-        InMemoryQpdfHost typedHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        await Qpdf.SelectPagesAsync(
-            typedHost,
-            [new PdfPageSource(QpdfPath.From("inputs/a.pdf"), PdfPageSelectionOptions.FromPages([1, 2]))],
-            QpdfPath.From("outputs/typed.pdf"),
-            new PdfPageMergeOptions { SplitPages = 2 },
-            CancellationToken.None);
-        Assert.True(typedHost.TryGetOutput(QpdfPath.From("outputs/typed-1-2.pdf"), out byte[] a));
-        InMemoryQpdfHost jobHost = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
-        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(
-            jobHost,
-            """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/job.pdf", "pages": [{"file": ".", "range": "1-2"}], "splitPages": "2"}""",
-            CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
-        Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/job-1-2.pdf"), out byte[] b));
-        await Writing.StreamObservation.SameDecodedGraph(a, b);
     }
 
     [Theory]

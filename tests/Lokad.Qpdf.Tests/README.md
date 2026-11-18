@@ -37,7 +37,7 @@ coverage boundaries are:
 | Guarantee | Ownership and observations |
 | --- | --- |
 | Syntax, repair and security | JSON refusal policy exhausts settings at one planner route and samples operation/adapter wiring. Primitive tables own grammar and known answers; workflows retain limits, source roles and reader/writer integration. |
-| Labels and splitting | Typed selection owns label, range and split-size combinations. The reference lane checks each label shape and samples reordered job selection. |
+| Labels and splitting | The planner owns bare, empty and explicit single-page split sizes. Typed assembly and job wiring assert ordered page text and target names. One typed/argv comparison checks equivalent decoded graphs. The reference lane checks label shapes and samples reordered job selection. |
 | Compression setters | Exhaust native encodings and effective setter order; sample argv/job/mixed/nested configuration. |
 | Content and resources | Feature owners cover alias, content and layout semantics; integration retains selection, merging, splitting and conservative failure behavior. |
 | Unreferenced graph preservation | The native lane checks tagged edges and shared stream bytes. It preserves separate whole-file, selection, split and contained-copy warning outcomes, with focused job samples. |
