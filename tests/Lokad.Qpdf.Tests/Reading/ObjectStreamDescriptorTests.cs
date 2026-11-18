@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
-using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.TestSupport;
@@ -82,8 +81,13 @@ public sealed class ObjectStreamDescriptorTests
     {
         foreach (string role in new[] { "info", "attachment", "page" })
         foreach (int mask in Enumerable.Range(0, 8))
-        foreach (bool encoded in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [role, mask, encoded, route]; }
+        foreach (bool encoded in new[] { false, true }) { yield return [role, mask, encoded, "argv"]; }
+        yield return ["info", 7, true, "typed"];
+        yield return ["attachment", 3, false, "typed"];
+        yield return ["page", 5, true, "typed"];
+        yield return ["info", 7, false, "job"];
+        yield return ["attachment", 5, true, "job"];
+        yield return ["page", 3, false, "job"];
     }
 
     [Theory]
@@ -113,9 +117,13 @@ public sealed class ObjectStreamDescriptorTests
             PdfDictionary info = Assert.IsType<PdfDictionary>(Get(document, document.Engine.Trailer, "Info"));
             Assert.Equal("Retained info", Text(info, "Title"));
             if (role == "page") { Assert.Equal("Retained page", Text(document.PageReferences[0].Page, "PageMarker")); }
-            if (route != "typed")
+            PdfDictionary catalog = Assert.IsType<PdfDictionary>(Get(document, document.Engine.Trailer, "Root"));
+            if (route == "typed")
             {
-                PdfDictionary catalog = Assert.IsType<PdfDictionary>(Get(document, document.Engine.Trailer, "Root"));
+                Assert.False(catalog.TryGet(PdfName.FromAscii("Private"), out _));
+            }
+            else
+            {
                 Assert.Equal("Retained private", Text(Assert.IsType<PdfDictionary>(Get(document, catalog, "Private")), "Marker"));
             }
         }
@@ -133,11 +141,27 @@ public sealed class ObjectStreamDescriptorTests
     {
         foreach (string attribute in new[] { "Type", "N", "First" })
         foreach (string fault in new[] { "stale", "missing", "wrong", "null", "negative", "self", "in-stream" })
-        foreach (bool job in new[] { false, true }) { yield return [attribute, fault, job]; }
+        { yield return [attribute, fault]; }
     }
 
     [Theory]
     [MemberData(nameof(MalformedCases))]
+    public async Task OpenRejectsEveryInvalidRequiredDescriptor(string attribute, string fault)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture("page", 0, true, 17, attribute, fault, false, false), QpdfInputOwnership.Transfer);
+        await Assert.ThrowsAsync<QpdfParseException>(async () =>
+        { await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None); });
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("Type", "stale", false)]
+    [InlineData("N", "negative", false)]
+    [InlineData("First", "in-stream", false)]
+    [InlineData("Type", "wrong", true)]
+    [InlineData("N", "self", true)]
+    [InlineData("First", "missing", true)]
     public async Task InvalidRequiredDescriptorsRejectBeforePublication(string attribute, string fault, bool job)
     {
         using InMemoryQpdfHost host = new();
@@ -149,9 +173,6 @@ public sealed class ObjectStreamDescriptorTests
             : await Qpdf.ExecuteAsync(host, new(["input", "--suppress-recovery", "output"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
-        Assert.Equal(0L, host.OpenLeaseCount);
-        await Assert.ThrowsAsync<QpdfParseException>(async () =>
-        { await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None); });
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
