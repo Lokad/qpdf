@@ -383,8 +383,10 @@ modes, version/extension negotiation, deterministic/static IDs, metadata control
 QDF and two-pass linearization. Explicit forced versions win without transcoding
 opaque features. Object streams require PDF 1.5; catalog XML metadata is uncompressed.
 
-`--remove-info` retains only an existing non-null Info ModDate and removes catalog
-XML metadata; without ModDate it omits Info. `--remove-metadata` alone removes
+`--remove-info` retains only an existing, resolved non-null Info ModDate and removes catalog
+XML metadata; absent, null, missing and stale-generation dates omit Info without
+an optional-metadata warning. Live indirect dates retain their reference identity.
+`--remove-metadata` alone removes
 only XML metadata and retains Info. Independently rooted originals remain intact. Final-root
 reachability retires replaced graphs; explicit unreferenced preservation excludes
 old catalog/page/container structure. Numbering and compressed bytes may differ from native.

@@ -6248,7 +6248,9 @@
       "evidence": {
         "positive": [
           "MetadataTests.RemoveInfoKeepsOnlyModDate",
-          "MetadataTests.RemoveInfoWithoutModDateDropsInfo"
+          "MetadataTests.RemoveInfoWithoutModDateDropsInfo",
+          "MetadataPolicyTests.ResolvedDatePresenceControlsReducedInfo",
+          "MetadataPolicyTests.InfoContainersResolveBeforeDateSelection"
         ],
         "negative": [
           "MetadataTests.ValuedFlagsFail",
@@ -6256,10 +6258,13 @@
         ],
         "interaction": [
           "MetadataTests.BothRemovalsDropBoth",
-          "MetadataTests.JobJsonParityHolds"
+          "MetadataTests.JobJsonParityHolds",
+          "MetadataPolicyTests.PreservesIndependentInfoXmlAndLiveDateAliases",
+          "MetadataPolicyTests.JobProjectsTheSameMetadataPolicy"
         ],
         "resource": [
-          "MetadataTests.MetadataEditsYieldToExhaustedBudget"
+          "MetadataTests.MetadataEditsYieldToExhaustedBudget",
+          "MetadataPolicyTests.PreparedMetadataRefundsAndPreservesPriorTargets"
         ],
         "oracle": [
           "diff:remove-info"

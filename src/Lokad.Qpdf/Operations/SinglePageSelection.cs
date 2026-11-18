@@ -113,7 +113,7 @@ internal static class SinglePageSelection
                         copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, null, cancellationToken);
                     }
 
-                    (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics);
+                    (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics, governor, cancellationToken);
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     (QpdfObject? singlePageMode, IReadOnlyDictionary<PdfName, QpdfObject> singleExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);

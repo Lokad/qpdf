@@ -483,7 +483,9 @@ internal static class PageAssembly
         DocumentEngine engine,
         bool removeInfo,
         bool removeMetadata,
-        DiagnosticBag diagnostics)
+        DiagnosticBag diagnostics,
+        ResourceGovernor governor,
+        CancellationToken token)
     {
         if (copier is null)
         {
@@ -502,8 +504,8 @@ internal static class PageAssembly
 
         PdfReference? infoRef = null;
         PdfReference? metadataRef = null;
-        // Upstream --remove-info also omits the catalog metadata stream.
-        if (!removeMetadata && !removeInfo)
+        DocumentMetadataPolicy policy = new(removeInfo, removeMetadata);
+        if (policy.KeepXmlMetadata)
         {
             int firstId = copier.BeginCopyAttempt();
             try
@@ -525,57 +527,14 @@ internal static class PageAssembly
             finally { copier.EndCopyAttempt(); }
         }
 
-        if (!removeInfo)
         {
             int firstId = copier.BeginCopyAttempt();
             try
             {
-                if (engine.Trailer.TryGet(PdfName.FromAscii("Info"), out QpdfObject? raw)
-                    && raw is not null && raw is not PdfNull)
-                {
-                    infoRef = copier.AddIndirectObject(raw);
-                }
-            }
-            catch (QpdfParseException)
-            {
-                copier.RollbackCopyAttempt(firstId, CancellationToken.None);
-                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped unpreservable document info.");
-                infoRef = null;
-            }
-            finally { copier.EndCopyAttempt(); }
-        }
-        else
-        {
-            int firstId = copier.BeginCopyAttempt();
-            try
-            {
-                PdfDictionary? infoDict = null;
-                if (engine.Trailer.TryGet(PdfName.FromAscii("Info"), out QpdfObject? raw)
-                    && raw is not null && raw is not PdfNull)
-                {
-                    if (raw is PdfReference infoReference)
-                    {
-                        if (((IIndirectResolver)engine).TryResolve(infoReference, out QpdfObject? resolved) && resolved is PdfDictionary indirect)
-                        {
-                            infoDict = indirect;
-                        }
-                    }
-                    else if (raw is PdfDictionary direct)
-                    {
-                        infoDict = direct;
-                    }
-                }
-
-                if (infoDict is not null
-                    && infoDict.TryGet(PdfName.FromAscii("ModDate"), out QpdfObject? modDate)
-                    && modDate is not null && modDate is not PdfNull)
-                {
-                    PdfDictionary reduced = new(new Dictionary<PdfName, QpdfObject>
-                    {
-                        [PdfName.FromAscii("ModDate")] = modDate,
-                    });
-                    infoRef = copier.AddIndirectObject(reduced);
-                }
+                using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+                QpdfObject? info = policy.SelectInfo(engine.Trailer, engine, graph);
+                if (info is not null) { infoRef = copier.AddIndirectObject(info); }
+                graph.Retain();
             }
             catch (QpdfParseException)
             {

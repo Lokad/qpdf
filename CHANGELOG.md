@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Omit Info during remove-info when ModDate resolves to null, is missing or has
+  a stale generation, while retaining live date references and private aliases.
+
 - Accept empty main filename declarations without selecting a file, retaining
   positional slots, explicit empty-input policy and declaration/replace conflicts.
 
