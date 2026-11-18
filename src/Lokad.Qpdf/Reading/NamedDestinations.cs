@@ -9,12 +9,21 @@ internal sealed class NamedDestinations
 {
     private const int CacheCapacity = 32;
     private readonly record struct Entry(bool IsName, ReadOnlyMemory<byte> Key, QpdfObject? Value);
+    private readonly record struct ChildRange(PdfDictionary Child, PdfByteString First, PdfByteString Last);
+
+    private sealed class OrderedChildren(List<ChildRange> ranges)
+    {
+        internal List<ChildRange> Ranges { get; } = ranges;
+        internal bool Closed { get; set; }
+    }
+
     private readonly IIndirectResolver _resolver;
     private readonly PdfDictionary _catalog;
     private readonly ParserMemoryScope _memory;
     private readonly ResourceGovernor _governor;
     private readonly CancellationToken _token;
     private List<Entry>? _cache;
+    private Dictionary<PdfArray, OrderedChildren>? _orderedChildren;
     private int _next;
 
     private NamedDestinations(IIndirectResolver resolver, PdfDictionary catalog, ParserMemoryScope memory,
@@ -24,7 +33,7 @@ internal sealed class NamedDestinations
     internal static NamedDestinations Create(IIndirectResolver resolver, PdfDictionary catalog, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
     {
-        token.ThrowIfCancellationRequested(); memory.CheckOwner(governor); memory.Reserve(80L);
+        token.ThrowIfCancellationRequested(); memory.CheckOwner(governor); memory.Reserve(88L);
         return new(resolver, catalog, memory, governor, token);
     }
 
@@ -96,23 +105,84 @@ internal sealed class NamedDestinations
             }
             if (Resolve(Read(node, "Kids"u8)) is PdfArray kids)
             {
-                for (int index = 0; index < kids.Count; index++)
-                {
-                    Check();
-                    if (Resolve(kids[index]) is not PdfDictionary child)
-                    { throw new QpdfParseException("Source destination child must be a dictionary.", null, null); }
-                    if (Resolve(Read(child, "Limits"u8)) is PdfArray { Count: 2 } limits
-                        && Resolve(limits[0]) is PdfByteString first && Resolve(limits[1]) is PdfByteString last
-                        && (Compare(key.Span, first.ValueSpan) < 0 || Compare(key.Span, last.ValueSpan) > 0)) { continue; }
-                    (QpdfObject? found, int childHeight) = FindName(child, key, path, misses, walk, depth + 1);
-                    if (found is not null) { return (found, 0); }
-                    height = Math.Max(height, childHeight + 1);
-                }
+                (QpdfObject? found, int childHeight) = FindChildren(kids, key, path, misses, walk, depth + 1);
+                if (found is not null) { return (found, 0); }
+                height = childHeight;
             }
         }
         finally { path.Remove(node); }
         ParserContainers.EnsureEntryCapacity(walk, misses, sizeof(int)); misses.Add(node, height);
         return (null, height);
+    }
+
+    private (QpdfObject? Value, int Height) FindChildren(PdfArray kids, ReadOnlyMemory<byte> key,
+        HashSet<PdfDictionary> path, Dictionary<PdfDictionary, int> misses, ParserMemoryScope walk, int depth)
+    {
+        OrderedChildren? prefix = _orderedChildren?.GetValueOrDefault(kids);
+        int start = prefix?.Ranges.Count ?? 0;
+        int height = 0;
+        if (prefix is not null && FindInPrefix(prefix.Ranges, start, key.Span) is PdfDictionary candidate)
+        {
+            (QpdfObject? found, int childHeight) = FindName(candidate, key, path, misses, walk, depth);
+            if (found is not null) { return (found, 0); }
+            height = childHeight + 1;
+        }
+
+        // The observed prefix has disjoint ranges. Keep the unobserved or
+        // irregular suffix in source order, including on a prefix miss.
+        for (int index = start; index < kids.Count; index++)
+        {
+            Check();
+            if (Resolve(kids[index]) is not PdfDictionary child)
+            { throw new QpdfParseException("Source destination child must be a dictionary.", null, null); }
+            if (Resolve(Read(child, "Limits"u8)) is PdfArray { Count: 2 } limits
+                && Resolve(limits[0]) is PdfByteString first && Resolve(limits[1]) is PdfByteString last)
+            {
+                if (kids.Count > 1 && prefix?.Closed != true && index == (prefix?.Ranges.Count ?? 0))
+                { prefix = RememberRange(kids, prefix, new(child, first, last)); }
+                if (Compare(key.Span, first.ValueSpan) < 0 || Compare(key.Span, last.ValueSpan) > 0) { continue; }
+            }
+            else if (prefix is not null) { prefix.Closed = true; }
+
+            (QpdfObject? found, int childHeight) = FindName(child, key, path, misses, walk, depth);
+            if (found is not null) { return (found, 0); }
+            height = Math.Max(height, childHeight + 1);
+        }
+        return (null, height);
+    }
+
+    private PdfDictionary? FindInPrefix(List<ChildRange> ranges, int count, ReadOnlySpan<byte> key)
+    {
+        int low = 0, high = count;
+        while (low < high)
+        {
+            Check();
+            int middle = low + (high - low) / 2;
+            if (Compare(ranges[middle].Last.ValueSpan, key) < 0) { low = middle + 1; }
+            else { high = middle; }
+        }
+        return low < count && Compare(ranges[low].First.ValueSpan, key) <= 0 ? ranges[low].Child : null;
+    }
+
+    private OrderedChildren? RememberRange(PdfArray kids, OrderedChildren? prefix, ChildRange range)
+    {
+        Check();
+        if (Compare(range.First.ValueSpan, range.Last.ValueSpan) > 0
+            || prefix is { Ranges.Count: > 0 } && Compare(prefix.Ranges[^1].Last.ValueSpan, range.First.ValueSpan) >= 0)
+        {
+            if (prefix is not null) { prefix.Closed = true; }
+            return prefix;
+        }
+        if (prefix is null)
+        {
+            _orderedChildren ??= ParserContainers.CreateDictionary<PdfArray, OrderedChildren>(_memory, ReferenceEqualityComparer.Instance);
+            ParserContainers.EnsureEntryCapacity(_memory, _orderedChildren, IntPtr.Size);
+            _memory.Reserve(32L);
+            prefix = new OrderedChildren(ParserContainers.CreateList<ChildRange>(_memory));
+            _orderedChildren.Add(kids, prefix);
+        }
+        ParserContainers.AddItem(_memory, prefix.Ranges, range, 3L * IntPtr.Size);
+        return prefix;
     }
 
     private QpdfObject? Read(PdfDictionary dictionary, ReadOnlySpan<byte> key)

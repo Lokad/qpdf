@@ -164,7 +164,9 @@ admission. It bounds diagnostics and accounts for actual host operations.
 Cancellation is checked at I/O boundaries and in bounded work loops.
 
 Operation-local reuse indexes serve traversal, content analysis and decoded
-streams. Reuse respects graph identity and processing context. Active-path
+streams. Destination lookups reuse observed, disjoint child ranges and
+visit irregular or unseen siblings in source order. Reuse respects graph
+identity and processing context. Active-path
 cycle checks, depth and quota checks still apply on replay, and each page
 retains its own validation. Memory charges follow backing ownership past
 cache eviction when a consumer still borrows the data.

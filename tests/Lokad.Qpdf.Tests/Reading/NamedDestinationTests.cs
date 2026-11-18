@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -100,6 +101,78 @@ public sealed class NamedDestinationTests
         Assert.Same(PdfNull.Instance, nulls.Find(Text("A")));
     }
 
+    [Theory]
+    [InlineData(64, false)]
+    [InlineData(256, false)]
+    [InlineData(1024, false)]
+    [InlineData(1024, true)]
+    public void DistinctKeysResolveEachOrderedChildOnce(int size, bool reverse)
+    {
+        var tree = OrderedTree(size);
+        tree.Resolver.MaximumReads = size;
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            NamedDestinations lookup = NamedDestinations.Create(tree.Resolver, tree.Catalog, memory, governor, CancellationToken.None);
+            for (int index = 0; index < size; index++)
+            {
+                int target = reverse ? size - index - 1 : index;
+                Assert.Same(tree.Values[target], lookup.Find(OrderedKey(target)));
+                if (index == 0) { Assert.Equal(reverse ? size : 1, tree.Resolver.Reads); }
+            }
+            Assert.Equal(size, tree.Resolver.Reads);
+        }
+        Assert.Equal(0L, governor.CounterValues.LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData("overlap")]
+    [InlineData("missing")]
+    [InlineData("malformed")]
+    [InlineData("unordered")]
+    public void IrregularSuffixKeepsItsFirstMatchAfterTheObservedPrefix(string shape)
+    {
+        PdfArray prefix = Destination(11), first = Destination(22), later = Destination(33);
+        string prefixKey = shape == "unordered" ? "B" : "A";
+        string suffixKey = shape == "unordered" ? "A" : "B";
+        PdfArray secondNames = new([Text(suffixKey), first]);
+        PdfDictionary second = shape switch
+        {
+            "missing" => Dictionary(("Names", secondNames)),
+            "malformed" => Dictionary(("Limits", new PdfArray([Text(suffixKey)])), ("Names", secondNames)),
+            _ => Dictionary(("Limits", new PdfArray([Text("A"), Text(shape == "unordered" ? "A" : "D")])), ("Names", secondNames)),
+        };
+        Resolver resolver = new();
+        resolver.Values[(1, 0)] = Dictionary(
+            ("Limits", new PdfArray([Text(prefixKey), Text("C")])), ("Names", new PdfArray([Text(prefixKey), prefix])));
+        resolver.Values[(2, 0)] = second;
+        resolver.Values[(3, 0)] = Dictionary(("Names", new PdfArray([Text(suffixKey), later])));
+        PdfDictionary catalog = Dictionary(("Names", Dictionary(("Dests",
+            Dictionary(("Kids", new PdfArray([Reference(1), Reference(2), Reference(3)])))))));
+        ResourceGovernor governor = new(Limits, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        NamedDestinations lookup = NamedDestinations.Create(resolver, catalog, memory, governor, CancellationToken.None);
+        Assert.Same(prefix, lookup.Find(Text(prefixKey)));
+        Assert.Equal(1, resolver.Reads);
+        Assert.Same(first, lookup.Find(Text(suffixKey)));
+        Assert.Equal(2, resolver.Reads);
+    }
+
+    [Fact]
+    public void AHitDoesNotResolveUnseenChildrenAndAMissStillReportsThem()
+    {
+        var tree = OrderedTree(2);
+        tree.Resolver.Values[(2, 0)] = PdfNull.Instance;
+        ResourceGovernor governor = new(Limits, CancellationToken.None);
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        NamedDestinations lookup = NamedDestinations.Create(tree.Resolver, tree.Catalog, memory, governor, CancellationToken.None);
+        Assert.Same(tree.Values[0], lookup.Find(OrderedKey(0)));
+        Assert.Equal(1, tree.Resolver.Reads);
+        Assert.Contains("child must be a dictionary",
+            Assert.Throws<QpdfParseException>(() => lookup.Find(OrderedKey(1))).Message, StringComparison.Ordinal);
+        Assert.Equal(2, tree.Resolver.Reads);
+    }
+
     [Fact]
     public void QueryCacheIsBoundedAndEvictionDoesNotChangeResults()
     {
@@ -198,16 +271,30 @@ public sealed class NamedDestinationTests
         Assert.Equal(5, tree.Resolver.Reads); Assert.Equal(before, governor.CounterValues.LiveMemoryBytes);
     }
 
-    [Fact]
-    public void EveryAdmissionRefusalRefundsLookupAndTraversalStorage()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryAdmissionRefusalRefundsLookupAndTraversalStorage(bool ordered)
     {
         int Run(RecordingMemoryBudget root)
         {
             using IMemoryScope caller = root.CreateScope(); using InMemoryQpdfHost storage = new();
             ResourceGovernor governor = new(Limits, CancellationToken.None, new MemoryBudgetHost(storage, caller));
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-            var tree = Tree(16, true, true); NamedDestinations lookup = NamedDestinations.Create(tree.Resolver, tree.Catalog, memory, governor, CancellationToken.None);
-            Assert.Null(lookup.Find(Text("Missing"))); Assert.NotNull(lookup.Find(Text("A")));
+            if (ordered)
+            {
+                var tree = OrderedTree(16);
+                NamedDestinations lookup = NamedDestinations.Create(tree.Resolver, tree.Catalog, memory, governor, CancellationToken.None);
+                Assert.Same(tree.Values[15], lookup.Find(OrderedKey(15)));
+                Assert.Same(tree.Values[3], lookup.Find(OrderedKey(3)));
+            }
+            else
+            {
+                var tree = Tree(16, true, true);
+                NamedDestinations lookup = NamedDestinations.Create(tree.Resolver, tree.Catalog, memory, governor, CancellationToken.None);
+                Assert.Null(lookup.Find(Text("Missing")));
+                Assert.NotNull(lookup.Find(Text("A")));
+            }
             return root.GrowthCalls;
         }
         RecordingMemoryBudget baseline = new(1L << 20); int growths = Run(baseline); Assert.InRange(growths, 1, 128);
@@ -217,6 +304,26 @@ public sealed class NamedDestinationTests
             RecordingMemoryBudget root = new(1L << 20) { RefuseOnGrowth = point };
             Assert.Throws<QpdfMemoryAdmissionException>(() => Run(root)); Assert.Equal(0L, root.ReservedBytes); Assert.Equal(0, root.LiveReservations);
         }
+    }
+
+    private static PdfByteString OrderedKey(int index) => Text(FormattableString.Invariant($"{index:D5}"));
+
+    private static (PdfDictionary Catalog, Resolver Resolver, PdfArray[] Values) OrderedTree(int size)
+    {
+        Resolver resolver = new();
+        QpdfObject[] kids = new QpdfObject[size];
+        PdfArray[] values = new PdfArray[size];
+        for (int index = 0; index < size; index++)
+        {
+            PdfByteString key = OrderedKey(index);
+            PdfArray value = Destination(index);
+            values[index] = value;
+            kids[index] = Reference(index + 1);
+            resolver.Values[(index + 1, 0)] = Dictionary(
+                ("Limits", new PdfArray([key, key])), ("Names", new PdfArray([key, value])));
+        }
+        PdfDictionary catalog = Dictionary(("Names", Dictionary(("Dests", Dictionary(("Kids", new PdfArray(kids)))))));
+        return (catalog, resolver, values);
     }
 
     [Theory]
@@ -248,6 +355,74 @@ public sealed class NamedDestinationTests
         if (route == "placement") { Assert.IsType<PdfNull>(destination[0]); } else { Assert.Equal(page.Source, destination[0]); }
         Assert.Equal("Fit", Assert.IsType<PdfName>(destination[1]).DisplayText);
     }
+
+    [Fact]
+    public async Task SelectionBindsDistinctKeysFromAnOrderedSecondaryTree()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath source = QpdfPath.From("source"), output = QpdfPath.From("output"), read = QpdfPath.From("read");
+        host.AddInput(source, OrderedSource(), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["--empty", "--pages", source.Value, "1-2", "--", output.Value]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(output, out byte[] bytes));
+        host.AddInput(read, bytes, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, read, CancellationToken.None);
+        PdfArray links = Assert.IsType<PdfArray>(Resolve(document, document.PageReferences[0].Page, "Annots"));
+        QpdfObject[] targets = links.Items.Select(raw =>
+        {
+            PdfDictionary link = Assert.IsType<PdfDictionary>(raw is PdfReference reference ? document.GetObject(reference) : raw);
+            PdfDictionary action = Assert.IsType<PdfDictionary>(Resolve(document, link, "A"));
+            PdfArray destination = Assert.IsType<PdfArray>(Resolve(document, action, "D"));
+            Assert.Equal("Fit", Assert.IsType<PdfName>(destination[1]).DisplayText);
+            return destination[0];
+        }).ToArray();
+        PdfReference first = Assert.IsType<PdfReference>(document.PageReferences[0].Source);
+        PdfReference second = Assert.IsType<PdfReference>(document.PageReferences[1].Source);
+        Assert.Equal(new QpdfObject[] { first, first, second }, targets);
+    }
+
+    [Fact]
+    public async Task OutlineProjectionUsesDistinctKeysFromAnOrderedTree()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath source = QpdfPath.From("source");
+        host.AddInput(source, OrderedSource(), QpdfInputOwnership.Transfer);
+        QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, source, new(2, ["outlines", "pages"]), CancellationToken.None);
+        using JsonDocument report = JsonDocument.Parse(result.Json);
+        JsonElement[] outlines = report.RootElement.GetProperty("outlines").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "C", "A", "B" }, outlines.Select(item => item.GetProperty("title").GetString()));
+        Assert.Equal(new[] { 1, 1, 2 }, outlines.Select(item => item.GetProperty("destpageposfrom1").GetInt32()));
+        JsonElement pages = report.RootElement.GetProperty("pages");
+        Assert.Equal(new[] { 2, 1 }, pages.EnumerateArray().Select(item => item.GetProperty("outlines").GetArrayLength()));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static QpdfObject Resolve(QpdfDocument document, PdfDictionary dictionary, string key)
+    {
+        Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value));
+        return value is PdfReference reference ? document.GetObject(reference) : value;
+    }
+
+    private static byte[] OrderedSource()
+        => PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /Dests 5 0 R >> /Outlines 6 0 R >>", null),
+            (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> /Annots [7 0 R 8 0 R 9 0 R] >>", null),
+            (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),
+            (5, "<< /Kids [13 0 R 14 0 R 15 0 R] >>", null),
+            (6, "<< /Type /Outlines /First 10 0 R /Last 12 0 R /Count 3 >>", null),
+            (7, "<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /A << /S /GoTo /D (C) >> >>", null),
+            (8, "<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /A << /S /GoTo /D (A) >> >>", null),
+            (9, "<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /A << /S /GoTo /D (B) >> >>", null),
+            (10, "<< /Title (C) /Parent 6 0 R /Next 11 0 R /Dest (C) >>", null),
+            (11, "<< /Title (A) /Parent 6 0 R /Prev 10 0 R /Next 12 0 R /Dest (A) >>", null),
+            (12, "<< /Title (B) /Parent 6 0 R /Prev 11 0 R /Dest (B) >>", null),
+            (13, "<< /Limits [(A) (A)] /Names [(A) [3 0 R /Fit]] >>", null),
+            (14, "<< /Limits [(B) (B)] /Names [(B) [4 0 R /Fit]] >>", null),
+            (15, "<< /Limits [(C) (C)] /Names [(C) [3 0 R /Fit]] >>", null)
+        ], 1);
 
     private static byte[] SharedSource()
     {
