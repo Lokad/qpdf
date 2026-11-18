@@ -6836,21 +6836,28 @@
           "SplitReplaceTests.ReplaceInputPublishesAtInputPathWithoutChangingMemoryHostRegistration",
           "SplitReplaceTests.JobReplaceMatchesArgv",
           "SplitReplaceTests.JobReplaceRotatesInPlace",
-          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"
+          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched",
+          "JsonReplacementTests.ReplacementClosesInputsBeforeStagingAndPublishesAtTheSourceKey"
         ],
         "negative": [
           "SplitReplaceTests.ReplaceRejectsOutputAndSplitAndMultiInput",
-          "SplitReplaceTests.JobReplaceRejectsMalformed"
+          "SplitReplaceTests.JobReplaceRejectsMalformed",
+          "JsonReplacementTests.ReplacementRejectsAuxiliaryInputCollisions",
+          "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate"
         ],
         "interaction": [
           "SplitReplaceTests.JobReplaceRotatesInPlace",
-          "EmptyFilenameTests.EmptyOutputDeclarationsRespectReplaceInputOrder"
+          "EmptyFilenameTests.EmptyOutputDeclarationsRespectReplaceInputOrder",
+          "JsonReplacementTests.JobReplacementAuthenticatesAndPreservesProtection"
         ],
         "resource": [
-          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched"
+          "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched",
+          "JsonReplacementTests.ReplacementRejectionsPreserveThePriorTarget",
+          "JsonReplacementTests.ReplacementFaultsLeaveThePriorBytes"
         ],
         "oracle": [
-          "diff:replace"
+          "diff:replace",
+          "diff:json-update-replace"
         ]
       }
     },
@@ -7932,6 +7939,7 @@
           "JsonPairRoundTripTests.StreamPayloadReuseRequiresTheExactExistingPair",
           "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateReplacesStreamData",
+          "JsonReplacementTests.ReplacementClosesInputsBeforeStagingAndPublishesAtTheSourceKey",
           "JsonImportTests.UpdateAddsObjects",
           "JsonImportTests.UpdateWithoutTrailerKeeps",
           "JsonImportTests.UpdateNoOpIsStable",
@@ -7961,6 +7969,7 @@
           "JsonPairRoundTripTests.MismatchedStreamWithoutDataRejectsAndPreservesPriorTarget",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
+          "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",

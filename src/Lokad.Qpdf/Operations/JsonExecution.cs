@@ -285,6 +285,7 @@ internal static class JsonExecution
         QpdfPath? sourcePdf,
         QpdfPath jsonPath,
         QpdfPath outputPath,
+        bool replaceInput,
         QpdfPassword? password,
         JsonImportWriterSettings writer,
         QpdfRecoveryMode recovery,
@@ -294,7 +295,9 @@ internal static class JsonExecution
         CancellationToken cancellationToken)
     {
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
-        if (sourcePdf is QpdfPath source && string.Equals(source.Value, outputPath.Value, StringComparison.Ordinal))
+        if (replaceInput && sourcePdf != outputPath)
+        { throw new InvalidOperationException("The JSON replacement target must be the source PDF."); }
+        if (!replaceInput && sourcePdf == outputPath)
         {
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
@@ -310,7 +313,10 @@ internal static class JsonExecution
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
-        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+        (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
+            ? (outputPath, document.InputIdentity) : null;
+        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, replacement?.Identity,
+            limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         bool retainOriginalPairs = writer.Qdf.Enabled && !writer.Qdf.NoOriginalIds && !writer.Linearize;
         Json.ImportedModel model;
         if (document is null)
@@ -323,7 +329,8 @@ internal static class JsonExecution
         else
         {
             model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document.Engine, document.HeaderVersionParts, writer.Encryption.PreservesInput,
-                writer.ObjectStreams == "preserve", retainOriginalPairs, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
+                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement,
+                limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         }
 
         byte[]? originalId = document is null ? null : TryGetOriginalId(document.Engine);
@@ -334,6 +341,7 @@ internal static class JsonExecution
             diagnostics, cancellationToken);
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
             model.OriginalPairs, prepared.Graph.Mapping, importMemory, governor, cancellationToken);
+        if (replaceInput && document is not null) { await document.ReleaseCompleteInputAsync().ConfigureAwait(false); }
         await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
             prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
             writer.Qdf, originalIds, writer.Linearize, null, outputPath, limits, governor, cancellationToken,

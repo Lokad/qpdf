@@ -194,7 +194,7 @@ internal static class JobExecution
             governor.MaxNestingDepth = limits.MaxNestingDepth;
             presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
-            ValidateFirstPassInputs(plan, configurationInputs, argumentInputs, governor, cancellationToken);
+            ValidatePublicationInputs(plan, configurationInputs, argumentInputs, governor, cancellationToken);
             ExecutionOutcome result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             ExecutionPresentation? active = presentation ?? governor.ExecutionPresentation;
             return result.Status == QpdfExecutionStatus.Completed || active is null ? result : active.Failure(result);
@@ -276,6 +276,7 @@ internal static class JobExecution
                 source,
                 import.Patch ?? import.Input,
                 import.Output,
+                import.ReplaceInput,
                 password,
                 writer,
                 import.Recovery,
@@ -404,25 +405,39 @@ internal static class JobExecution
         }
     }
 
-    internal static void ValidateFirstPassInputs(JobPlan plan, IReadOnlyList<QpdfPath> configurationInputs,
+    private static void ValidatePublicationInputs(JobPlan plan, IReadOnlyList<QpdfPath> configurationInputs,
         IReadOnlyList<QpdfPath> argumentInputs, ResourceGovernor governor, CancellationToken token)
     {
-        if (plan is not (WholeFilePlan or SelectionPlan or MergePlan)
-            || !plan.Linearize || plan.LinearizePass1 is not QpdfPath pass1) { return; }
-        bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
-        if (!empty) { Check(plan.Input.Value); }
-        if (plan is MergePlan merge)
+        QpdfPath target;
+        string error;
+        if (plan is JsonImportPlan { ReplaceInput: true, Patch: QpdfPath patch } import)
         {
-            foreach (PdfPageSource source in merge.Sources)
-            {
-                if (source.Input.Value == ".") { if (!empty) { Check(plan.Input.Value); } }
-                else { Check(source.Input.Value); }
-            }
+            target = import.Output;
+            error = "The JSON replacement target must differ from every auxiliary input file.";
+            Check(patch.Value);
         }
-        foreach (OverlaySpec overlay in plan.Overlays) { Check(overlay.File); }
-        foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }
-        foreach (AttachmentCopy copy in plan.AttachmentsToCopy) { Check(copy.File); }
-        foreach (AttachmentAdd add in plan.AttachmentsToAdd) { Check(add.File); }
+        else if (plan is (WholeFilePlan or SelectionPlan or MergePlan)
+            && plan.Linearize && plan.LinearizePass1 is QpdfPath pass1)
+        {
+            target = pass1;
+            error = "The first-pass output must differ from every input file.";
+            bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
+            if (!empty) { Check(plan.Input.Value); }
+            if (plan is MergePlan merge)
+            {
+                foreach (PdfPageSource source in merge.Sources)
+                {
+                    if (source.Input.Value == ".") { if (!empty) { Check(plan.Input.Value); } }
+                    else { Check(source.Input.Value); }
+                }
+            }
+            foreach (OverlaySpec overlay in plan.Overlays) { Check(overlay.File); }
+            foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }
+            foreach (AttachmentCopy copy in plan.AttachmentsToCopy) { Check(copy.File); }
+            foreach (AttachmentAdd add in plan.AttachmentsToAdd) { Check(add.File); }
+        }
+        else { return; }
+
         if (plan.OutputEncryption?.TemplateInput is QpdfPath template) { Check(template.Value); }
         if (plan.PasswordFiles is Security.CommandPasswordFiles passwords)
         {
@@ -435,8 +450,8 @@ internal static class JobExecution
         void Check(string input)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (string.Equals(pass1.Value, input, StringComparison.Ordinal))
-            { throw new QpdfParseException("The first-pass output must differ from every input file.", null, null); }
+            if (string.Equals(target.Value, input, StringComparison.Ordinal))
+            { throw new QpdfParseException(error, null, null); }
         }
     }
 

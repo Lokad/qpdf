@@ -385,6 +385,12 @@ pairs and declared objects, including forward references; stale/free/missing
 original source edges remain null even when a patch declares that pair. A stream
 patch without payload data reuses bytes only from its matching source pair.
 Import/update validates page structure and replaces dangling references with null.
+Argv and job JSON can apply a PDF patch in place with `--replace-input` or
+`replaceInput`. The source lease closes before staging, and the host commits
+the replacement to the source key. The replacement key must differ from
+patch, sidecar, password-file, template and consumed configuration keys.
+Patch and sidecar leases must also have separate storage identities. Named
+outputs and typed updates require a distinct target.
 Imported PDF arrays and dictionaries obey `MaxContainerSize`, including stream
 headers and trailer values. Dictionary counting follows the PDF parser's decoded
 names and duplicate-pair rule; unknown JSON envelope fields remain outside this

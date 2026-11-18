@@ -976,12 +976,16 @@ internal static partial class JobPlanner
             {
                 throw new QpdfParseException("Job \"jsonInput\" and \"updateFromJson\" cannot be combined.", 0L, null);
             }
+            if (replaceInput && (jsonInput || seenJson || seenJsonOutput))
+            {
+                throw new QpdfParseException("JSON replacement requires an update of a PDF.", 0L, null);
+            }
 
             // Complete validation before any restricted JSON-plan return. These
             // plans cannot run geometry operations; ordinary checking and
             // document-JSON writer ignores retain their separate policies.
             if ((importJson || seenJson || seenJsonOutput)
-                && (replaceInput || splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
+                && (splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
                     || (!importJson && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
@@ -1027,6 +1031,7 @@ internal static partial class JobPlanner
                     ?? throw new InvalidOperationException("Missing validated JSON patch path."));
                 return new JsonImportPlan(importInput, patch, SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    ReplaceInput = replaceInput,
                     CompressionState = compressionSettings.State,
                     CoalesceContents = coalesceContents,
                     RecompressFlate = recompressFlate,

@@ -358,6 +358,18 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         _leaveInputOpen = false;
     }
 
+    internal string InputIdentity => (_input ?? throw new InvalidOperationException("No open input lease.")).Identity;
+
+    // Complete acquisition owns its bytes or an independent snapshot borrow.
+    internal async ValueTask ReleaseCompleteInputAsync()
+    {
+        if (_leaveInputOpen || Engine.HasSelectiveInput)
+        { throw new InvalidOperationException("Only an owned, complete input lease can be released."); }
+        IQpdfInput? input = _input;
+        _input = null;
+        if (input is not null) { await input.DisposeAsync().ConfigureAwait(false); }
+    }
+
     private static async ValueTask<QpdfDocument> OpenInputDocument(
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
