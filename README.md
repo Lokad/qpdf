@@ -123,16 +123,15 @@ for buffer ownership, cancellation and resource admission.
 
 New encryption is AES-256 R6; legacy encryption can be read and preserved.
 Rendering, OCR, text extraction and general PDF authoring are outside scope.
-Copying or rewriting supported signed PDFs preserves stored annotation appearances
-and disables the active signature fields and certification restrictions. A derived
-PDF does not preserve signature validity. Blank signature fields are also disabled;
-read-only inspection retains source values. Signing and signature validation are excluded.
+Derived PDFs retain stored signature appearances and invalidate signatures.
+[Signed-input policy](docs/SUPPORTED-PROFILE.md#signed-inputs-and-exclusions)
+
 CMYK/YCCK JPEG decoding requires a host codec with `SupportsCmykDecoding`;
 four-component recompression and Zopfli compression are unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
 
 ## Build from source
 
-Use the .NET 11 SDK pinned in `global.json` (currently RC 3), with the .NET 10
+Use the .NET 11 SDK pinned in `global.json`, with the .NET 10
 SDK installed for its targeting packs and runtime:
 
 ```sh

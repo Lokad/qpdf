@@ -70,7 +70,6 @@ of at most 512 bytes, with the same revision-specific authentication limits.
 Typed raw bytes remain borrowed until the operation completes and are never
 reinterpreted by recovery.
 
-`--remove-restrictions`/`removeRestrictions` explicitly selects the default signature-disabling PDF publication policy. Non-predicate inspections and JSON exports reject it; signature values remain available for reading. See [query precedence](#reports-and-predicates).
 Standalone `--show-crypto` reports `managed` through the result diagnostics; it takes no other arguments or job JSON key.
 Encryption facts expose permissions and authentication status without passwords
 or keys. Typed `SelectPageAsync` authenticates with the same password values and
@@ -237,13 +236,17 @@ publication. `recovereduserpassword` and encryption `key` stay null.
 
 ### Signed inputs and exclusions
 
-Signed pages can be copied, merged, placed and rewritten. Supported password-encrypted
-inputs authenticate before copying; encrypted preview extraction is covered by an R6 fixture.
-Stored signature appearances survive; active signature field attributes and document
-certification restrictions are disabled, including blank signature fields. Derived
-output does not preserve signature validity. Read-only inspection retains source
-values. Signing and signature validation are excluded. Rendering, OCR, text
-extraction/layout, general authoring and PDF/A/X/UA conformance are outside scope.
+Signed pages can be copied, merged, placed and rewritten after authenticating
+encrypted sources. Publication unregisters signature fields, including blank
+fields, and turns their widgets into static stamps with their stored
+appearance. It removes active signature types, values, defaults, seed
+constraints, locks and calculation-order entries, catalog `/Perms` and
+AcroForm `/SigFlags`. Independent private aliases retain their stored data.
+Publication invalidates signatures. Signing and validation are outside scope.
+
+`--remove-restrictions` / `removeRestrictions` explicitly selects this default
+PDF publication policy. Non-predicate inspections and JSON exports reject the
+modifier. Read-only inspection keeps source values. [Predicate precedence](#reports-and-predicates)
 
 ## Selection semantics
 
