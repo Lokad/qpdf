@@ -113,7 +113,7 @@ public sealed class OutputDecryptionTests
         QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new([Input.Value, Output.Value, "--decrypt=yes"]), CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(argv.Diagnostics).Code); Assert.Equal(0, argv.Counters.HostOperations);
         QpdfExecutionResult json = await Qpdf.ExecuteJobAsync(host,
-            """{"inputFile":"input.json","outputFile":"output.pdf","decrypt":"","jsonInput":"","qdf":""}""", CancellationToken.None);
+            """{"inputFile":"input.json","outputFile":"output.pdf","decrypt":"","jsonInput":"","flattenRotation":""}""", CancellationToken.None);
         Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(json.Diagnostics).Code); Assert.Equal(0, json.Counters.HostOperations);
     }
 

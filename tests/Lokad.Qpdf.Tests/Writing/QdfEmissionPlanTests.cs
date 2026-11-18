@@ -31,11 +31,11 @@ public sealed class QdfEmissionPlanTests
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
         using WriterOrder<NumberedObject> source = Source(governor,new NumberedObject(8,stream),new NumberedObject(18,new PdfReference(8,9)));
         long prior = governor.Snapshot().LiveMemoryBytes;
-        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source,new Dictionary<int,int> {{8,44},{18,55}},governor,CancellationToken.None);
+        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source,new Dictionary<int, (int Number, int Generation)> { {8,(44,3)}, {18,(55,0)} },governor,CancellationToken.None);
         Assert.Equal(3,plan.Count); Assert.Equal(2,plan.LastLengthNumber);
-        Assert.Equal(1,plan[0].Number); Assert.Equal(44,plan[0].OriginalSource);
+        Assert.Equal(1,plan[0].Number); Assert.Equal((44, 3),plan[0].OriginalSource);
         Assert.Equal(2,plan[1].Number); Assert.Equal(8,plan[1].LengthFor); Assert.Null(plan[1].Value);
-        Assert.Equal(3,plan[2].Number); Assert.Equal(55,plan[2].OriginalSource);
+        Assert.Equal(3,plan[2].Number); Assert.Equal((55, 0),plan[2].OriginalSource);
         PdfStream rebuilt = Assert.IsType<PdfStream>(plan[0].Value);
         PdfArray array = Assert.IsType<PdfArray>(Entry(rebuilt.Dictionary,"Target"));
         Assert.Equal(3,Assert.IsType<PdfReference>(array[0]).ObjectNumber);
@@ -156,13 +156,13 @@ public sealed class QdfEmissionPlanTests
         finally {cancellation.Cancel();resume.Set();try {await worker.WaitAsync(TimeSpan.FromSeconds(10));}catch (OperationCanceledException) {}}
     }
 
-    private sealed class GateIds(ManualResetEventSlim reached,ManualResetEventSlim resume):IReadOnlyDictionary<int,int>
+    private sealed class GateIds(ManualResetEventSlim reached,ManualResetEventSlim resume):IReadOnlyDictionary<int, (int Number, int Generation)>
     {
-        public bool TryGetValue(int key,out int value)
-        {reached.Set();if (!resume.Wait(TimeSpan.FromSeconds(10))) {throw new TimeoutException("QDF row observation did not resume.");}value=0;return false;}
-        public int Count=>0;public IEnumerable<int> Keys=>Array.Empty<int>();public IEnumerable<int> Values=>Array.Empty<int>();
-        public int this[int key]=>throw new KeyNotFoundException();public bool ContainsKey(int key)=>false;
-        public IEnumerator<KeyValuePair<int,int>> GetEnumerator()=>Enumerable.Empty<KeyValuePair<int,int>>().GetEnumerator();
+        public bool TryGetValue(int key,out (int Number, int Generation) value)
+        {reached.Set();if (!resume.Wait(TimeSpan.FromSeconds(10))) {throw new TimeoutException("QDF row observation did not resume.");}value=default;return false;}
+        public int Count=>0;public IEnumerable<int> Keys=>Array.Empty<int>();public IEnumerable<(int Number, int Generation)> Values=>Array.Empty<(int Number, int Generation)>();
+        public (int Number, int Generation) this[int key]=>throw new KeyNotFoundException();public bool ContainsKey(int key)=>false;
+        public IEnumerator<KeyValuePair<int, (int Number, int Generation)>> GetEnumerator()=>Enumerable.Empty<KeyValuePair<int, (int Number, int Generation)>>().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator()=>GetEnumerator();
     }
 

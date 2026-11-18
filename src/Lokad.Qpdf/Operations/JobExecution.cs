@@ -270,7 +270,7 @@ internal static class JobExecution
                 import.NewlineBeforeEndstream, import.ObjectStreams ?? "preserve", import.Linearize,
                 import.OutputEncryption ?? QpdfOutputEncryption.Preserve,
                 new(import.RemoveInfo, import.RemoveMetadata, import.RemoveAcroform, import.RemoveStructure, import.RemoveLabels),
-                import.Compression());
+                import.Compression(), new(import.Qdf, import.NoOriginalObjectIds), import.NormalizeContent);
             await ImportCoreAsync(
                 host,
                 source,

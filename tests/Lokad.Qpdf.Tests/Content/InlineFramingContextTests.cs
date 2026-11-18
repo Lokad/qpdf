@@ -42,6 +42,38 @@ public sealed class InlineFramingContextTests
     }
 
     [Theory]
+    [InlineData("named", true)]
+    [InlineData("device", false)]
+    public async Task QdfImportKeepsSharedStreamsAndLeavesAmbiguousFramingOpaque(string shape, bool ambiguous)
+    {
+        (byte[] pdf, byte[] program) = Fixture(shape, false);
+        using InMemoryQpdfHost host = new();
+        QpdfPath graph = QpdfPath.From("graph"), output = QpdfPath.From("output"), published = QpdfPath.From("published");
+        host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult export = await Qpdf.ExecuteAsync(host, new(["input", "--json-output=2", "--json-stream-data=inline", "graph"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, export.ExitCode);
+        Assert.True(host.TryGetOutput(graph, out byte[] model));
+        host.AddInput(graph, model, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["graph", "--json-input", "--qdf", "--stream-data=preserve", "output"]), CancellationToken.None);
+        Assert.Equal(ambiguous ? QpdfExitCode.Warning : QpdfExitCode.Success, result.ExitCode);
+        if (ambiguous)
+        { Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("resource contexts differ", StringComparison.Ordinal)); }
+        Assert.True(host.TryGetOutput(output, out byte[] bytes));
+        host.AddInput(published, bytes, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, published, CancellationToken.None);
+        Assert.Equal(4, document.PageCount);
+        PdfReference[] references = document.PageReferences.Select(location =>
+        {
+            Assert.True(location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
+            return Assert.IsType<PdfReference>(contents);
+        }).ToArray();
+        Assert.Single(references.Distinct());
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(references[0]));
+        if (ambiguous) { Assert.Equal(program, stream.RawMemory.ToArray()); }
+        else { Assert.True(stream.RawMemory.Span.StartsWith("BX\n"u8)); }
+    }
+
+    [Theory]
     [MemberData(nameof(Cases))]
     public async Task NormalizationSharesOnlyContextIndependentOrMatchingResourceUses(string shape, bool reverse, bool job)
     {

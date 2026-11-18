@@ -75,6 +75,8 @@ internal sealed class PoolResolver : IIndirectResolver
 /// </summary>
 internal static class ContentTransforms
 {
+    private static readonly PdfName ResourcesName = PdfName.FromAscii("Resources");
+
     // Copied-object replacement records retirement independently of the transform.
     internal static void ApplyPageTransforms(
         GraphCopier copier,
@@ -363,7 +365,7 @@ internal static class ContentTransforms
             { replacement = cached.Replacement; context = cached.Context; }
             else
             {
-                PdfStream? stream = BuildNormalizedContent(entry.Stream, resources, resolver, limits, governor, diagnostics, token, out context);
+                PdfStream? stream = BuildNormalizedContent(entry.Stream, resources, false, resolver, limits, governor, diagnostics, token, out context);
                 replacement = stream;
                 CacheNormalization(normalized, entry.Stream, context, replacement, phase);
             }
@@ -521,7 +523,51 @@ internal static class ContentTransforms
         return PdfArray.FromOwnedItems(items);
     }
 
-    private static PdfStream? BuildNormalizedContent(PdfStream original, PdfDictionary? resources, PoolResolver resolver, QpdfLimits limits,
+    internal static Dictionary<int, (PdfDictionary? Resources, bool Ambiguous)> FindPageContentContexts(
+        IReadOnlyList<PageLocation> pages, IIndirectResolver resolver, ParserMemoryScope memory, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        // QDF writes one payload for each shared stream identity. A shared
+        // program can only use context-dependent framing with matching resources.
+        Dictionary<int, (PdfDictionary? Resources, bool Ambiguous)> contexts =
+            ParserContainers.CreateDictionary<int, (PdfDictionary?, bool)>(memory);
+        foreach (PageLocation location in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!PdfDictionaryLookup.TryGet(location.Page, "Contents"u8, governor, token, out QpdfObject contents)
+                || contents is PdfNull) { continue; }
+            using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, token);
+            if (entries is null)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                    "Skipped content operation on unreadable page contents.");
+                continue;
+            }
+            if (entries.Count == 0) { continue; }
+            QpdfObject? raw = PageInheritance.Find(resolver, location, ResourcesName, limits, governor, token);
+            PdfDictionary? resources = raw is null ? null : CatalogCopy.ResolveDictionary(raw, resolver, governor, token);
+            for (int index = 0; index < entries.Count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (entries.Get(index).Reference is not PdfReference reference) { continue; }
+                int id = reference.ObjectNumber;
+                if (contexts.TryGetValue(id, out var context))
+                {
+                    if (!context.Ambiguous && !ReferenceEquals(context.Resources, resources))
+                    { contexts[id] = (context.Resources, true); }
+                }
+                else
+                {
+                    ParserContainers.EnsureEntryCapacity(memory, contexts, 2L * IntPtr.Size);
+                    contexts.Add(id, (resources, false));
+                }
+            }
+        }
+        return contexts;
+    }
+
+    internal static PdfStream? BuildNormalizedContent(PdfStream original, PdfDictionary? resources, bool ambiguousResources,
+        IIndirectResolver resolver, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token, out QpdfObject? context)
     {
         context = null;
@@ -550,6 +596,12 @@ internal static class ContentTransforms
                     catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)) { contentError = true; }
                     if (normalized is not null)
                     {
+                        if (ambiguousResources && requiresResources)
+                        {
+                            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
+                                "Left shared page content unnormalized because its resource contexts differ.");
+                            return null;
+                        }
                         data = ReadOnlyMemory<byte>.Empty; decodedMemory.Dispose(); AddContentBuffer(graph, normalized);
                         PdfDictionary dictionary = decoded ? PdfDictionaryRebuild.StripStreamEncoding(graph, original.Dictionary) : original.Dictionary;
                         PdfStream replacement = CreateContentStream(graph, dictionary, normalized); graph.Retain(); return replacement;

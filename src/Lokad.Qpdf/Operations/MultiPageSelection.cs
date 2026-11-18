@@ -578,7 +578,7 @@ internal static class MultiPageSelection
         HashSet<int> multiCompressed = ResolveCompressedSet(multiStreamMode, pool, multiSources, selectionMemory, governor, cancellationToken);
         (PdfVersion effective, int extensionLevel) = RequireObjectStreamVersion(negotiatedMulti, negotiatedMultiExtension, multiCompressed.Count != 0, governor);
 
-        IReadOnlyDictionary<int, int>? multiOriginalIds = PrepareOriginalIds(settings.Qdf,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? multiOriginalIds = PrepareOriginalIds(settings.Qdf,
             copiers, overlayApplied.Copiers, selectionMemory, governor, cancellationToken);
         Content.CopiedForm? multiCombined = settings.RemoveAcroform
             ? null
@@ -864,16 +864,16 @@ internal static class MultiPageSelection
 
             QpdfPath path = QpdfPath.From(names[g]);
             HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
-            Dictionary<int, int>? groupOriginalIds = null;
+            Dictionary<int, (int Number, int Generation)>? groupOriginalIds = null;
             if (multiOriginalIds is not null)
             {
-                groupOriginalIds = ParserContainers.CreateDictionary<int, int>(groupMemory);
+                groupOriginalIds = ParserContainers.CreateDictionary<int, (int Number, int Generation)>(groupMemory);
                 foreach (int keptId in kept)
                 {
                     cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (multiOriginalIds.TryGetValue(keptId, out int source))
+                    if (multiOriginalIds.TryGetValue(keptId, out var source))
                     {
-                        GovernedCollections.Assign(groupMemory, governor, groupOriginalIds, renumber[keptId], source, sizeof(int));
+                        GovernedCollections.Assign(groupMemory, governor, groupOriginalIds, renumber[keptId], source, 2L * sizeof(int));
                     }
                 }
             }

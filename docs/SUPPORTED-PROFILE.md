@@ -410,7 +410,14 @@ unreferenced JSON declarations retain their existing preservation policy.
 Argv and job JSON imports use ordinary stream compression and decoding settings.
 Streams that exceed the filter limit remain opaque and report a warning.
 Stream preparation precedes encryption. Typed imports preserve encoded payloads.
-Page, content and image transforms, attachment edits, splitting, QDF and
+Command imports also use QDF. Classic object comments keep the original
+number/generation pairs. `--no-original-object-ids` suppresses comments.
+QDF normalizes page streams through their shared identities by default.
+Resource-dependent framing across different contexts keeps the content program
+and reports a warning.
+Explicit normalization and compression settings, packing, linearization and
+output protection use the ordinary writer policies.
+Other page, content and image transforms, attachment edits, splitting and
 first-pass capture remain unavailable during import and update.
 
 ## Writer profile

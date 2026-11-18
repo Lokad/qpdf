@@ -296,7 +296,7 @@ internal static class SinglePageSelection
                             (singleAttached.Replaced || copier.HasReplacedObjects
                                 || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
                             outputSecurity), copyMemory, governor, cancellationToken);
-                    IReadOnlyDictionary<int, int>? singleOriginalIds = PrepareOriginalIds(settings.Qdf,
+                    IReadOnlyDictionary<int, (int Number, int Generation)>? singleOriginalIds = PrepareOriginalIds(settings.Qdf,
                         copier, overlayApplied.Copiers, copyMemory, governor, cancellationToken);
                     // Metadata admission stays with this operation through publication.
                     // Returned immutable arrays do not retain an execution owner.

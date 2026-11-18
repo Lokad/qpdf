@@ -30,11 +30,11 @@ public sealed class JsonSidecarReuseTests
         {
             await using QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, Source, null,
                 limits, governor, diagnostics, QpdfRecoveryMode.Strict, CancellationToken.None, false);
-            model = await JsonImport.BuildUpdateModelAsync(host, json, source, false, false, limits, governor, memory, CancellationToken.None);
+            model = await JsonImport.BuildUpdateModelAsync(host, json, source, false, false, false, limits, governor, memory, CancellationToken.None);
         }
         else
         {
-            model = await JsonImport.BuildCreateModelAsync(host, json, limits, governor, memory, CancellationToken.None);
+            model = await JsonImport.BuildCreateModelAsync(host, json, false, limits, governor, memory, CancellationToken.None);
         }
         PdfStream[] streams = model.Objects.Values.OfType<PdfStream>().ToArray();
         Assert.Equal(3, streams.Length);
@@ -59,7 +59,7 @@ public sealed class JsonSidecarReuseTests
         ResourceGovernor governor = new(limits, CancellationToken.None, host);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using JsonDocument json = await JsonImport.ReadJsonAsync(host, Json, limits, governor, memory, CancellationToken.None);
-        ImportedModel model = await JsonImport.BuildCreateModelAsync(host, json, limits, governor, memory, CancellationToken.None);
+        ImportedModel model = await JsonImport.BuildCreateModelAsync(host, json, false, limits, governor, memory, CancellationToken.None);
         PdfStream[] streams = model.Objects.Values.OfType<PdfStream>().ToArray();
         Assert.Equal(names.Length, streams.Length);
         Assert.Equal(new[] { "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p0" }, host.Opens);

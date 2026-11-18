@@ -11,7 +11,10 @@ namespace Lokad.Qpdf.Json;
 
 /// <summary>Imported objects and original packing in the normalized ID space.</summary>
 internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, QpdfObject> Objects,
-    PdfDictionary Trailer, HashSet<int>? CompressedObjects);
+    PdfDictionary Trailer, HashSet<int>? CompressedObjects)
+{
+    internal IReadOnlyDictionary<(int Number, int Generation), int>? OriginalPairs { get; init; }
+}
 
 /// <summary>
 /// qpdf JSON to PDF object model import. Mirrors the upstream import reactor:
@@ -87,6 +90,7 @@ internal static partial class JsonImport
     internal static async ValueTask<ImportedModel> BuildCreateModelAsync(
         IQpdfHost host,
         JsonDocument document,
+        bool retainOriginalPairs,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -117,7 +121,8 @@ internal static partial class JsonImport
         Metadata metadata = ReadMetadata(qpdf[0], true, governor);
         PdfVersion header = metadata.Version ?? throw new InvalidOperationException("Missing validated PDF version.");
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
-        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null, bindingMemory, governor, cancellationToken);
+        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null,
+            retainOriginalPairs ? memory : bindingMemory, governor, cancellationToken);
         Dictionary<int, QpdfObject> objects = new(bindings.Count);
         using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory);
         PdfDictionary? trailer = null;
@@ -148,7 +153,7 @@ internal static partial class JsonImport
             throw new QpdfParseException("qpdf JSON trailer was not seen.", 0L, null);
         }
 
-        return new ImportedModel(header, objects, trailer, null);
+        return new ImportedModel(header, objects, trailer, null) { OriginalPairs = retainOriginalPairs ? bindings : null };
     }
 
     internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
@@ -157,6 +162,7 @@ internal static partial class JsonImport
         QpdfDocument pdf,
         bool preserveEncryption,
         bool preserveObjectStreams,
+        bool retainOriginalPairs,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -195,7 +201,7 @@ internal static partial class JsonImport
         PageTreePreparation.Prepared? prepared = metadata.CalledAllPages || metadata.PushedInherited
             ? PageTreePreparation.Prepare(engine, metadata.PushedInherited, limits, memory, bindingMemory, governor, cancellationToken) : null;
         Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], engine.XRefEntries,
-            prepared?.AddedReferences, bindingMemory, governor, cancellationToken);
+            prepared?.AddedReferences, retainOriginalPairs ? memory : bindingMemory, governor, cancellationToken);
         memory.Reserve(checked(128L + 64L * bindings.Count));
         Dictionary<int, QpdfObject> merged = new(bindings.Count);
         HashSet<int>? compressed = preserveObjectStreams ? ParserContainers.CreateSet<int>(memory) : null;
@@ -261,7 +267,8 @@ internal static partial class JsonImport
         }
 
         QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
-        ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed);
+        ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
+        { OriginalPairs = retainOriginalPairs ? bindings : null };
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
             preserveEncryption, governor, cancellationToken);
     }
@@ -824,6 +831,8 @@ internal static partial class JsonImport
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         ParserMemoryScope memory,
+        ParserMemoryScope? normalizationMemory,
+        out IReadOnlyList<PageLocation>? normalizationPages,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(diagnostics);
@@ -968,11 +977,13 @@ internal static partial class JsonImport
             if (number != 1) { numbered.Add(new Writing.NumberedObject(number, value)); }
         }
 
-        int pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits, pageMemory, cancellationToken).Count;
+        List<PageLocation> pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits,
+            normalizationMemory ?? pageMemory, cancellationToken);
         PdfDictionary catalog = (PdfDictionary)mapped[1];
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
-        return new RenumberedModel(numbered, infoNew, metadata, pages, mapped, renumber);
+        normalizationPages = normalizationMemory is null ? null : pages;
+        return new RenumberedModel(numbered, infoNew, metadata, pages.Count, mapped, renumber);
     }
 
     internal static void CheckObjectCount(ImportedModel model, QpdfLimits limits)

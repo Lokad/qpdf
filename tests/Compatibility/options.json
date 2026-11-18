@@ -4322,7 +4322,8 @@
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
           "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles",
-          "JsonPagePreparationTests.CreationValidatesButIgnoresPreparationActions"
+          "JsonPagePreparationTests.CreationValidatesButIgnoresPreparationActions",
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4336,7 +4337,8 @@
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
-          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication"
+          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication",
+          "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget"
         ],
         "interaction": [
           "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
@@ -4364,7 +4366,8 @@
           "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
           "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
           "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
-          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling",
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -4376,7 +4379,8 @@
           "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets",
           "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
-          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget",
+          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput"
         ],
         "oracle": [
           "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
@@ -4384,7 +4388,8 @@
           "diff:security-json",
           "diff:security-identity-crypt",
           "diff:json-layout",
-          "tools/ReferenceDirectOutlines.ps1"
+          "tools/ReferenceDirectOutlines.ps1",
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }
     },
@@ -5166,19 +5171,22 @@
       "evidence": {
         "positive": [
           "QdfTests.NoOriginalObjectIdsSuppressesComments",
-          "QdfTests.ObjectStreamsQdfNoOriginalIdsSuppressesComments"
+          "QdfTests.ObjectStreamsQdfNoOriginalIdsSuppressesComments",
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
         ],
         "negative": [
           "QdfTests.MalformedNoOriginalObjectIdsFlagsFail"
         ],
         "interaction": [
-          "QdfTests.NoOriginalIdsJobParityHolds"
+          "QdfTests.NoOriginalIdsJobParityHolds",
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "ResourceEnforcementTests.QdfYieldsToExhaustedBudget"
         ],
         "oracle": [
-          "diff:qdf-noids"
+          "diff:qdf-noids",
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }
     },
@@ -5274,7 +5282,8 @@
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes",
-          "NormalizedStreamPublicationTests.JobAndIncludedJobForwardNormalizationToTheTarget"
+          "NormalizedStreamPublicationTests.JobAndIncludedJobForwardNormalizationToTheTarget",
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
@@ -5282,7 +5291,8 @@
           "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
-          "diff:normalize-payloads"
+          "diff:normalize-payloads",
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }
     },
@@ -6222,10 +6232,12 @@
           "QdfTests.ObjectStreamsGenerateProducesStreamedQdf",
           "QdfTests.ObjectStreamsQdfOffsetsLandOnValues",
           "QdfTests.RoundTripsThroughOwnReaderAndPig",
-          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity"
+          "XrefStreamRoleTests.WritersProtectTaggedObjectsWithoutDiscardingTheirIdentity",
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
         ],
         "negative": [
-          "QdfTests.MalformedQdfFlagsFail"
+          "QdfTests.MalformedQdfFlagsFail",
+          "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget"
         ],
         "interaction": [
           "QdfTests.JobParityMatchesArgvBytes",
@@ -6234,15 +6246,18 @@
           "QdfTests.NormalizeWinsOverDecodeNone",
           "QdfTests.NormalizeExplicitNoKeepsNewlines",
           "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced",
-          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes"
+          "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes",
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "ResourceEnforcementTests.QdfYieldsToExhaustedBudget",
-          "InlineIndexedColorTests.RefusalAndBothCancellationRoutesLeaveTheOriginalArrayAndRefundConstruction"
+          "InlineIndexedColorTests.RefusalAndBothCancellationRoutesLeaveTheOriginalArrayAndRefundConstruction",
+          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput"
         ],
         "oracle": [
           "diff:qdf-markers",
-          "diff:xref-role"
+          "diff:xref-role",
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }
     },
@@ -7916,7 +7931,8 @@
           "JsonPagePreparationTests.PushingBindsInheritedResourcesBeforeApplyingPatches",
           "JsonPagePreparationTests.PushingUsesNearestNonNullContainersAndKeepsLocalOverrides",
           "JsonPagePreparationTests.IndirectKidsKeepTheirIdentityWhenDirectChildrenArePromoted",
-          "JsonPagePreparationTests.TrailerPairsReserveIdsWhileFreeXrefSlotsDoNot"
+          "JsonPagePreparationTests.TrailerPairsReserveIdsWhileFreeXrefSlotsDoNot",
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7930,7 +7946,8 @@
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
           "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication",
-          "JsonPageContainerPreparationTests.DeclaredPreparationRejectsRepeatedContainersBeforePublication"
+          "JsonPageContainerPreparationTests.DeclaredPreparationRejectsRepeatedContainersBeforePublication",
+          "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget"
         ],
         "interaction": [
           "JsonImportCompressionTests.JobUpdateCompressesRetainedSourceStreamsAtRequestedLevel",
@@ -7963,7 +7980,8 @@
           "JsonPagePreparationTests.TruePreparationCannotBeUndoneByALaterFalse",
           "JsonPagePreparationTests.PreparedAndOriginalEdgesRetainTheirGenerationSemantics",
           "JsonPagePreparationTests.NewPageDoesNotReviveAnOriginalMissingEdgeWithTheSamePair",
-          "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput"
+          "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput",
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -7980,7 +7998,8 @@
           "JsonPagePreparationTests.PreparationBorrowsOriginalValuesAndOwnsItsFreshHeaders",
           "JsonPagePreparationTests.PreparationRetainsTheSharedNestingAndCancellationBounds",
           "JsonPagePreparationTests.PreparationAndPublicationFailuresRetainTheActualTargetAndRefundAdmission",
-          "JsonPageContainerPreparationTests.EmptyDagPreparationStopsAfterFiniteDistinctContainerWorkAndRefunds"
+          "JsonPageContainerPreparationTests.EmptyDagPreparationStopsAfterFiniteDistinctContainerWorkAndRefunds",
+          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput"
         ],
         "oracle": [
           "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
@@ -7988,7 +8007,8 @@
           "diff:security-json",
           "diff:security-identity-crypt",
           "diff:json-layout",
-          "tools/ReferenceDirectOutlines.ps1"
+          "tools/ReferenceDirectOutlines.ps1",
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }
     },

@@ -801,14 +801,14 @@ public sealed class JsonImportTests
             QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 35000L };
             ResourceGovernor governor = new(limits, CancellationToken.None);
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-            await Assert.ThrowsAsync<QpdfLimitException>(() => JsonImport.BuildCreateModelAsync(host, admitted, limits, governor, memory, CancellationToken.None).AsTask());
+            await Assert.ThrowsAsync<QpdfLimitException>(() => JsonImport.BuildCreateModelAsync(host, admitted, false, limits, governor, memory, CancellationToken.None).AsTask());
         }
         using (JsonDocument document = JsonDocument.Parse(changed))
         {
             InMemoryQpdfHost host = new();
             ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-            ImportedModel model = await JsonImport.BuildCreateModelAsync(host, document, QpdfLimits.Default, governor, memory, CancellationToken.None);
+            ImportedModel model = await JsonImport.BuildCreateModelAsync(host, document, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
             PdfStream stream = Assert.IsType<PdfStream>(model.Objects[4]);
             Assert.Equal(30000, stream.Data.Length);
         }

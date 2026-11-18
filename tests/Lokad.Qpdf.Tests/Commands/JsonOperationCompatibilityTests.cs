@@ -43,11 +43,10 @@ public sealed class JsonOperationCompatibilityTests
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
             ("linearizePass1", "pass1", ["--linearize-pass1=pass1"]),
-            ("noOriginalObjectIds", true, ["--no-original-object-ids"]),
         ];
         foreach ((string key, object value, string[] arguments) in requests)
         {
-            if (key != "linearize") { yield return [key, value, arguments, "create", "argv"]; }
+            if (key is not ("linearize" or "qdf")) { yield return [key, value, arguments, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
                 or "generateAppearances" or "overlay" or "underlay")
             { yield return [key, value, arguments, "inspect", "argv"]; }
@@ -62,7 +61,6 @@ public sealed class JsonOperationCompatibilityTests
             ("flattenRotation", "inspect", "job"),
             ("flattenAnnotations", "json-output", "mixed"),
             ("underlay", "json-output", "argv"),
-            ("qdf", "update", "mixed"),
         ];
         foreach ((string key, string mode, string route) in adapters)
         {

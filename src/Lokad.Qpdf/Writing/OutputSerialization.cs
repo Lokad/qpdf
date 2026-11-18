@@ -6,7 +6,7 @@ namespace Lokad.Qpdf.Writing;
 // and final output. Transactions, staging and security owners stay with callers.
 internal readonly record struct OutputSerialization(PdfVersion Version, List<NumberedObject> Model,
     IReadOnlyList<IReadOnlyList<int>>? ObjectStreams, bool CompressStreams, int? CompressionLevel,
-    int? Info, bool NewlineBeforeEndstream, QdfOptions Qdf, IReadOnlyDictionary<int, int>? OriginalIds)
+    int? Info, bool NewlineBeforeEndstream, QdfOptions Qdf, IReadOnlyDictionary<int, (int Number, int Generation)>? OriginalIds)
 {
     internal ValueTask<long> WriteAsync(PdfSerializer writer, byte[] id1, byte[] id2,
         IByteSink destination, CancellationToken token)

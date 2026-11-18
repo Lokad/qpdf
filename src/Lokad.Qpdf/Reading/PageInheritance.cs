@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Reading;
 /// <summary>Shared bounded lookup of a page attribute through its ancestry.</summary>
 internal static class PageInheritance
 {
-    internal static QpdfObject? Find(DocumentEngine engine, PageLocation location, PdfName name,
+    internal static QpdfObject? Find(IIndirectResolver engine, PageLocation location, PdfName name,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
         => FindCore(engine, location, name.RawSpan, false, false, limits, governor, cancellationToken);
 
@@ -122,7 +122,7 @@ internal static class PageInheritance
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
         => FindCore(engine, location, name, true, true, limits, governor, cancellationToken) is not null;
 
-    private static QpdfObject? FindCore(DocumentEngine engine, PageLocation location, ReadOnlySpan<byte> name,
+    private static QpdfObject? FindCore(IIndirectResolver engine, PageLocation location, ReadOnlySpan<byte> name,
         bool dictionaryOnly, bool skipLeaf, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         Ancestors ancestors = new(engine, location, limits, governor, cancellationToken);
@@ -141,7 +141,7 @@ internal static class PageInheritance
         finally { ancestors.Dispose(); }
     }
 
-    private static QpdfObject? FindValue(DocumentEngine engine, PdfDictionary dictionary, ReadOnlySpan<byte> name,
+    private static QpdfObject? FindValue(IIndirectResolver engine, PdfDictionary dictionary, ReadOnlySpan<byte> name,
         bool dictionaryOnly, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(dictionary, name, governor, token, out QpdfObject value)) { return null; }
@@ -153,7 +153,7 @@ internal static class PageInheritance
     // cycle detection, depth admission and scoped traversal storage.
     private ref struct Ancestors
     {
-        private readonly DocumentEngine _engine;
+        private readonly IIndirectResolver _engine;
         private readonly PageLocation _location;
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
@@ -165,7 +165,7 @@ internal static class PageInheritance
         private HashSet<(int Number, int Generation)>? _visited;
         private PdfReference? _firstParent;
 
-        internal Ancestors(DocumentEngine engine, PageLocation location, QpdfLimits limits,
+        internal Ancestors(IIndirectResolver engine, PageLocation location, QpdfLimits limits,
             ResourceGovernor governor, CancellationToken token)
         {
             _engine = engine; _location = location; _limits = limits;
@@ -206,7 +206,7 @@ internal static class PageInheritance
                         if (!ParserContainers.AddSetItem(owner, _visited, (reference.ObjectNumber, reference.Generation), 8L))
                         { throw new QpdfParseException("Page ancestry contains a cycle.", null, reference.ObjectNumber); }
                     }
-                    if (!((IIndirectResolver)_engine).TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary parent)
+                    if (!_engine.TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary parent)
                     { throw new QpdfParseException("Unresolvable page parent.", null, reference.ObjectNumber); }
                     _current = parent;
                 }
@@ -219,13 +219,13 @@ internal static class PageInheritance
         internal void Dispose() => _memory?.Dispose();
     }
 
-    internal static QpdfObject Resolve(DocumentEngine engine, QpdfObject value, QpdfLimits limits, ResourceGovernor governor)
+    internal static QpdfObject Resolve(IIndirectResolver engine, QpdfObject value, QpdfLimits limits, ResourceGovernor governor)
     {
         for (int depth = 0; value is PdfReference reference; depth++)
         {
             governor.NoteOperation();
             if (depth >= limits.MaxNestingDepth) { throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), depth + 1L, limits.MaxNestingDepth); }
-            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
+            if (!engine.TryResolve(reference, out QpdfObject? resolved) || resolved is null) { return PdfNull.Instance; }
             value = resolved;
         }
         return value;

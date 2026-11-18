@@ -91,15 +91,27 @@ internal static class StreamPreparation
     }
 
     internal static void TransformNumberedStreams(List<NumberedObject> model, IIndirectResolver resolver, int metadata,
+        IReadOnlyDictionary<int, (PdfDictionary? Resources, bool Ambiguous)>? normalization,
         CompressionRequest request, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         (bool compress, string decode, int? level) = ResolveCompression(request, false);
-        if (!compress && decode == "none" && metadata == 0) { return; }
+        if (!compress && decode == "none" && metadata == 0 && normalization is null) { return; }
         for (int i = 0; i < model.Count; i++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             NumberedObject item = model[i];
-            if (item.Value is not PdfStream stream || (!compress && decode == "none" && item.Number != metadata)) { continue; }
+            if (item.Value is not PdfStream stream) { continue; }
+            if (item.Number != metadata && normalization is not null && normalization.TryGetValue(item.Number, out var context))
+            {
+                PdfStream? normalized = Content.ContentTransforms.BuildNormalizedContent(stream, context.Resources,
+                    context.Ambiguous, resolver, limits, governor, diagnostics, token, out _);
+                if (normalized is not null)
+                {
+                    model[i] = new(item.Number, normalized);
+                    continue;
+                }
+            }
+            if (!compress && decode == "none" && item.Number != metadata) { continue; }
             PdfStream? replacement = TransformForOutput(stream, item.Number, resolver, metadata,
                 compress, decode, request.RecompressFlate, level, limits, governor, diagnostics, token);
             if (replacement is not null) { model[i] = new(item.Number, replacement); }

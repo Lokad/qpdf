@@ -194,7 +194,7 @@ internal static class OutputPublication
         byte[] id2,
         bool newlineBeforeEndstream,
         Writing.QdfOptions qdf,
-        IReadOnlyDictionary<int, int>? originalIds,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         QpdfPath path,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -264,7 +264,7 @@ internal static class OutputPublication
         bool staticId,
         bool newlineBeforeEndstream,
         Writing.QdfOptions qdf,
-        IReadOnlyDictionary<int, int>? originalIds,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         bool linearize,
         QpdfPath? linearizePass1,
         QpdfPath path,
@@ -426,7 +426,7 @@ internal static class OutputPublication
     internal static async ValueTask<PreparedSplitPublication> PreparePresentationOutputAsync(PdfVersion version,
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[]? originalId, bool staticId, bool newlineBeforeEndstream,
-        QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
+        QdfOptions qdf, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, bool linearize, QpdfPath? pass1, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
         OutputSecurity? security, int encryptionObject, int metadataObject)
     {
@@ -458,7 +458,7 @@ internal static class OutputPublication
     internal static async ValueTask SerializePresentationOutputAsync(PdfVersion version,
         List<NumberedObject> model, IReadOnlyList<IReadOnlyList<int>>? objectStreams, bool compressStreams,
         int? compressionLevel, int? infoRef, byte[] id1, byte[] id2, bool newlineBeforeEndstream,
-        QdfOptions qdf, IReadOnlyDictionary<int, int>? originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
+        QdfOptions qdf, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, bool linearize, IByteSink counter, IByteSink? firstPass,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
         OutputSecurity? security, int encryptionObject, int metadataObject)
     {

@@ -16,11 +16,15 @@ internal sealed partial class PdfSerializer
     private static readonly PdfName QdfTypeKey = PdfName.FromAscii("Type");
     private static readonly byte[] QdfBinaryLine = [0x25, 0xBF, 0xF7, 0xA2, 0xFE, 0x0A];
 
+    private ValueTask WriteQdfOriginalIdAsync((int Number, int Generation) source, IByteSink sink, CancellationToken token)
+        => AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(source.Number),
+            WriterPart.Text(" "), WriterPart.Number(source.Generation), WriterPart.Text("\n")], sink, token);
+
     internal async ValueTask<long> SerializeQdfAsync(
         PdfVersion version,
         List<NumberedObject> model,
         IReadOnlyList<IReadOnlyList<int>>? objectStreamGroups,
-        IReadOnlyDictionary<int, int>? originalIds,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         int? infoRef,
         byte[] id1,
         byte[] id2,
@@ -43,7 +47,7 @@ internal sealed partial class PdfSerializer
     private async ValueTask<long> SerializeQdfClassicAsync(
         PdfVersion version,
         List<NumberedObject> model,
-        IReadOnlyDictionary<int, int>? originalIds,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         int? infoRef,
         byte[] id1,
         byte[] id2,
@@ -136,7 +140,7 @@ internal sealed partial class PdfSerializer
 
             if (emission.OriginalSource.HasValue && !qdf.NoOriginalIds)
             {
-                await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(emission.OriginalSource.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
+                await WriteQdfOriginalIdAsync(emission.OriginalSource.Value, sink, cancellationToken).ConfigureAwait(false);
             }
 
             bool countEncrypted = sink is CountingSink && _security is not null && emission.Number != encryptionNumber;
@@ -216,7 +220,7 @@ internal sealed partial class PdfSerializer
         PdfVersion version,
         List<NumberedObject> model,
         IReadOnlyList<IReadOnlyList<int>> objectStreamGroups,
-        IReadOnlyDictionary<int, int>? originalIds,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         int? infoRef,
         byte[] id1,
         byte[] id2,
@@ -266,8 +270,8 @@ internal sealed partial class PdfSerializer
         using WriterIndex<int> combined = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
         using WriterIndex<int> memberContainer = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
         using WriterIndex<int> memberIndex = WriterIndex<int>.Create(sizeof(int), _governor, cancellationToken);
-        using WriterOrder<(int Old, int New, QpdfObject Value, int? Original)> regulars =
-            WriterOrder<(int Old, int New, QpdfObject Value, int? Original)>.Create(lookup.Count, 32L, _governor, cancellationToken);
+        using WriterOrder<(int Old, int New, QpdfObject Value, (int Number, int Generation)? Original)> regulars =
+            WriterOrder<(int Old, int New, QpdfObject Value, (int Number, int Generation)? Original)>.Create(lookup.Count, 32L, _governor, cancellationToken);
         int next = 1;
         foreach (int old in ordered)
         {
@@ -278,8 +282,8 @@ internal sealed partial class PdfSerializer
             }
 
             combined[old] = next;
-            int? source = null;
-            if (originalIds is not null && originalIds.TryGetValue(old, out int found))
+            (int Number, int Generation)? source = null;
+            if (originalIds is not null && originalIds.TryGetValue(old, out var found))
             {
                 source = found;
             }
@@ -337,7 +341,7 @@ internal sealed partial class PdfSerializer
         await AppendBytesAsync(QdfBinaryLine, sink, cancellationToken).ConfigureAwait(false);
         await AppendAsciiAsync("%QDF-1.0\n\n", sink, cancellationToken).ConfigureAwait(false);
         using WriterIndex<long> offsets = WriterIndex<long>.Create(sizeof(long), _governor, cancellationToken);
-        foreach ((int old, int number, QpdfObject value, int? source) in regulars)
+        foreach ((int old, int number, QpdfObject value, (int Number, int Generation)? source) in regulars)
         {
             cancellationToken.ThrowIfCancellationRequested();
             _governor.NoteOperation();
@@ -355,7 +359,7 @@ internal sealed partial class PdfSerializer
 
             if (source.HasValue && !qdf.NoOriginalIds)
             {
-                await AppendFormattedAsync([WriterPart.Text("%% Original object ID: "), WriterPart.Number(source.Value), WriterPart.Text(" 0\n")], sink, cancellationToken).ConfigureAwait(false);
+                await WriteQdfOriginalIdAsync(source.Value, sink, cancellationToken).ConfigureAwait(false);
             }
 
             offsets.Add(number, sink.Length);
@@ -415,9 +419,9 @@ internal sealed partial class PdfSerializer
                 using WriterValue memberValue = WriterValue.Remap(lookup[member], combined, _governor, cancellationToken);
                 using BufferedSink head = BufferedSink.Create(_limits, _governor, cancellationToken);
                 await AppendFormattedAsync([WriterPart.Text("%% Object stream: object "), WriterPart.Number(combined[member]), WriterPart.Text(", index "), WriterPart.Number(memberIndex[member])], head, cancellationToken).ConfigureAwait(false);
-                if (originalIds is not null && originalIds.TryGetValue(member, out int memberSource) && !qdf.NoOriginalIds)
+                if (originalIds is not null && originalIds.TryGetValue(member, out var memberSource) && !qdf.NoOriginalIds)
                 {
-                    await AppendFormattedAsync([WriterPart.Text("; original object ID: "), WriterPart.Number(memberSource)], head, cancellationToken).ConfigureAwait(false);
+                    await AppendFormattedAsync([WriterPart.Text("; original object ID: "), WriterPart.Number(memberSource.Number)], head, cancellationToken).ConfigureAwait(false);
                 }
 
                 await AppendAsciiAsync("\n", head, cancellationToken).ConfigureAwait(false);

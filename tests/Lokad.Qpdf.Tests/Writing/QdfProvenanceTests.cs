@@ -9,7 +9,7 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class QdfProvenanceTests
 {
-    private delegate Dictionary<int, int> InvertCall(IEnumerable<IReadOnlyDictionary<int, int>> maps,
+    private delegate Dictionary<int, (int Number, int Generation)> InvertCall(IEnumerable<IReadOnlyDictionary<int, int>> maps,
         ParserMemoryScope owner, ResourceGovernor governor, CancellationToken token);
     private static readonly InvertCall Invert = OriginalObjectIds.InvertOriginals;
 
@@ -32,9 +32,9 @@ public sealed class QdfProvenanceTests
         using (ParserMemoryScope owner = ParserMemoryScope.Create(governor))
         {
             Assert.Empty(Invert([], owner, governor, CancellationToken.None));
-            Dictionary<int, int> result = Invert([new Dictionary<int, int> { [7] = 3, [9] = 4 },
+            Dictionary<int, (int Number, int Generation)> result = Invert([new Dictionary<int, int> { [7] = 3, [9] = 4 },
                 new Dictionary<int, int> { [12] = 3, [13] = 5 }], owner, governor, CancellationToken.None);
-            Assert.Equal(3, result.Count); Assert.Equal(12, result[3]); Assert.Equal(9, result[4]); Assert.Equal(13, result[5]);
+            Assert.Equal(3, result.Count); Assert.Equal((12, 0), result[3]); Assert.Equal((9, 0), result[4]); Assert.Equal((13, 0), result[5]);
             Assert.True(owner.ReservedBytes > 0L);
         }
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);

@@ -23,7 +23,7 @@ public sealed class WriterValueOwnershipTests
     }
 
     internal static Task<long> Start(List<NumberedObject> model, QpdfLimits limits, ResourceGovernor governor,
-        IByteSink sink, IReadOnlyDictionary<int, int>? originalIds, CancellationToken token)
+        IByteSink sink, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, CancellationToken token)
     {
         PdfSerializer serializer = new(limits, governor); byte[] id = new byte[16];
         return serializer.SerializeQdfAsync(new PdfVersion(1, 7), model, [new[] { 3, 6, 7 }], originalIds, null,
@@ -204,12 +204,12 @@ public sealed class WriterValueOwnershipTests
         finally { await Drain(writing, sink); }
     }
 
-    private sealed class ObservedIds(Action observe) : IReadOnlyDictionary<int, int>
+    private sealed class ObservedIds(Action observe) : IReadOnlyDictionary<int, (int Number, int Generation)>
     {
-        public bool TryGetValue(int key, out int value) { if (key == 6) { observe(); } value = 0; return false; }
-        public int Count => 0; public IEnumerable<int> Keys => Array.Empty<int>(); public IEnumerable<int> Values => Array.Empty<int>();
-        public int this[int key] => throw new KeyNotFoundException(); public bool ContainsKey(int key) => false;
-        public IEnumerator<KeyValuePair<int, int>> GetEnumerator() => Enumerable.Empty<KeyValuePair<int, int>>().GetEnumerator();
+        public bool TryGetValue(int key, out (int Number, int Generation) value) { if (key == 6) { observe(); } value = default; return false; }
+        public int Count => 0; public IEnumerable<int> Keys => Array.Empty<int>(); public IEnumerable<(int Number, int Generation)> Values => Array.Empty<(int Number, int Generation)>();
+        public (int Number, int Generation) this[int key] => throw new KeyNotFoundException(); public bool ContainsKey(int key) => false;
+        public IEnumerator<KeyValuePair<int, (int Number, int Generation)>> GetEnumerator() => Enumerable.Empty<KeyValuePair<int, (int Number, int Generation)>>().GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

@@ -7,7 +7,7 @@ namespace Lokad.Qpdf.Writing;
 
 internal static class OriginalObjectIds
 {
-    internal static IReadOnlyDictionary<int, int>? PrepareOriginalIds(QdfOptions options,
+    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareOriginalIds(QdfOptions options,
         GraphCopier primary, IReadOnlyList<GraphCopier> overlays, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
     {
@@ -17,7 +17,7 @@ internal static class OriginalObjectIds
         return InvertOriginals(Maps(primary, overlays), memory, governor, token);
     }
 
-    internal static IReadOnlyDictionary<int, int>? PrepareOriginalIds(QdfOptions options,
+    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareOriginalIds(QdfOptions options,
         IReadOnlyList<GraphCopier> sources, IReadOnlyList<GraphCopier> overlays, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
     {
@@ -39,25 +39,41 @@ internal static class OriginalObjectIds
         for (int index = 0; index < overlays.Count; index++) { yield return overlays[index].SourceToDestination; }
     }
 
-    internal static Dictionary<int, int> InvertOriginals(IEnumerable<IReadOnlyDictionary<int, int>> maps,
+    internal static Dictionary<int, (int Number, int Generation)> InvertOriginals(IEnumerable<IReadOnlyDictionary<int, int>> maps,
         ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
         using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
-        Dictionary<int, int> inverted = ParserContainers.CreateDictionary<int, int>(candidate);
+        Dictionary<int, (int Number, int Generation)> inverted = ParserContainers.CreateDictionary<int, (int Number, int Generation)>(candidate);
         foreach (IReadOnlyDictionary<int, int> map in maps)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             foreach (KeyValuePair<int, int> entry in map)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                GovernedCollections.Assign(candidate, governor, inverted, entry.Value, entry.Key, sizeof(int));
+                GovernedCollections.Assign(candidate, governor, inverted, entry.Value, (entry.Key, 0), 2L * sizeof(int));
             }
         }
 
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         candidate.TransferTo(ownership);
         return inverted;
+    }
+
+    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareImportedIds(
+        IReadOnlyDictionary<(int Number, int Generation), int>? sources, IReadOnlyDictionary<int, int> numbering,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (sources is null) { return null; }
+        Dictionary<int, (int Number, int Generation)> result = ParserContainers.CreateDictionary<int, (int, int)>(memory);
+        foreach ((var pair, int bound) in sources)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!numbering.TryGetValue(bound, out int destination)) { continue; }
+            ParserContainers.EnsureEntryCapacity(memory, result, 2L * sizeof(int));
+            result.Add(destination, pair);
+        }
+        return result;
     }
 
 }

@@ -14,7 +14,7 @@ internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
     private QdfEmissionPlan(ParserMemoryScope memory, WriterOrder<QdfEmission> rows, WriterIndex<int> renumber, int lastLengthNumber)
     { _memory = memory; _rows = rows; _renumber = renumber; LastLengthNumber = lastLengthNumber; }
 
-    internal static QdfEmissionPlan Create(WriterOrder<NumberedObject> source, IReadOnlyDictionary<int, int>? originalIds,
+    internal static QdfEmissionPlan Create(WriterOrder<NumberedObject> source, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         ResourceGovernor governor, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(source); ArgumentNullException.ThrowIfNull(governor);
@@ -42,11 +42,11 @@ internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
             foreach (NumberedObject numbered in source)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                int? original = null;
+                (int Number, int Generation)? original = null;
                 if (originalIds is not null)
                 {
                     governor.NoteOperation();
-                    if (originalIds.TryGetValue(numbered.Number, out int found)) { original = found; }
+                    if (originalIds.TryGetValue(numbered.Number, out var found)) { original = found; }
                 }
                 QpdfObject value;
                 if (numbered.Value is PdfStream stream)
@@ -57,8 +57,8 @@ internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
                     value = stream.WithDictionary(header);
                 }
                 else { value = ObjectRemap.RemapIds(numbered.Value, renumber, memory, governor, token); }
-                rows.Add(new QdfEmission(number++, value, original, null));
-                if (numbered.Value is PdfStream) { rows.Add(new QdfEmission(number++, null, null, numbered.Number)); }
+                rows.Add(new QdfEmission(value, number++, null, original));
+                if (numbered.Value is PdfStream) { rows.Add(new QdfEmission(null, number++, numbered.Number, null)); }
             }
             return new QdfEmissionPlan(memory, rows, renumber, lastLengthNumber);
         }
@@ -99,4 +99,4 @@ internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
     }
 }
 
-internal readonly record struct QdfEmission(int Number, QpdfObject? Value, int? OriginalSource, int? LengthFor);
+internal readonly record struct QdfEmission(QpdfObject? Value, int Number, int? LengthFor, (int Number, int Generation)? OriginalSource);

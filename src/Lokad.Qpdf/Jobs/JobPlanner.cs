@@ -972,15 +972,15 @@ internal static partial class JobPlanner
             if ((importJson || seenJson || seenJsonOutput)
                 && (replaceInput || splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
-                    || qdf || (!importJson && linearize) || overlays.Count > 0 || underlays.Count > 0))
+                    || (!importJson && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
 
             if (importJson && (testJsonSchema || preserveUnreferenced
                 || labels.Count > 0
-                || coalesceContents || normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
-                || removeUnreferencedResources is not (null or "no") || noOriginalObjectIds || linearizePass1 is not null
+                || coalesceContents || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
+                || removeUnreferencedResources is not (null or "no") || linearizePass1 is not null
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
                 || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
@@ -1045,6 +1045,9 @@ internal static partial class JobPlanner
                     NewlineBeforeEndstream = newlineBeforeEndstream,
                     ObjectStreams = objectStreams,
                     Linearize = linearize,
+                    Qdf = qdf,
+                    NoOriginalObjectIds = noOriginalObjectIds,
+                    NormalizeContent = qdf && (normalizeContent || !seenNormalizeContent),
                 };
             }
 
