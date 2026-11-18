@@ -133,7 +133,9 @@ internal static class InspectionExecution
     }
 
     internal static IReadOnlyList<QpdfAttachmentInfo> ListAttachments(
-        QpdfDocument document,
+        IIndirectResolver resolver,
+        PdfDictionary trailer,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         QpdfPath inputPath,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -142,7 +144,7 @@ internal static class InspectionExecution
         ParserMemoryScope? results,
         CancellationToken cancellationToken)
     {
-        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(document.Engine, limits, governor, diagnostics, memory, cancellationToken);
+        List<EmbeddedAttachment> found = EmbeddedFiles.ReadAttachments(resolver, trailer, limits, governor, diagnostics, memory, cancellationToken);
         if (found.Count == 0)
         {
             if (results is null) { diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [inputPath.Value, " has no embedded files"]); }
@@ -153,15 +155,11 @@ internal static class InspectionExecution
         {
             foreach (EmbeddedAttachment info in found)
             {
-                int generation = 0;
-                if (info.StreamObjectNumber >= 0
-                    && document.Engine.XRefEntries.TryGetValue(info.StreamObjectNumber, out XrefEntry entry)
-                    && entry.Kind == XrefEntryKind.Uncompressed)
-                {
-                    generation = entry.Second;
-                }
-
-                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [info.Key, " -> ", info.StreamObjectNumber, ",", generation]);
+                int number = info.StreamObjectNumber;
+                int generation = resolver is DocumentEngine engine && engine.XRefEntries.TryGetValue(number, out XrefEntry entry)
+                    && entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
+                (number, generation) = OriginalObjectIds.DisplayPair(number, generation, originalIds);
+                diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, [info.Key, " -> ", number, ",", generation]);
                 if (info.FileName.Length > 0)
                 {
                     diagnostics.AddParts(QpdfDiagnosticCode.AttachmentListing, QpdfDiagnosticSeverity.Info, ["  filename: ", info.FileName]);
@@ -354,25 +352,8 @@ internal static class InspectionExecution
                 throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
             }
 
-            ReadOnlyMemory<byte> payload = dataStream.RawMemory;
-            if (showObject.FilteredStreamData)
-            {
-                FilterChain.RequireEmbeddedData(dataStream, document.Engine, governor, cancellationToken);
-                using FilterPlan stages = FilterChain.Resolve(dataStream.Dictionary, (IIndirectResolver)document.Engine, governor, cancellationToken);
-                byte[]? decoded = null;
-                if (stages.Count > 0)
-                {
-                    decoded = FilterChain.Decode(dataStream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
-                    payload = decoded;
-                }
-                if (showObject.NormalizeContent)
-                {
-                    QpdfObject? resources = PdfDictionaryLookup.TryGet(dataStream.Dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject rawResources)
-                        ? rawResources : null;
-                    payload = Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? dataStream.ArrayData(memory, governor, cancellationToken), resources,
-                        document.Engine, limits, governor, diagnostics, cancellationToken, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory, out _);
-                }
-            }
+            ReadOnlyMemory<byte> payload = ReadObjectPayload(dataStream, document.Engine, showObject.FilteredStreamData,
+                showObject.NormalizeContent, limits, governor, diagnostics, memory, cancellationToken);
 
             if (payload.Length > limits.MaxOutputBytes)
             {
@@ -396,6 +377,23 @@ internal static class InspectionExecution
 
         ShowObjectValue(target, document.Engine, null, limits, governor, diagnostics);
         return null;
+    }
+
+    private static ReadOnlyMemory<byte> ReadObjectPayload(PdfStream stream, IIndirectResolver resolver, bool filtered,
+        bool normalize, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, CancellationToken token)
+    {
+        if (!filtered) { return stream.RawMemory; }
+        FilterChain.RequireEmbeddedData(stream, resolver, governor, token);
+        using FilterPlan stages = FilterChain.Resolve(stream.Dictionary, resolver, governor, token);
+        byte[]? decoded = stages.Count == 0 ? null
+            : FilterChain.Decode(stream.ArrayData(memory, governor, token), stages, limits, governor, memory, token);
+        if (!normalize) { return decoded is null ? stream.RawMemory : decoded; }
+
+        QpdfObject? resources = PdfDictionaryLookup.TryGet(stream.Dictionary, "Resources"u8, governor, token, out QpdfObject rawResources)
+            ? rawResources : null;
+        return Content.ContentTransforms.NormalizeContentBytesOwned(decoded ?? stream.ArrayData(memory, governor, token), resources,
+            resolver, limits, governor, diagnostics, token, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes), memory, out _);
     }
 
     private static void ShowObjectValue(QpdfObject? target, IIndirectResolver resolver,
@@ -522,15 +520,10 @@ internal static class InspectionExecution
             // Native reports declared counts separately from quiet traversal.
             // Partial counting validates declarations before accepting ranges.
             diagnostics.ReportPageCountMismatch = false;
-            if (plan.Import is ImportedCheckInput imported)
-            {
-                await RunImportedCheckAsync(host, plan, imported, password, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                return CompleteWithPresentation(governor);
-            }
-            if (plan.PayloadOutput is QpdfPath target && target == plan.Input)
+            if (plan.PayloadOutput is QpdfPath target && (target == plan.Input || target == plan.Import?.Json))
             { throw new QpdfParseException("The output file must differ from the input file.", 0L, null); }
             using PublicationInputAliases? ownedAliases = plan.PayloadOutput.HasValue ? PublicationInputAliases.BeginIfNeeded(governor) : null;
-            if (plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
+            if (plan.Import is null && plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
                 && plan.Sources.Count == 0 && plan.Rotations.Count == 0 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
@@ -541,77 +534,86 @@ internal static class InspectionExecution
                 return CompleteWithPresentation(governor);
             }
             using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
-            using ParserMemoryScope? payloadOwner = plan.PayloadOutput.HasValue ? ParserMemoryScope.Create(governor) : null;
+            using ParserMemoryScope? payloadOwner = plan.Import is null && plan.PayloadOutput.HasValue ? ParserMemoryScope.Create(governor) : null;
             ReadOnlyMemory<byte>? directPayload = null;
             bool hasPayload = false;
-            // Checking and all following inspections use this same document.
-            (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
-                ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, password, limits, governor,
-                    diagnostics, plan.Recovery, cancellationToken, plan.NeedsDocument).ConfigureAwait(false)
-                : (plan.EmptyDocument
-                    ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
-                    : await QpdfDocument.OpenInspectionCore(host, plan.Input, password,
-                        limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false), default);
-            await using (QpdfDocument? document = opened)
+            if (plan.Import is ImportedInspectionInput imported)
             {
-                if (document is null)
+                hasPayload = await InspectImportedAsync(host, plan, imported, password, limits, governor, diagnostics,
+                    output, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // Checking and all following inspections use this same document.
+                (QpdfDocument? opened, EncryptionInspection security) = plan.ShowEncryption && !plan.EmptyDocument
+                    ? await QpdfDocument.OpenSecurityInspectionCore(host, plan.Input, password, limits, governor,
+                        diagnostics, plan.Recovery, cancellationToken, plan.NeedsDocument).ConfigureAwait(false)
+                    : (plan.EmptyDocument
+                        ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
+                        : await QpdfDocument.OpenInspectionCore(host, plan.Input, password,
+                            limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false), default);
+                await using (QpdfDocument? document = opened)
                 {
-                    ShowEncryption(security, diagnostics);
-                    if (plan.NeedsDocument)
-                    { diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Other inspections were skipped because the password did not authenticate."); }
-                    return CompleteWithPresentation(governor);
-                }
-                using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
-                    limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-                List<QpdfCheckOutcome> checks = plan.RunCheck
-                    ? DocumentCheck.Run(document, new QpdfCheckOptions(), limits, governor, diagnostics, true, cancellationToken)
-                    : [];
-                if (!checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
-                {
-                    // This order is independent of argv position and JSON key order.
-                    if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
-                    if (plan.ShowEncryption) { ShowEncryption(security, diagnostics); }
-                    if (plan.CheckLinearization) { InspectLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
-                    if (plan.ShowLinearization) { ShowLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
-                    if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
-                    if (plan.ObjectSelector is not null)
+                    if (document is null)
                     {
-                        bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.ShowEncryption || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
-                        using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
-                        ReadOnlyMemory<byte>? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
+                        ShowEncryption(security, diagnostics);
+                        if (plan.NeedsDocument)
+                        { diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Other inspections were skipped because the password did not authenticate."); }
+                        return CompleteWithPresentation(governor);
+                    }
+                    using InspectionGraph? inspection = await PrepareInspectionGraphAsync(host, document, plan,
+                        limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                    List<QpdfCheckOutcome> checks = plan.RunCheck
+                        ? DocumentCheck.Run(document, new QpdfCheckOptions(), limits, governor, diagnostics, true, cancellationToken)
+                        : [];
+                    if (!checks.Exists(static outcome => outcome.Status == QpdfCheckStatus.Failed))
+                    {
+                        // This order is independent of argv position and JSON key order.
+                        if (plan.ShowNpages) { AddPageCountDiagnostic(document, plan.Input, diagnostics); }
+                        if (plan.ShowEncryption) { ShowEncryption(security, diagnostics); }
+                        if (plan.CheckLinearization) { InspectLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
+                        if (plan.ShowLinearization) { ShowLinearization(document, plan.Input, limits, governor, diagnostics, cancellationToken); }
+                        if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
+                        if (plan.ObjectSelector is not null)
                         {
-                            RawStreamData = plan.RawStreamData,
-                            FilteredStreamData = plan.FilteredStreamData,
-                            NormalizeContent = plan.NormalizeContent,
-                            RejectStreamAfterInfo = priorInfo && plan.AttachmentKey is null,
-                        },
-                            limits, governor, diagnostics, objectMemory, cancellationToken).ConfigureAwait(false);
-                        if (payload is not null)
+                            bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.ShowEncryption || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
+                            using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
+                            ReadOnlyMemory<byte>? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
+                            {
+                                RawStreamData = plan.RawStreamData,
+                                FilteredStreamData = plan.FilteredStreamData,
+                                NormalizeContent = plan.NormalizeContent,
+                                RejectStreamAfterInfo = priorInfo && plan.AttachmentKey is null,
+                            },
+                                limits, governor, diagnostics, objectMemory, cancellationToken).ConfigureAwait(false);
+                            if (payload is not null)
+                            {
+                                AppendInspectionBytes(output, payload.Value, governor);
+                                hasPayload = true;
+                            }
+                        }
+                        if (plan.ShowPages) { ShowPages(document, plan, limits, governor, diagnostics, cancellationToken); }
+                        if (plan.ListAttachments)
                         {
-                            AppendInspectionBytes(output, payload.Value, governor);
+                            using ParserMemoryScope listingMemory = ParserMemoryScope.Create(governor);
+                            _ = ListAttachments(document.Engine, document.Engine.Trailer, null, plan.Input, limits, governor,
+                                diagnostics, listingMemory, null, cancellationToken);
+                        }
+                        if (plan.AttachmentKey is not null)
+                        {
+                            using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
+                            ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(document.Engine, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
+                            if (payloadOwner is not null && !hasPayload && inspection is null)
+                            {
+                                // Keep raw/decrypted/decoded backing funded across input close and publication.
+                                governor.ChargeOutputBytes(payload.Length);
+                                attachmentMemory.TransferTo(payloadOwner);
+                                document.Engine.TransferExclusiveValuesTo(payloadOwner);
+                                directPayload = payload;
+                            }
+                            else { AppendInspectionBytes(output, payload, governor); }
                             hasPayload = true;
                         }
-                    }
-                    if (plan.ShowPages) { ShowPages(document, plan, limits, governor, diagnostics, cancellationToken); }
-                    if (plan.ListAttachments)
-                    {
-                        using ParserMemoryScope listingMemory = ParserMemoryScope.Create(governor);
-                        _ = ListAttachments(document, plan.Input, limits, governor, diagnostics, listingMemory, null, cancellationToken);
-                    }
-                    if (plan.AttachmentKey is not null)
-                    {
-                        using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-                        ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(document.Engine, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
-                        if (payloadOwner is not null && !hasPayload && inspection is null)
-                        {
-                            // Keep raw/decrypted/decoded backing funded across input close and publication.
-                            governor.ChargeOutputBytes(payload.Length);
-                            attachmentMemory.TransferTo(payloadOwner);
-                            document.Engine.TransferExclusiveValuesTo(payloadOwner);
-                            directPayload = payload;
-                        }
-                        else { AppendInspectionBytes(output, payload, governor); }
-                        hasPayload = true;
                     }
                 }
             }
@@ -670,9 +672,9 @@ internal static class InspectionExecution
         output.Write(payload.Span);
     }
 
-    private static async ValueTask RunImportedCheckAsync(IQpdfHost host, CheckPlan plan,
-        ImportedCheckInput imported, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
-        DiagnosticBag diagnostics, CancellationToken token)
+    private static async ValueTask<bool> InspectImportedAsync(IQpdfHost host, CheckPlan plan,
+        ImportedInspectionInput imported, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, GovernedBufferStream output, CancellationToken token)
     {
         await using IQpdfInput? input = imported.Update
             ? await GovernedHost.OpenInputAsync(host, plan.Input, governor, token).ConfigureAwait(false) : null;
@@ -697,34 +699,58 @@ internal static class InspectionExecution
             || Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
         { throw new QpdfParseException("Imported trailer /Root must resolve to a dictionary.", 0L, null); }
         Json.JsonImport.ValidateCatalogVersion(catalog, resolver, governor, token);
-        List<PageLocation> pages = PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token);
+        IReadOnlyList<PageLocation> pages = plan.RunCheck || plan.ShowPages || plan.ShowNpages
+            ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token) : [];
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
             model.OriginalPairs, null, inspection, governor, token);
-        if (DocumentCheck.CheckImported(resolver, model.Trailer, pages, model.Objects, originalIds,
+        if (plan.RunCheck && !DocumentCheck.CheckImported(resolver, model.Trailer, pages, model.Objects, originalIds,
             limits, governor, diagnostics, token))
+        { return false; }
+
+        if (plan.ShowNpages)
         {
-            if (plan.ShowNpages)
-            {
-                PdfDictionary pagesRoot = PageTree.ReadRoot(resolver, catalog, governor, token);
-                AddPageCountDiagnostic(PageTree.ReadCount(resolver, pagesRoot, governor, token)?.Value ?? pages.Count,
-                    plan.Input, diagnostics);
-            }
-            if (plan.ShowEncryption) { ShowEncryption(source.Security, diagnostics); }
-            if (plan.ObjectSelector is string selector)
-            {
-                (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(selector, 0);
-                if (trailer || number > 0)
-                {
-                    QpdfObject? target = trailer ? model.Trailer : null;
-                    if (!trailer && model.OriginalPairs is not null && model.OriginalPairs.TryGetValue((number, generation), out int bound))
-                    { target = model.Objects.GetValueOrDefault(bound); }
-                    if (target is PdfStream && (plan.RawStreamData || plan.FilteredStreamData))
-                    { throw new QpdfException("Binary stream output cannot follow informational output in this inspection."); }
-                    ShowObjectValue(target, resolver, originalIds, limits, governor, diagnostics);
-                }
-            }
-            if (plan.ShowPages) { ShowPages(resolver, pages, originalIds, plan, limits, governor, diagnostics, token); }
+            PdfDictionary pagesRoot = PageTree.ReadRoot(resolver, catalog, governor, token);
+            AddPageCountDiagnostic(PageTree.ReadCount(resolver, pagesRoot, governor, token)?.Value ?? pages.Count,
+                plan.Input, diagnostics);
         }
+        if (plan.ShowEncryption) { ShowEncryption(source.Security, diagnostics); }
+        bool hasPayload = false;
+        if (plan.ObjectSelector is string selector)
+        {
+            (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(selector, 0);
+            if (trailer || number > 0)
+            {
+                QpdfObject? target = trailer ? model.Trailer : null;
+                if (!trailer && model.OriginalPairs is not null && model.OriginalPairs.TryGetValue((number, generation), out int bound))
+                { target = model.Objects.GetValueOrDefault(bound); }
+                if (target is PdfStream stream && (plan.RawStreamData || plan.FilteredStreamData))
+                {
+                    if ((plan.RunCheck || plan.ShowNpages || plan.ShowEncryption) && plan.AttachmentKey is null)
+                    { throw new QpdfException("Binary stream output cannot follow informational output in this inspection."); }
+                    using ParserMemoryScope streamMemory = ParserMemoryScope.Create(governor);
+                    ReadOnlyMemory<byte> payload = ReadObjectPayload(stream, resolver, plan.FilteredStreamData,
+                        plan.NormalizeContent, limits, governor, diagnostics, streamMemory, token);
+                    AppendInspectionBytes(output, payload, governor);
+                    hasPayload = true;
+                }
+                else { ShowObjectValue(target, resolver, originalIds, limits, governor, diagnostics); }
+            }
+        }
+        if (plan.ShowPages) { ShowPages(resolver, pages, originalIds, plan, limits, governor, diagnostics, token); }
+        if (plan.ListAttachments)
+        {
+            using ParserMemoryScope listingMemory = ParserMemoryScope.Create(governor);
+            _ = ListAttachments(resolver, model.Trailer, originalIds, plan.Input, limits, governor, diagnostics, listingMemory, null, token);
+        }
+        if (plan.AttachmentKey is string key)
+        {
+            using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
+            ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(resolver, model.Trailer, key, limits,
+                governor, diagnostics, attachmentMemory, token);
+            AppendInspectionBytes(output, payload, governor);
+            hasPayload = true;
+        }
+        return hasPayload;
     }
 
     internal static void ShowEncryption(EncryptionInspection inspection, DiagnosticBag diagnostics)

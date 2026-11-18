@@ -32,6 +32,8 @@ function Invoke-ReferenceJsonCheck {
 
   $inputs = @(Get-ChildItem -LiteralPath "$case/inputs" -File | Get-FileHash)
   foreach ($row in @(
+    @{ Name='standalone'; Args=@('inputs/model.json','--json-input',"--show-object=$selector",'--show-pages','--show-npages');
+       Code=0; Page=$page; Content=$content; Standalone=$true },
     @{ Name='create'; Args=@('inputs/model.json','--json-input','--check',"--show-object=$selector",'--show-pages');
        Code=0; Page=$page; Content=$content },
     @{ Name='damage'; Args=@('inputs/source.pdf','--update-from-json=inputs/damage.json','--check',"--show-object=$selector",'--show-pages');
@@ -66,10 +68,17 @@ function Invoke-ReferenceJsonCheck {
       throw "$tag checker exits or payload differ."
     }
     if ($row.Code -eq 0) {
-      if ($left -notmatch 'CheckSkipped Info .*cross-reference offsets' -or
-          $right -notmatch 'No syntax or stream encoding errors found' -or
-          $left -notmatch 'ObjectListing Info .*patched-graph' -or $right -notmatch 'patched-graph') {
-        throw "$tag did not check and list the bound object."
+      if ($left -notmatch 'ObjectListing Info .*patched-graph' -or $right -notmatch 'patched-graph') {
+        throw "$tag did not list the bound object."
+      }
+      if ($row.Standalone) {
+        if ($left -match 'CheckSkipped|CheckFailed' -or $right -match 'No syntax or stream encoding errors found' -or
+            $left -notmatch 'PageCount Info inputs/model\.json: 1' -or $right -notmatch '(?m)^1\r?$') {
+          throw "$tag performed a check or reported the wrong page count."
+        }
+      } elseif ($left -notmatch 'CheckSkipped Info .*cross-reference offsets' -or
+          $right -notmatch 'No syntax or stream encoding errors found') {
+        throw "$tag did not check the bound graph."
       }
       if ($row.Page -and ($left -notmatch "PageListing Info page 1: $($row.Page)" -or
           $right -notmatch "page 1: $($row.Page)" -or $left -notmatch "PageListing Info     $($row.Content)" -or
@@ -83,10 +92,49 @@ function Invoke-ReferenceJsonCheck {
         $left -match 'ObjectListing|PageListing' -or $right -match 'patched-graph|page 1:') {
       throw "$tag checker failure or suppression differs."
     }
-    Write-Output "[$tag] bound graph checking and follow-up agree (exit $($row.Code))."
+    Write-Output "[$tag] bound graph inspection agrees (exit $($row.Code))."
   }
   if (@(Get-ChildItem -LiteralPath $case -Filter '*.pdf' -File).Count -ne 0 -or
       (Compare-Object $inputs @(Get-ChildItem -LiteralPath "$case/inputs" -File | Get-FileHash) -Property Path,Hash)) {
     throw 'JSON checking changed a source file or produced a physical PDF.'
   }
+  Invoke-ReferenceJsonAttachmentInspection
+}
+
+function Invoke-ReferenceJsonAttachmentInspection {
+  $case = New-Case 'json-attachment-inspection'
+  Copy-Item -LiteralPath (Join-Path $fixtureDir 'minimal-1page.pdf') -Destination "$case/inputs/source.pdf"
+  $payload = [byte[]]@(0,254,128,10,255,32,26,1,127)
+  $expectedHex = [Convert]::ToHexString($payload)
+  [IO.File]::WriteAllBytes("$case/inputs/payload.bin", $payload)
+  if ((Invoke-Oracle $case @('inputs/source.pdf','--add-attachment','inputs/payload.bin','--key=payload','--',
+      'inputs/attached.pdf')) -ne 0 -or
+      (Invoke-Oracle $case @('inputs/attached.pdf','--json-output','inputs/attached.json')) -ne 0) {
+    throw 'Bound attachment fixture creation failed.'
+  }
+
+  $process = @{ WorkingDirectory=$case; Wait=$true; PassThru=$true }
+  $native = Start-ReferenceProcess @process -FilePath $QpdfExe -ArgumentList @('inputs/attached.json','--json-input','--list-attachments') `
+    -RedirectStandardOutput "$case/native-list.txt" -RedirectStandardError "$case/native-list-error.txt"
+  $managed = Start-ReferenceProcess @process -FilePath 'dotnet' -ArgumentList @($probeDll,'emit','--workdir',$case,'--',
+      'inputs/attached.json','--json-input','--list-attachments') `
+    -RedirectStandardOutput "$case/managed-list.txt" -RedirectStandardError "$case/managed-list-error.txt"
+  $match = [regex]::Match([IO.File]::ReadAllText("$case/native-list.txt"), '(?m)^payload -> \d+,\d+')
+  if ($native.ExitCode -ne 0 -or $managed.ExitCode -ne 0 -or -not $match.Success -or
+      -not [IO.File]::ReadAllText("$case/managed-list.txt").Contains("AttachmentListing Info $($match.Value)")) {
+    throw 'Bound attachment listing lost the stream identity.'
+  }
+
+  $job = @{ inputFile='inputs/attached.json'; jsonInput=''; showAttachment='payload' }
+  $job | ConvertTo-Json | Set-Content -LiteralPath "$case/job.json"
+  $native = Start-ReferenceProcess @process -FilePath $QpdfExe -ArgumentList @('--job-json-file=job.json') `
+    -RedirectStandardOutput "$case/native.bin" -RedirectStandardError "$case/native-binary-error.txt"
+  $managed = Start-ReferenceProcess @process -FilePath 'dotnet' -ArgumentList @($probeDll,'emit-job','--workdir',$case,'--job',"$case/job.json") `
+    -RedirectStandardOutput "$case/managed-binary.txt" -RedirectStandardError "$case/managed-binary-error.txt"
+  if ($native.ExitCode -ne 0 -or $managed.ExitCode -ne 0 -or
+      [Convert]::ToHexString([IO.File]::ReadAllBytes("$case/native.bin")) -cne $expectedHex -or
+      -not [IO.File]::ReadAllText("$case/managed-binary.txt").Contains("emit: bytes $expectedHex")) {
+    throw 'Bound attachment extraction changed an opaque payload.'
+  }
+  Write-Output '[json-attachment-inspection] attachment listing pair and extracted bytes agree.'
 }

@@ -84,9 +84,10 @@ Read-only inspection keeps source values.
 The structural checker shares page-tree, stream, content and form analysis
 across ordinary and bound JSON graphs. Physical header, offsets and
 linearization require physical input. Output-free JSON checking reports those
-stages as skipped. Follow-up listings use the same bound pairs and graph as
-checking. Text and JSON page reports share inherited image lookup and retain
-their distinct descriptor and diagnostic policies.
+stages as skipped. Standalone and checked listings share the bound graph and
+declared pairs. Attachment inspection uses the same name-tree walker on bound
+and physical graphs. Text and JSON page reports share inherited image lookup
+and retain their distinct descriptor and diagnostic policies.
 
 JSON imports and ordinary PDF operations share catalog and version policy.
 Whole-file command imports compact the published numbers after stream

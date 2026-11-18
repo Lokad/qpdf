@@ -42,8 +42,14 @@ public sealed class AttachmentInspectionTests
             switch (conflict)
             {
                 case "json": argv.Add("--json=2"); job.Add("json", "2"); break;
-                case "json-input": argv.Add("--json-input"); job.Add("jsonInput", ""); break;
-                case "update": argv.Add("--update-from-json=missing-patch"); job.Add("updateFromJson", "missing-patch"); break;
+                case "two-imports":
+                    argv.AddRange(["--json-input", "--update-from-json=missing-patch"]);
+                    job.Add("jsonInput", ""); job.Add("updateFromJson", "missing-patch");
+                    break;
+                case "bound-xref":
+                    argv.AddRange(["--json-input", "--show-xref"]);
+                    job.Add("jsonInput", ""); job.Add("showXref", "");
+                    break;
                 default: throw new ArgumentException("Unknown conflict.", nameof(conflict));
             }
         }
@@ -55,7 +61,7 @@ public sealed class AttachmentInspectionTests
 
     public static IEnumerable<object[]> ConflictCases()
     {
-        foreach (string conflict in new[] { "json", "json-input", "update" })
+        foreach (string conflict in new[] { "json", "two-imports", "bound-xref" })
         foreach (string route in new[] { "argv", "job", "mixed" })
         foreach (bool target in new[] { false, true }) { yield return [conflict, route, target]; }
     }

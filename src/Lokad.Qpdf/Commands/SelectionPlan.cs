@@ -256,7 +256,7 @@ internal sealed record SecurityPlan(QpdfPath Input, QpdfRecoveryMode Recovery, b
 /// <summary>Validated structural inspection.</summary>
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
-    internal ImportedCheckInput? Import { get; init; }
+    internal ImportedInspectionInput? Import { get; init; }
     public bool AssembleCatalog => false;
     public QpdfPassword? Password { get; init; }
 
@@ -290,7 +290,7 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
     public bool ShowLinearization { get; init; }
 }
 
-internal readonly record struct ImportedCheckInput(QpdfPath Json, bool Update);
+internal readonly record struct ImportedInspectionInput(QpdfPath Json, bool Update);
 
 /// <summary>Validated whole-file transformation.</summary>
 internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);

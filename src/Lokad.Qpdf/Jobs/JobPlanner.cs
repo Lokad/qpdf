@@ -782,7 +782,6 @@ internal static partial class JobPlanner
             bool wantAttachments = listAttachments || showAttachment is not null;
             bool attachmentTarget = showAttachment is not null && output is not null;
             bool importJson = jsonInput || seenUpdateFromJson;
-            bool checkImported = check && importJson;
             if (check || showEncryption || attachmentTarget || (output is null && (showAttachment is not null || showObject is not null
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
@@ -793,17 +792,17 @@ internal static partial class JobPlanner
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput
-                    || !checkImported && (seenJsonInput || seenUpdateFromJson)
+                    || !importJson && seenJsonInput
                     || seenTestJsonSchema)
                 {
                     throw new QpdfParseException("Job inspection cannot be combined with output or these transformation/JSON settings.", 0L, null);
                 }
 
-                if (checkImported && (jsonInput && seenUpdateFromJson || empty || output is not null
+                if (importJson && (jsonInput && seenUpdateFromJson || empty
                     || hasPages || seenCollate || coalesceContents || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
-                    || wantAttachments || checkLinearization || showLinearization || showXref))
+                    || checkLinearization || showLinearization || showXref))
                 {
-                    throw new QpdfParseException("JSON graph checking requires one import and cannot be combined with output, page transforms, attachments or physical layout inspection.", 0L, null);
+                    throw new QpdfParseException("JSON graph inspection requires one import and cannot be combined with page transforms or physical layout inspection.", 0L, null);
                 }
 
                 List<PdfPageSource> inspectionSources = new();
@@ -816,7 +815,7 @@ internal static partial class JobPlanner
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
-                    Import = checkImported ? new ImportedCheckInput(jsonInput ? checkInput : SelectionPlan.CheckedPath(updateFromJson
+                    Import = importJson ? new ImportedInspectionInput(jsonInput ? checkInput : SelectionPlan.CheckedPath(updateFromJson
                         ?? throw new InvalidOperationException("Missing validated JSON patch path.")), !jsonInput) : null,
                     PasswordFiles = passwordFiles,
                     Password = password,

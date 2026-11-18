@@ -4385,7 +4385,8 @@
           "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
           "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
           "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling",
-          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout",
+          "ImportedCheckTests.AttachmentsShareBoundListingAndExtractionSuppression"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -5077,7 +5078,8 @@
         "interaction": [
           "AttachmentTests.DanglingEntryWarnsButListsRest",
           "AttachmentTests.JobListSucceedsWithoutOutput",
-          "AttachmentTests.MalformedAttachmentsFail"
+          "AttachmentTests.MalformedAttachmentsFail",
+          "ImportedCheckTests.AttachmentsShareBoundListingAndExtractionSuppression"
         ],
         "resource": [
           "AttachmentTreeResourceTests.IndirectKeyAdmissionPreservesRefusalCancellationAndCleanup",
@@ -5091,7 +5093,8 @@
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
-          "diff:attachments-list"
+          "diff:attachments-list",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -7158,7 +7161,8 @@
         "interaction": [
           "AttachmentTests.JobShowExtracts",
           "AttachmentTests.ShowOutputAliasingInputFails",
-          "NamedPublicationAliasTests.TypedPublicationChecksTheAcquiredIdentity"
+          "NamedPublicationAliasTests.TypedPublicationChecksTheAcquiredIdentity",
+          "ImportedCheckTests.AttachmentsShareBoundListingAndExtractionSuppression"
         ],
         "resource": [
           "AttachmentTreeResourceTests.OutputFailureAfterIndirectTraversalPreservesTheTarget",
@@ -7167,10 +7171,12 @@
           "AttachmentInspectionTests.PublicationFaultsPreservePriorTargetAndCloseTheSingleSource",
           "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
-          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
+          "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
+          "ImportedCheckTests.NamedAttachmentUsesAClosedBoundGraphAndProtectsPriorOutput"
         ],
         "oracle": [
-          "diff:attachments-show"
+          "diff:attachments-show",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -7325,7 +7331,8 @@
         ],
         "interaction": [
           "ShowNpagesTests.JobShowNpagesMatchesArgv",
-          "BoundedPageCountTests.UncertainDeclarationsRequireCompleteInputAndKeepExistingCommandPolicy"
+          "BoundedPageCountTests.UncertainDeclarationsRequireCompleteInputAndKeepExistingCommandPolicy",
+          "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent"
         ],
         "resource": [
           "ShowNpagesTests.FailsOnExhaustedInputBudget",
@@ -7335,7 +7342,8 @@
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
-          "diff:show-npages"
+          "diff:show-npages",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -7377,13 +7385,16 @@
           "ShowObjectTests.JobShowObjectValidatesCombinations"
         ],
         "interaction": [
-          "ShowObjectTests.JobShowObjectMatchesArgv"
+          "ShowObjectTests.JobShowObjectMatchesArgv",
+          "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent",
+          "ImportedCheckTests.StandaloneObjectStreamReturnsTheExactDeclaredPayload"
         ],
         "resource": [
           "ShowObjectTests.FailsOnExhaustedInputBudget"
         ],
         "oracle": [
-          "diff:show-object"
+          "diff:show-object",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -7420,7 +7431,8 @@
           "ShowPagesTests.RejectsCombinationsAndValuedForm"
         ],
         "interaction": [
-          "ShowPagesTests.JobShowPagesMatchesArgv"
+          "ShowPagesTests.JobShowPagesMatchesArgv",
+          "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent"
         ],
         "resource": [
           "ShowPagesTests.FailsOnExhaustedInputBudget",
@@ -7428,7 +7440,8 @@
           "ShowPagesTests.ContentsInspectionKeepsDepthAndCancellationBounds"
         ],
         "oracle": [
-          "diff:show-pages"
+          "diff:show-pages",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -8054,7 +8067,8 @@
           "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput",
           "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout",
           "ImportedCheckTests.ProtectedInputAuthenticatesBeforeThePatch",
-          "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
+          "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication",
+          "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",

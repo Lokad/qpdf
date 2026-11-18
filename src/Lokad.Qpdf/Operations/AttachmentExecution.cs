@@ -153,7 +153,7 @@ internal static class AttachmentExecution
         await using QpdfDocument document = emptyDocument
             ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false);
-        IReadOnlyList<QpdfAttachmentInfo> infos = ListAttachments(document, inputPath, limits, governor, diagnostics,
+        IReadOnlyList<QpdfAttachmentInfo> infos = ListAttachments(document.Engine, document.Engine.Trailer, null, inputPath, limits, governor, diagnostics,
             memory, results, cancellationToken);
         await document.DisposeAsync().ConfigureAwait(false);
         if (results is not null)
