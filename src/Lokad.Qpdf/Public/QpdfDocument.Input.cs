@@ -24,11 +24,8 @@ public sealed partial class QpdfDocument
         IDisposable? snapshotBorrow = null;
         try
         {
-            if (input.Length > limits.MaxInputBytes)
-            { throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes); }
-            if (input.Length > int.MaxValue)
-            { throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue); }
-            if (input.Length == 0L) { throw new QpdfParseException("Input is empty.", 0L, null); }
+            int inputLength = QpdfInputReader.WholeInputLength(input, limits);
+            if (inputLength == 0) { throw new QpdfParseException("Input is empty.", 0L, null); }
             if (readMode != InputReadMode.Complete)
             {
                 selectiveInput = readMode == InputReadMode.PageCount
@@ -43,7 +40,7 @@ public sealed partial class QpdfDocument
             }
             else
             {
-                long inputBytes = checked(input.Length + GovernedBufferStream.ArrayOverheadBytes);
+                long inputBytes = (long)inputLength + GovernedBufferStream.ArrayOverheadBytes;
                 bool snapshot = !valuesEscape && GovernedHost.TryReadInputSnapshot(input, cancellationToken,
                     out data, out hostInput, out snapshotBorrow);
                 if (hostInput) { governor.ReserveHostMemory(inputBytes); }
@@ -53,7 +50,7 @@ public sealed partial class QpdfDocument
                 // jobs retain their existing immutable snapshot path.
                 if (!snapshot)
                 {
-                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, inputLength, governor, cancellationToken).ConfigureAwait(false);
                     data = bytes;
                 }
             }

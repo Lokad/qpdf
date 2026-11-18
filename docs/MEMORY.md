@@ -45,6 +45,9 @@ one caller and at most one pending read.
 returns a count. Completion ends the borrow, including after cancellation. Await
 it before reusing the destination, starting another read or disposing the lease.
 Short reads reuse slices; premature zero/invalid counts are host failures.
+Whole-payload readers enforce the smaller of `MaxInputBytes` and the supported
+byte-array capacity before admission and reading. Their callers own input close
+and the lifetime of the admitted bytes.
 `QpdfInputReader.ReadExactlyToArrayAsync` admits an independent copy under the
 supplied budget. Hosts separately fund their retained backing and private copies.
 

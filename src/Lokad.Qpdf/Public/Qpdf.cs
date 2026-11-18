@@ -939,18 +939,7 @@ public static partial class Qpdf
                 byte[] bytes;
                 try
                 {
-                    if (input.Length > limits.MaxInputBytes)
-                    {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
-                    }
-
-                    if (input.Length > int.MaxValue)
-                    {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
-                    }
-
-                    working.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
-                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                    bytes = await QpdfInputReader.ReadWholeAdmittedAsync(input, limits, working, governor, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -1048,18 +1037,7 @@ public static partial class Qpdf
                 byte[] bytes;
                 try
                 {
-                    if (input.Length > limits.MaxInputBytes)
-                    {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
-                    }
-
-                    if (input.Length > int.MaxValue)
-                    {
-                        throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
-                    }
-
-                    working.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
-                    bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+                    bytes = await QpdfInputReader.ReadWholeAdmittedAsync(input, limits, working, governor, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {

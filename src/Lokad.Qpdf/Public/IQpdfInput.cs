@@ -88,6 +88,25 @@ public static class QpdfInputReader
         finally { if (!accepted) { reservation.Dispose(); } }
     }
 
+    internal static int WholeInputLength(IQpdfInput input, QpdfLimits limits)
+    {
+        long length = input.Length;
+        long maximum = Math.Min(limits.MaxInputBytes, Array.MaxLength);
+        if (length > maximum)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), length, maximum); }
+        return checked((int)length);
+    }
+
+    // The caller owns the lease and keeps the storage owner alive through close.
+    internal static ValueTask<byte[]> ReadWholeAdmittedAsync(IQpdfInput input, QpdfLimits limits,
+        ParserMemoryScope storage, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
+        storage.CheckOwner(governor);
+        int length = WholeInputLength(input, limits);
+        storage.Reserve((long)length + GovernedBufferStream.ArrayOverheadBytes);
+        return ReadAdmittedAsync(input, 0L, length, governor, cancellationToken);
+    }
+
     // The engine destination owner has already admitted this array.
     internal static async ValueTask<byte[]> ReadAdmittedAsync(IQpdfInput input, long offset,
         int count, ResourceGovernor governor, CancellationToken cancellationToken)

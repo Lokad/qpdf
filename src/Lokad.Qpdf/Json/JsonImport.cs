@@ -52,18 +52,7 @@ internal static partial class JsonImport
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, jsonPath, governor, cancellationToken).ConfigureAwait(false);
         try
         {
-            if (input.Length > limits.MaxInputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
-            }
-
-            if (input.Length > int.MaxValue)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
-            }
-
-            memory.Reserve(checked(input.Length + 32L));
-            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await QpdfInputReader.ReadWholeAdmittedAsync(input, limits, memory, governor, cancellationToken).ConfigureAwait(false);
             JsonDocumentOptions options = new()
             {
                 MaxDepth = JsonImportMemory.SyntaxMaxDepth,
@@ -587,13 +576,7 @@ internal static partial class JsonImport
             IQpdfInput input = await GovernedHost.OpenInputAsync(_host, path, _governor, token).ConfigureAwait(false);
             try
             {
-                long limit = Math.Min(_limits.MaxInputBytes, int.MaxValue);
-                if (input.Length > limit)
-                {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limit);
-                }
-                _payloadMemory.Reserve(checked(input.Length + 32L));
-                return await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, _governor, token).ConfigureAwait(false);
+                return await QpdfInputReader.ReadWholeAdmittedAsync(input, _limits, _payloadMemory, _governor, token).ConfigureAwait(false);
             }
             finally { await input.DisposeAsync().ConfigureAwait(false); }
         }

@@ -414,19 +414,7 @@ internal static class AttachmentAssembler
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         try
         {
-            if (input.Length > limits.MaxInputBytes)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
-            }
-
-            if (input.Length > int.MaxValue)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
-            }
-
-            ownership.Reserve(checked(input.Length + GovernedBufferStream.ArrayOverheadBytes));
-            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
-            return bytes;
+            return await QpdfInputReader.ReadWholeAdmittedAsync(input, limits, ownership, governor, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

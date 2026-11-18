@@ -10,22 +10,88 @@ public sealed class CooperativeInputMemoryTests
     [Theory]
     [InlineData(20000)]
     [InlineData(17)]
-    public async Task ShortReadsNeedOnlyOnePreAdmittedDestination(int chunkSize)
+    public async Task WholeInputShortReadsShareOneAdmittedDestination(int chunkSize)
     {
         RecordingMemoryBudget root = new(32768L);
         using IMemoryScope caller = root.CreateScope();
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new BudgetHost(caller));
-        governor.ReserveMemory(20032L);
         byte[] expected = Enumerable.Range(0, 20000).Select(value => (byte)value).ToArray();
         Input input = new(expected, chunkSize);
-        byte[] read = await QpdfInputReader.ReadAdmittedAsync(input, 0L, expected.Length, governor, CancellationToken.None);
-        Assert.Equal(expected, read);
-        Assert.Same(read, input.LastArray);
-        Assert.Equal(20032L, governor.Snapshot().PeakMemoryBytes);
-        Assert.Equal(1, root.ReserveCalls);
-        Assert.Equal(0, root.ResizeCalls);
-        governor.ReleaseMemory(20032L);
+        using (ParserMemoryScope storage = ParserMemoryScope.Create(governor))
+        {
+            long before = governor.Snapshot().LiveMemoryBytes;
+            byte[] read = await QpdfInputReader.ReadWholeAdmittedAsync(input, QpdfLimits.Default, storage, governor, CancellationToken.None);
+            Assert.Equal(expected, read);
+            Assert.Same(read, input.LastArray);
+            Assert.Equal(20032L, storage.ReservedBytes);
+            Assert.Equal(before + 20032L, governor.Snapshot().PeakMemoryBytes);
+            await input.DisposeAsync();
+        }
         Assert.Equal(0L, root.ReservedBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WholeInputRejectsEffectiveSizeCeilingBeforeAdmission(bool arrayCeiling)
+    {
+        long allowed = arrayCeiling ? Array.MaxLength : 63L;
+        QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = arrayCeiling ? long.MaxValue : allowed };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DeclaredInput input = new(allowed + 1L);
+        using ParserMemoryScope storage = ParserMemoryScope.Create(governor);
+        long before = governor.Snapshot().LiveMemoryBytes;
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
+            QpdfInputReader.ReadWholeAdmittedAsync(input, limits, storage, governor, CancellationToken.None).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxInputBytes), failure.LimitName);
+        Assert.Equal(input.Length, failure.Requested);
+        Assert.Equal(allowed, failure.Allowed);
+        Assert.Equal(0, input.Reads);
+        Assert.Equal(0L, storage.ReservedBytes);
+        Assert.Equal(before, governor.Snapshot().PeakMemoryBytes);
+        await input.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task RepresentableLengthIsSubjectToAdmissionBeforeTheFirstRead()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxInputBytes = long.MaxValue };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        DeclaredInput input = new(Array.MaxLength);
+        using ParserMemoryScope storage = ParserMemoryScope.Create(governor);
+        QpdfLimitException failure = await Assert.ThrowsAsync<QpdfLimitException>(() =>
+            QpdfInputReader.ReadWholeAdmittedAsync(input, limits, storage, governor, CancellationToken.None).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), failure.LimitName);
+        Assert.Equal(0, input.Reads);
+        Assert.Equal(0L, storage.ReservedBytes);
+        await input.DisposeAsync();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompanionKeepsWholeInputAdmittedThroughAsyncClose(bool closeFault)
+    {
+        QpdfPath source = QpdfPath.From("input"), target = QpdfPath.From("output");
+        using RecordingJobHost host = new("input-close", source, closeFault ? "fault" : "success", true);
+        byte[] bytes = new byte[32768];
+        host.Inner.AddInput(source, bytes, QpdfInputOwnership.Transfer);
+        Task<QpdfExecutionResult> running = Qpdf.RunZlibFlateAsync(host, source, target,
+            new QpdfZlibFlateOptions(QpdfZlibFlateMode.Compress, null), CancellationToken.None).AsTask();
+        try
+        {
+            await host.Entered.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(running.IsCompleted);
+            Assert.Equal(bytes.LongLength, host.ReadBytes);
+            Assert.True(host.Budget.ReservedBytes >= bytes.LongLength + GovernedBufferStream.ArrayOverheadBytes);
+            Assert.Empty(host.CreatedPaths);
+            host.Resume();
+            QpdfExecutionResult result = await running.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(closeFault ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(!closeFault, host.Committed.Contains(target));
+            ExecutionJobFixtures.AssertClosed(host, result);
+        }
+        finally { host.Resume(); await running; }
     }
 
     [Fact]
@@ -199,5 +265,21 @@ public sealed class CooperativeInputMemoryTests
             return destination.Length;
         }
         public ValueTask DisposeAsync() { Assert.True(Completion.Task.IsCompleted); Disposed = true; return ValueTask.CompletedTask; }
+    }
+
+    private sealed class DeclaredInput(long length) : IQpdfInput
+    {
+        public QpdfPath Path => QpdfPath.From("declared");
+        public string Identity => "declared";
+        public long Length => length;
+        internal int Reads { get; private set; }
+
+        public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken cancellationToken)
+        {
+            Reads++;
+            throw new InvalidOperationException("The declared input is never read.");
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
