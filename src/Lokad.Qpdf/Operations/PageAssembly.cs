@@ -504,7 +504,7 @@ internal static class PageAssembly
 
         PdfReference? infoRef = null;
         PdfReference? metadataRef = null;
-        DocumentMetadataPolicy policy = new(removeInfo, removeMetadata);
+        DocumentPublicationPolicy policy = new(removeInfo, removeMetadata);
         if (policy.KeepXmlMetadata)
         {
             int firstId = copier.BeginCopyAttempt();

@@ -62,9 +62,9 @@ writer's numbered model. The shared remapper validates original source edges
 against live xrefs and binds JSON edges against source/declared pairs, borrowing
 stream payloads while their backing owner lives. Its binding index is temporary.
 Original object-stream membership enters the normalized ID space during binding,
-then follows final numbering. Ordinary metadata policy applies after binding,
+then follows final numbering. Ordinary metadata/catalog policy applies after binding,
 before numbering; fresh roles retain independent aliases while shared reachability
-retires superseded metadata. JSON publication shares output-model grouping,
+retires superseded roles. JSON publication shares output-model grouping,
 version/security negotiation and the ordinary or linearized serializer; the page
 tree's actual identity determines its packing exclusion.
 

@@ -32,14 +32,13 @@ public sealed class JsonOperationCompatibilityTests
     {
         (string Key, object Value, string[] Arguments)[] requests = [
             ("qdf", true, ["--qdf"]), ("linearize", true, ["--linearize"]),
-            ("removeAcroform", true, ["--remove-acroform"]), ("removeStructure", true, ["--remove-structure"]),
             ("coalesceContents", true, ["--coalesce-contents"]), ("normalizeContent", "y", ["--normalize-content=y"]),
             ("externalizeInlineImages", true, ["--externalize-inline-images"]), ("iiMinBytes", "17", ["--ii-min-bytes=17"]),
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),
             ("generateAppearances", true, ["--generate-appearances"]), ("optimizeImages", true, ["--optimize-images"]),
             ("oiMinWidth", "17", ["--oi-min-width=17"]), ("keepInlineImages", true, ["--keep-inline-images"]),
-            ("jpegQuality", "75", ["--jpeg-quality=75"]), ("removePageLabels", true, ["--remove-page-labels"]),
+            ("jpegQuality", "75", ["--jpeg-quality=75"]),
             ("setPageLabels", new[] { "1:D/5/Label" }, ["--set-page-labels", "1:D/5/Label", "--"]),
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),

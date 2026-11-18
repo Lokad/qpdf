@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply AcroForm, structure and page-label removal during JSON creation/update,
+  preserving widgets, independent aliases and unrelated catalog data.
+
 - Apply remove-info/remove-metadata during JSON creation and update through the
   ordinary metadata policy, retaining independent roots and retiring superseded data.
 

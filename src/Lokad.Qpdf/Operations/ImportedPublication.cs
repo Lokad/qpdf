@@ -3,15 +3,16 @@ using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Operations;
 
-internal static class ImportedMetadata
+internal static class ImportedPublication
 {
-    internal static ImportedModel Apply(ImportedModel model, DocumentMetadataPolicy policy, QpdfLimits limits,
+    internal static ImportedModel Apply(ImportedModel model, DocumentPublicationPolicy policy, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        if (!policy.RemoveInfo && policy.KeepXmlMetadata) { return model; }
+        if (!policy.HasRemovals) { return model; }
         // Retirement must not hide an over-limit imported object table.
         JsonImport.CheckObjectCount(model, limits);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
@@ -48,7 +49,7 @@ internal static class ImportedMetadata
         List<QpdfObject> roots = ParserContainers.CreateList<QpdfObject>(walk);
         ParserContainers.AddItem(walk, roots, trailer);
         // JSON already preserves unrelated unreferenced declarations. Their private
-        // edges are independent roots too; removing metadata must not break them.
+        // edges are independent roots too; removing catalog roles must not break them.
         foreach ((int number, QpdfObject value) in model.Objects)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();

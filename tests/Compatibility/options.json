@@ -4212,7 +4212,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Ordinary stream compression and catalog removal (remove-acroform/remove-structure/remove-page-labels) remain unavailable with JSON creation/update."
+        "Ordinary stream compression remains unavailable with JSON creation/update."
       ],
       "evidence": {
         "positive": [
@@ -4234,7 +4234,8 @@
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
-          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4269,7 +4270,12 @@
           "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
           "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
           "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
-          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection",
+          "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
+          "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
+          "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
+          "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -4279,7 +4285,9 @@
           "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
           "DirectOutlineNormalizationTests.PromotionRetiresOnEveryAdmissionAndPublicationFailure",
           "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
-          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets",
+          "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
           "diff:json-import",
@@ -6171,7 +6179,8 @@
           "RemoveAcroformTests.OutputsPreserveFormDictionaryByDefault",
           "RemoveAcroformTests.MergeDropsFormDictionary",
           "RemoveAcroformTests.JobRemoveAcroformMatchesArgv",
-          "AcroFormPreservationTests.RemoveAcroformDropsPreservedFormButKeepsWidgets"
+          "AcroFormPreservationTests.RemoveAcroformDropsPreservedFormButKeepsWidgets",
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
         ],
         "negative": [
           "RemoveAcroformTests.MalformedFlagsFail",
@@ -6179,10 +6188,17 @@
         ],
         "interaction": [
           "RemoveAcroformTests.MergeDropsFormDictionary",
-          "RemoveAcroformTests.IgnoredWithCheck"
+          "RemoveAcroformTests.IgnoredWithCheck",
+          "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
+          "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
+          "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
+          "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
         ],
         "resource": [
-          "RemoveAcroformTests.FlagYieldsToExhaustedBudget"
+          "RemoveAcroformTests.FlagYieldsToExhaustedBudget",
+          "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
           "diff:remove-acroform",
@@ -6367,16 +6383,24 @@
         "positive": [
           "LabelTests.RemovePageLabelsIsAcceptedNoOp",
           "LabelTests.RemoveLabelsDropsMergedTree",
-          "LabelTests.JobWholeFileRemoveLabelsDropsTree"
+          "LabelTests.JobWholeFileRemoveLabelsDropsTree",
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
         ],
         "negative": [
           "LabelTests.ArgvLabelFormsFailExplicitly"
         ],
         "interaction": [
-          "LabelTests.JobRemovePageLabelsBehavesLikeArgv"
+          "LabelTests.JobRemovePageLabelsBehavesLikeArgv",
+          "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
+          "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
+          "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
+          "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
         ],
         "resource": [
-          "LabelTests.LabelsYieldToExhaustedBudget"
+          "LabelTests.LabelsYieldToExhaustedBudget",
+          "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
           "diff:remove-page-labels"
@@ -6448,7 +6472,8 @@
           "RemoveStructureTests.FlagDropsStructureTree",
           "RemoveStructureTests.OutputsOmitStructureTreeByDefault",
           "RemoveStructureTests.MergeDropsStructureTree",
-          "RemoveStructureTests.JobRemoveStructureMatchesArgv"
+          "RemoveStructureTests.JobRemoveStructureMatchesArgv",
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
         ],
         "negative": [
           "RemoveStructureTests.MalformedFlagsFail",
@@ -6456,10 +6481,17 @@
         ],
         "interaction": [
           "RemoveStructureTests.MergeDropsStructureTree",
-          "RemoveStructureTests.IgnoredWithCheck"
+          "RemoveStructureTests.IgnoredWithCheck",
+          "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
+          "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
+          "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
+          "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
         ],
         "resource": [
-          "RemoveStructureTests.FlagYieldsToExhaustedBudget"
+          "RemoveStructureTests.FlagYieldsToExhaustedBudget",
+          "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
           "diff:remove-structure"
@@ -7639,7 +7671,7 @@
       "defaultReview": "reviewed",
       "remainingGaps": [
         "Update preparation does not reconstruct page identities introduced by calledgetallpages; pushedinheritedpageresources:true is rejected, including assembled exports. Source page identities must remain stable.",
-        "Ordinary stream compression and catalog removal (remove-acroform/remove-structure/remove-page-labels) remain unavailable with JSON creation/update."
+        "Ordinary stream compression remains unavailable with JSON creation/update."
       ],
       "evidence": {
         "positive": [
@@ -7662,7 +7694,8 @@
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
-          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7698,7 +7731,12 @@
           "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
           "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
           "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
-          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection",
+          "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
+          "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
+          "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
+          "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -7709,7 +7747,9 @@
           "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
           "JsonLayoutIdentityTests.PreservedMembershipRetiresOnEveryAdmissionAndPublicationFailure",
           "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
-          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets",
+          "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
           "diff:json-update",
