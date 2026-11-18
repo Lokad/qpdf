@@ -142,8 +142,7 @@ internal static class PageAssembly
     {
         Content.ContentPrunePolicy prune = settings.Prune;
         bool externalizeInlineImages = settings.ExternalizeInlineImages || (settings.Optimize.Optimize && !settings.Optimize.KeepInline);
-        pruneHere = prune.Enabled && (prune.Mode == "yes"
-            || (prune.Mode is null or "auto" && Content.ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, cancellationToken)));
+        pruneHere = prune.ShouldPrune(engine, limits, governor, cancellationToken);
         if (!settings.CoalesceContents && !settings.NormalizeContent && !externalizeInlineImages)
         {
             return null;

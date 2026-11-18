@@ -318,6 +318,8 @@ Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive
 export and recreation. The primary retains catalog and security policy.
+Page-source JSON applies the same per-source no/yes/auto resource-pruning policy
+as command PDF selection, retaining independent private resource bindings.
 Coalescing, inline-image externalization and eligible image optimization,
 including nested Forms, share the ordinary content owners before JSON projection.
 Optimization uses the caller's JPEG codec, thresholds, quality and inline policy;

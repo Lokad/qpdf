@@ -75,12 +75,35 @@ internal static class InspectionGraphPreparation
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
         bool content = plan is JsonPlan && (plan.CoalesceContents || externalize || plan.OptimizeImages);
         if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay && !content) { return null; }
+        if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
+            && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
+        { throw new ArgumentException("Collation requires one size or one size per source."); }
+        bool pruning = plan is JsonPlan && plan.Sources.Count > 0 && plan.RemoveUnreferencedResources != "no";
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         InspectionGraph? lifetime = null;
         try
         {
             memory.Reserve(32L);
             lifetime = new(document, memory);
+            using ParserMemoryScope? pruningMemory = pruning ? ParserMemoryScope.Create(governor) : null;
+            Content.ContentPrunePolicy? prunePolicy = null;
+            HashSet<GraphCopier>? pruneSources = null;
+            bool prunePrimary = false;
+            if (pruningMemory is not null)
+            {
+                pruningMemory.Reserve(32L);
+                prunePolicy = new(true, plan.RemoveUnreferencedResources);
+                pruneSources = ParserContainers.CreateSet<GraphCopier>(pruningMemory);
+                // Inspect source sharing before inherited-resource overlays can change it.
+                for (int index = 0; index < plan.Sources.Count; index++)
+                {
+                    governor.NoteOperation();
+                    string path = plan.Sources[index].Input.Value;
+                    if ((path == "." || string.Equals(path, plan.Input.Value, StringComparison.Ordinal))
+                        && InspectionGroupIncluded(plan, index))
+                    { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
+                }
+            }
             using ParserMemoryScope? preparation = content ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
                 : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
@@ -104,6 +127,8 @@ internal static class InspectionGraphPreparation
             }
             if (greatest == int.MaxValue) { throw new QpdfParseException("No object identity is available for page transformations.", null, null); }
             GraphCopier pool = GraphCopier.CreateInspectionOwned(document.Engine, governor, limits, greatest + 1, memory, true);
+            if (prunePrimary && pruneSources is not null && pruningMemory is not null)
+            { ParserContainers.AddSetItem(pruningMemory, pruneSources, pool, IntPtr.Size); }
             if (prepared is not null)
             {
                 foreach (KeyValuePair<int, QpdfObject> entry in prepared.Objects)
@@ -164,7 +189,8 @@ internal static class InspectionGraphPreparation
             if (catalogAssembly is not null)
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, document, governor, cancellationToken); }
             List<List<InspectionPage>> groups = await PrepareInspectionSourcesAsync(host, document, original,
-                pool, plan, catalogAssembly, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
+                pool, plan, catalogAssembly, prunePolicy, pruneSources, pruningMemory,
+                limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
             if (catalogAssembly is not null)
             {
                 using ParserMemoryScope keptMemory = ParserMemoryScope.Create(governor);
@@ -310,12 +336,17 @@ internal static class InspectionGraphPreparation
                     memory, limits, governor, diagnostics, cancellationToken);
             }
 
-            if (content)
+            if (content || pruneSources is { Count: > 0 })
             {
                 using ParserMemoryScope contentMemory = ParserMemoryScope.Create(governor);
-                List<int> pageIds = ParserContainers.CreateList<int>(contentMemory, selectedPages.Count, sizeof(int));
-                foreach (InspectionPage page in selectedPages)
-                { governor.NoteOperation(); ParserContainers.AddItem(contentMemory, pageIds, page.Number, sizeof(int)); }
+                IReadOnlyList<int> pageIds = Array.Empty<int>();
+                if (content)
+                {
+                    List<int> contentPages = ParserContainers.CreateList<int>(contentMemory, selectedPages.Count, sizeof(int));
+                    foreach (InspectionPage page in selectedPages)
+                    { governor.NoteOperation(); ParserContainers.AddItem(contentMemory, contentPages, page.Number, sizeof(int)); }
+                    pageIds = contentPages;
+                }
                 if (plan.CoalesceContents || externalize)
                 {
                     memory.Reserve(48L);
@@ -323,6 +354,19 @@ internal static class InspectionGraphPreparation
                     Content.ContentTransforms.ApplyPageTransforms(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
                     if (externalize)
                     { Content.ContentTransforms.ExternalizeForms(pool, pageIds, request, null, limits, governor, diagnostics, cancellationToken); }
+                }
+                if (pruneSources is { Count: > 0 })
+                {
+                    IReadOnlyList<(GraphCopier Copier, int Id)> ordered = occurrences
+                        ?? throw new InvalidOperationException("Missing selected source identities for resource pruning.");
+                    List<int> pruneIds = ParserContainers.CreateList<int>(contentMemory);
+                    foreach ((GraphCopier source, int id) in ordered)
+                    {
+                        governor.NoteOperation();
+                        if (pruneSources.Contains(source)) { ParserContainers.AddItem(contentMemory, pruneIds, id, sizeof(int)); }
+                    }
+                    if (pruneIds.Count > 0)
+                    { Content.ContentTransforms.ApplyResourcePruning(pool, pruneIds, limits, governor, diagnostics, cancellationToken); }
                 }
                 if (plan.OptimizeImages)
                 {
@@ -399,9 +443,13 @@ internal static class InspectionGraphPreparation
         }
     }
 
+    private static bool InspectionGroupIncluded(IInspectionGraphPlan plan, int group)
+        => plan.Collation is null || plan.Collation.GroupSizes[plan.Collation.GroupSizes.Count == 1 ? 0 : group] > 0;
+
     private static async ValueTask<List<List<InspectionPage>>> PrepareInspectionSourcesAsync(
         IQpdfHost host, QpdfDocument document, List<InspectionPage> original, GraphCopier pool,
         IInspectionGraphPlan plan, InspectionCatalog? catalogAssembly,
+        Content.ContentPrunePolicy? prunePolicy, HashSet<GraphCopier>? pruneSources, ParserMemoryScope? pruningMemory,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         ParserMemoryScope memory, CancellationToken token)
     {
@@ -411,10 +459,6 @@ internal static class InspectionGraphPreparation
             ParserContainers.AddItem(memory, groups, original, IntPtr.Size);
             return groups;
         }
-        if (plan.Collation is PdfPageCollation collation
-            && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
-        { throw new ArgumentException("Collation requires one size or one size per source."); }
-
         using ParserMemoryScope planning = ParserMemoryScope.Create(governor);
         Dictionary<string, List<int>> sources = ParserContainers.CreateDictionary<string, List<int>>(planning);
         for (int index = 0; index < plan.Sources.Count; index++)
@@ -454,8 +498,7 @@ internal static class InspectionGraphPreparation
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 IReadOnlyList<int> pages = Pages.PageRanges.Expand(plan.Sources[group].Selection.Range,
                     reader.PageCount, limits.MaxContainerSize, governor, ranges);
-                bool included = plan.Collation is null
-                    || plan.Collation.GroupSizes[plan.Collation.GroupSizes.Count == 1 ? 0 : group] > 0;
+                bool included = InspectionGroupIncluded(plan, group);
                 ParserContainers.AddItem(ranges, requests, (group, pages, included), 24L);
                 hasPages |= included && pages.Count > 0;
                 if (primary || !included) { continue; }
@@ -465,6 +508,9 @@ internal static class InspectionGraphPreparation
                     copier.RegisterPageRoot(reader.PageReferences[number - 1].Source?.ObjectNumber);
                 }
             }
+            if (!primary && hasPages && prunePolicy is not null && pruneSources is not null && pruningMemory is not null
+                && prunePolicy.ShouldPrune(reader.Engine, limits, governor, token))
+            { ParserContainers.AddSetItem(pruningMemory, pruneSources, copier, IntPtr.Size); }
             Content.SourceLabels? sourceLabels = catalogAssembly is not null && hasPages
                 ? Content.PageLabelMerge.ReadSource(reader.Engine, copier, limits, governor, token) : null;
             if (catalogAssembly is not null && hasPages)

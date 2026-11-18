@@ -14,6 +14,7 @@ internal interface IInspectionGraphPlan
     bool CoalesceContents { get; }
     bool ExternalizeInlineImages { get; }
     long IiMinBytes { get; }
+    string? RemoveUnreferencedResources { get; }
     bool OptimizeImages { get; }
     long OiMinWidth { get; }
     long OiMinHeight { get; }

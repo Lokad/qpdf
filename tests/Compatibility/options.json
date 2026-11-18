@@ -4167,7 +4167,9 @@
           "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
           "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
           "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
-          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage",
+          "JsonResourcePruningTests.SelectedResourcesFollowSourcePolicyWithoutChangingPrivateBindings",
+          "JsonResourcePruningTests.FormReplacementsLeaveThePrivateFormAndResourcesIntact"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4184,7 +4186,9 @@
           "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference",
           "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
           "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
-          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport",
+          "JsonResourcePruningTests.PruningDoesNotActivateWithoutPageSelection",
+          "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4214,7 +4218,12 @@
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
           "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
-          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource",
+          "JsonResourcePruningTests.PrimaryAndForeignSourcesKeepIndependentAutoDecisions",
+          "JsonResourcePruningTests.EmptyPrimaryUsesTheForeignSourcePolicy",
+          "JsonResourcePruningTests.RepeatedPagesRetainIndependentHeadersAndSharedPrunedResources",
+          "JsonResourcePruningTests.CoalescingDoesNotChangeTheOriginalSourceAutoDecision",
+          "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4240,7 +4249,8 @@
           "AttachmentJsonStreamKeysTests.ExtraStreamInspectionRefundsEveryRefusedSharedGrowth",
           "RawImageDescriptorTests.InactiveInspectionAvoidsStageStorageWhileRetainingParsedContainerLimits",
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
-          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport",
+          "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4249,7 +4259,8 @@
           "diff:json-page-assembly",
           "diff:json-images-raw-malformed",
           "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
-          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages",
+          "tools/ReferenceJsonResources.ps1: Invoke-ReferenceJsonResources"
         ]
       }
     },
@@ -4539,7 +4550,9 @@
           "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
           "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
           "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
-          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage",
+          "JsonResourcePruningTests.SelectedResourcesFollowSourcePolicyWithoutChangingPrivateBindings",
+          "JsonResourcePruningTests.FormReplacementsLeaveThePrivateFormAndResourcesIntact"
         ],
         "negative": [
           "JsonModesTests.JsonOutputRejectsVersionOne",
@@ -4549,7 +4562,9 @@
           "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference",
           "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
           "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
-          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport",
+          "JsonResourcePruningTests.PruningDoesNotActivateWithoutPageSelection",
+          "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
@@ -4567,7 +4582,12 @@
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
           "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
-          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource",
+          "JsonResourcePruningTests.PrimaryAndForeignSourcesKeepIndependentAutoDecisions",
+          "JsonResourcePruningTests.EmptyPrimaryUsesTheForeignSourcePolicy",
+          "JsonResourcePruningTests.RepeatedPagesRetainIndependentHeadersAndSharedPrunedResources",
+          "JsonResourcePruningTests.CoalescingDoesNotChangeTheOriginalSourceAutoDecision",
+          "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4583,14 +4603,16 @@
           "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
           "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
-          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport",
+          "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
           "diff:json-output",
           "diff:security-json",
           "diff:json-page-assembly",
           "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
-          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages",
+          "tools/ReferenceJsonResources.ps1: Invoke-ReferenceJsonResources"
         ]
       }
     },
@@ -6676,12 +6698,16 @@
           "ResourcePruningScopeTests.ASpellingInTheOtherCategoryDoesNotProveALocalBinding",
           "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
           "SharedPruningTests.IdenticalContextsDecodeOnceAndSharePrunedResources",
-          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace",
+          "JsonResourcePruningTests.SelectedResourcesFollowSourcePolicyWithoutChangingPrivateBindings",
+          "JsonResourcePruningTests.FormReplacementsLeaveThePrivateFormAndResourcesIntact"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
           "ContentTransformsTests.PruneSkipsDamagedContentWithWarning",
-          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent",
+          "JsonResourcePruningTests.PruningDoesNotActivateWithoutPageSelection",
+          "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
@@ -6691,7 +6717,12 @@
           "LateContentTransformTests.SelectedPruningSeesImportedResourcesAndKeepsIndependentAliases",
           "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph",
           "SharedPruningTests.DistinctResourcesKeepTheirOwnBindingsAndOversizedDecodesRemainUncached",
-          "SharedPruningTests.DifferentContentArraysKeepEveryProgramDependency"
+          "SharedPruningTests.DifferentContentArraysKeepEveryProgramDependency",
+          "JsonResourcePruningTests.PrimaryAndForeignSourcesKeepIndependentAutoDecisions",
+          "JsonResourcePruningTests.EmptyPrimaryUsesTheForeignSourcePolicy",
+          "JsonResourcePruningTests.RepeatedPagesRetainIndependentHeadersAndSharedPrunedResources",
+          "JsonResourcePruningTests.CoalescingDoesNotChangeTheOriginalSourceAutoDecision",
+          "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings"
         ],
         "resource": [
           "ResourceEnforcementTests.PruneYieldsToExhaustedBudget",
@@ -6700,10 +6731,12 @@
           "SinglePartContentOwnershipTests.EscapedBytesDropTheLargerSourceAndCompletedExecution",
           "SharedPruningTests.EvictedIdentityContextsChargeTheirActualDecodingAgain",
           "ContentPreparationAdmissionTests.SharedPruningRefundsEveryOwnerIncludingPromotionAndPendingPublication",
-          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance",
+          "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
-          "diff:prune-resources"
+          "diff:prune-resources",
+          "tools/ReferenceJsonResources.ps1: Invoke-ReferenceJsonResources"
         ]
       }
     },

@@ -95,6 +95,8 @@ form, annotation and layer owners bind secondary context before input cleanup;
 the graph detaches after serialization and sidecar copying, before publication.
 JSON content/image transforms use the same content owners and host JPEG
 capability over that graph, including the ordinary inline-image policy.
+Source selection determines resource-pruning policy before inherited overlays;
+the shared pruning owner applies it to the assembled source occurrences.
 Parsed source references keep provenance so new inspection identities cannot
 revive old dangling edges. Source-aware pool resolution borrows untouched values;
 Form replacement propagation retains borrowed parents and exact source pairs.

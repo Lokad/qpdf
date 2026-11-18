@@ -15,7 +15,12 @@ internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bo
 }
 
 /// <summary>Resource pruning policy: enabled flag plus auto/yes/no mode.</summary>
-internal sealed record ContentPrunePolicy(bool Enabled, string? Mode);
+internal sealed record ContentPrunePolicy(bool Enabled, string? Mode)
+{
+    internal bool ShouldPrune(DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        => Enabled && (Mode == "yes" || Mode is null or "auto"
+            && ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, token));
+}
 
 /// <summary>An indirect-object resolver backed by a copied pool.</summary>
 internal sealed class PoolResolver : IIndirectResolver

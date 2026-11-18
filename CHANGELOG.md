@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply per-source resource pruning to JSON page selection, preserving private
+  aliases and the same selection-only defaults as PDF output.
+
 - Apply image optimization before JSON export through the host JPEG codec,
   preserving private originals and honoring thresholds, quality and inline policy.
 
