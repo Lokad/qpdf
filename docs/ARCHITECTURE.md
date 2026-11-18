@@ -89,6 +89,8 @@ checking. Text and JSON page reports share inherited image lookup and retain
 their distinct descriptor and diagnostic policies.
 
 JSON imports and ordinary PDF operations share catalog and version policy.
+Split imports partition the bound page tree after applying patches and stream
+preparation. They reuse the ordinary split numbering and publication owners.
 `OutputModelPreparation` finalizes reachability, encryption numbering,
 ordering and object-stream grouping. Direct outline roots gain an indirect
 identity for layout. Streamed

@@ -30,6 +30,7 @@ internal static partial class JsonImport
         IQpdfHost host,
         QpdfPath jsonPath,
         string? replacementIdentity,
+        SplitInputAliases? splitInputs,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -56,6 +57,7 @@ internal static partial class JsonImport
         try
         {
             CheckReplacementAlias(input, replacementIdentity);
+            splitInputs?.Remember(jsonPath, input.Path, input.Identity);
             byte[] bytes = await QpdfInputReader.ReadWholeAdmittedAsync(input, limits, memory, governor, cancellationToken).ConfigureAwait(false);
             JsonDocumentOptions options = new()
             {
@@ -90,6 +92,7 @@ internal static partial class JsonImport
         IQpdfHost host,
         JsonDocument document,
         bool retainOriginalPairs,
+        SplitInputAliases? splitInputs,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -123,7 +126,7 @@ internal static partial class JsonImport
         Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null,
             retainOriginalPairs ? memory : bindingMemory, governor, cancellationToken);
         Dictionary<int, QpdfObject> objects = new(bindings.Count);
-        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory, null);
+        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory, null, splitInputs);
         PdfDictionary? trailer = null;
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
@@ -164,6 +167,7 @@ internal static partial class JsonImport
         bool preserveObjectStreams,
         bool retainOriginalPairs,
         (QpdfPath Path, string Identity)? replacementTarget,
+        SplitInputAliases? splitInputs,
         QpdfLimits limits,
         ResourceGovernor governor,
         ParserMemoryScope memory,
@@ -236,7 +240,7 @@ internal static partial class JsonImport
         PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(prepared?.Trailer ?? engine.Trailer,
             engine.XRefEntries, bindings, prepared?.AddedReferences, memory, governor, cancellationToken);
         PdfDictionary originalTrailer = trailer;
-        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory, replacementTarget);
+        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory, replacementTarget, splitInputs);
         QpdfObject originalEncryption = PdfNull.Instance;
         if (engine.Security is not null && PdfDictionaryLookup.TryGet(trailer, "Encrypt"u8, governor, cancellationToken, out QpdfObject declaration))
         {
@@ -538,21 +542,25 @@ internal static partial class JsonImport
         private readonly ParserMemoryScope _payloadMemory;
         private readonly ParserMemoryScope _lookupMemory;
         private readonly (QpdfPath Path, string Identity)? _replacement;
+        private readonly SplitInputAliases? _splitInputs;
         private (string Name, byte[] Bytes)[]? _entries;
         private int _next;
 
         private SidecarReader(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor,
-            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory, (QpdfPath Path, string Identity)? replacement)
+            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory, (QpdfPath Path, string Identity)? replacement,
+            SplitInputAliases? splitInputs)
         {
             _host = host; _limits = limits; _governor = governor;
             _payloadMemory = payloadMemory; _lookupMemory = lookupMemory; _replacement = replacement;
+            _splitInputs = splitInputs;
         }
 
         internal static SidecarReader Create(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor,
-            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory, (QpdfPath Path, string Identity)? replacement)
+            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory, (QpdfPath Path, string Identity)? replacement,
+            SplitInputAliases? splitInputs)
         {
-            lookupMemory.Reserve(104L);
-            return new SidecarReader(host, limits, governor, payloadMemory, lookupMemory, replacement);
+            lookupMemory.Reserve(112L);
+            return new SidecarReader(host, limits, governor, payloadMemory, lookupMemory, replacement, splitInputs);
         }
 
         internal async ValueTask<byte[]> ReadAsync(string name, CancellationToken token)
@@ -591,6 +599,7 @@ internal static partial class JsonImport
             try
             {
                 CheckReplacementAlias(input, _replacement?.Identity);
+                _splitInputs?.Remember(path, input.Path, input.Identity);
                 return await QpdfInputReader.ReadWholeAdmittedAsync(input, _limits, _payloadMemory, _governor, token).ConfigureAwait(false);
             }
             finally { await input.DisposeAsync().ConfigureAwait(false); }
@@ -820,7 +829,8 @@ internal static partial class JsonImport
         int MetadataNumber,
         int PageCount,
         Dictionary<int, QpdfObject> Objects,
-        IReadOnlyDictionary<int, int> Mapping);
+        IReadOnlyDictionary<int, int> Mapping,
+        HashSet<PdfDictionary>? DisabledSignatureWidgets);
 
     internal static RenumberedModel Renumber(
         ImportedModel model,
@@ -863,7 +873,7 @@ internal static partial class JsonImport
         }
 
         memory.CheckOwner(governor);
-        memory.Reserve(checked(528L + 192L * model.Objects.Count));
+        memory.Reserve(checked(536L + 192L * model.Objects.Count));
         int rootOld;
         PdfDictionary root;
         if (rootRaw is PdfDictionary directRoot)
@@ -953,7 +963,7 @@ internal static partial class JsonImport
             mapped[renumber[-2]] = Writing.ObjectRemap.RemapImported(infoDict, renumber, memory, governor, cancellationToken);
         }
 
-        Writing.GraphCopier.DisablePublishedSignatures(mapped, 1, governor, limits, memory);
+        HashSet<PdfDictionary>? disabledWidgets = Writing.GraphCopier.DisablePublishedSignatures(mapped, 1, governor, limits, memory);
         PromoteOutlines(mapped, memory, governor, cancellationToken);
 
         int? infoNew = null;
@@ -985,7 +995,7 @@ internal static partial class JsonImport
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
         normalizationPages = normalizationMemory is null ? null : pages;
-        return new RenumberedModel(numbered, infoNew, metadata, pages.Count, mapped, renumber);
+        return new RenumberedModel(numbered, infoNew, metadata, pages.Count, mapped, renumber, disabledWidgets);
     }
 
     private static List<PageLocation> CoalescePages(Dictionary<int, QpdfObject> objects, IIndirectResolver resolver,

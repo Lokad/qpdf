@@ -980,12 +980,14 @@ internal static partial class JobPlanner
             {
                 throw new QpdfParseException("JSON replacement requires an update of a PDF.", 0L, null);
             }
+            if (importJson && replaceInput && splitPages.HasValue)
+            { throw new QpdfParseException("--split-pages may not be used with --replace-input.", null, null); }
 
             // Complete validation before any restricted JSON-plan return. These
             // plans cannot run geometry operations; ordinary checking and
             // document-JSON writer ignores retain their separate policies.
             if ((importJson || seenJson || seenJsonOutput)
-                && (splitPages is not null || (importJson && seenCollate) || rotations.Count > 0
+                && ((!importJson && splitPages.HasValue) || (importJson && seenCollate) || rotations.Count > 0
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
                     || (!importJson && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
@@ -1032,6 +1034,7 @@ internal static partial class JobPlanner
                 return new JsonImportPlan(importInput, patch, SelectionPlan.CheckedPath(output), recovery) with
                 {
                     ReplaceInput = replaceInput,
+                    SplitPages = splitPages,
                     CompressionState = compressionSettings.State,
                     CoalesceContents = coalesceContents,
                     RecompressFlate = recompressFlate,

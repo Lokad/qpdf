@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Operations;
 
@@ -111,4 +113,66 @@ internal static class SplitAssembly
         return GraphReachability.Find(resolver, rootArray, memory, governor);
     }
 
+    internal readonly record struct GroupNumbers(List<int> Kept, Dictionary<int, int> Map);
+
+    internal static GroupNumbers NumberGroup(IReadOnlyDictionary<int, QpdfObject> pool, HashSet<int> reachable,
+        int catalogNumber, int pagesNumber, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        memory.Reserve(checked(64L + sizeof(int) * (long)reachable.Count));
+        List<int> kept = new(reachable.Count);
+        foreach (int id in reachable)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (id != catalogNumber && id != pagesNumber && pool.ContainsKey(id)) { kept.Add(id); }
+        }
+        GovernedSort.Sort(CollectionsMarshal.AsSpan(kept), new WriterNumberOrder(), governor, token);
+        Dictionary<int, int> map = ParserContainers.CreateDictionary<int, int>(memory);
+        ParserContainers.HintEntryCapacity(memory, map, checked(kept.Count + (catalogNumber == 0 ? 1 : 2)), sizeof(int), governor);
+        if (catalogNumber != 0) { GovernedCollections.Assign(memory, governor, map, catalogNumber, 1, sizeof(int)); }
+        GovernedCollections.Assign(memory, governor, map, pagesNumber, 2, sizeof(int));
+        for (int i = 0; i < kept.Count; i++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            GovernedCollections.Assign(memory, governor, map, kept[i], 3 + i, sizeof(int));
+        }
+        return new(kept, map);
+    }
+
+    internal static List<PdfReference> MapKids(ReadOnlySpan<PdfReference> kids, Dictionary<int, int> map,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        List<PdfReference> result = ParserContainers.CreateList<PdfReference>(memory);
+        foreach (PdfReference kid in kids)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            memory.Reserve(32L);
+            ParserContainers.AddItem(memory, result, new PdfReference(map[kid.ObjectNumber], 0), IntPtr.Size);
+        }
+        return result;
+    }
+
+    internal static void AppendGroupObjects(List<NumberedObject> objects, IReadOnlyDictionary<int, QpdfObject> pool,
+        GroupNumbers numbers, IReadOnlySet<int> allPages, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (int id in numbers.Kept)
+        {
+            NumberedObject item = new(numbers.Map[id], ObjectRemap.RemapSplit(pool[id], numbers.Map, allPages, memory, governor, token));
+            ParserContainers.AddItem(memory, objects, item, 16L);
+        }
+    }
+
+    internal static Dictionary<int, (int Number, int Generation)>? MapOriginalIds(
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, GroupNumbers numbers,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (originalIds is null) { return null; }
+        Dictionary<int, (int Number, int Generation)> result = ParserContainers.CreateDictionary<int, (int, int)>(memory);
+        foreach ((int original, int target) in numbers.Map)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (originalIds.TryGetValue(original, out var source))
+            { GovernedCollections.Assign(memory, governor, result, target, source, 2L * sizeof(int)); }
+        }
+        return result;
+    }
 }

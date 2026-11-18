@@ -2890,6 +2890,8 @@ Invoke-ReferenceJsonImportCompression
 Invoke-ReferenceJsonImportContent
 . (Join-Path $repoRoot 'tools/ReferenceJsonReplacement.ps1')
 Invoke-ReferenceJsonReplacement
+. (Join-Path $repoRoot 'tools/ReferenceJsonSplit.ps1')
+Invoke-ReferenceJsonSplit
 . (Join-Path $repoRoot 'tools/ReferenceJsonQdf.ps1')
 Invoke-ReferenceJsonQdf
 . (Join-Path $repoRoot 'tools/ReferenceJsonCheck.ps1')

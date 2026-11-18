@@ -131,6 +131,52 @@ internal static class AcroFormCopy
                 : copier.AddIndirectObjectWithId(copier.CopyFieldValue(entry, 0), copier.NextId);
             ParserContainers.AddItem(result, copiedFields, link, IntPtr.Size);
         }
+        CopiedForm form = DescribeForm(source, resolver, copier.CopiedObjects, copiedFields, hasFields, copier,
+            retainSourceObjects, governor, result, cancellationToken);
+        result.TransferTo(ownership); return form;
+    }
+
+    internal static CopiedForm? ReadBoundForm(PdfDictionary catalog, IIndirectResolver resolver,
+        Dictionary<int, QpdfObject> pool, ref int nextNumber, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(catalog, "AcroForm"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
+        { return null; }
+        if (CatalogCopy.ResolveDictionary(raw, resolver, governor, token) is not PdfDictionary form)
+        { throw new QpdfParseException("Catalog /AcroForm must resolve to a dictionary.", null, null); }
+
+        QpdfObject? value = PdfDictionaryLookup.TryGet(form, "Fields"u8, governor, token, out QpdfObject fieldsRaw)
+            ? CatalogCopy.ResolveValue(fieldsRaw, resolver, governor, token) : null;
+        List<PdfReference> fields = ParserContainers.CreateList<PdfReference>(memory);
+        if (value is PdfArray array)
+        {
+            for (int index = 0; index < array.Count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                QpdfObject item = array[index];
+                if (item is PdfNull) { continue; }
+                if (CatalogCopy.ResolveDictionary(item, resolver, governor, token) is not PdfDictionary field)
+                { throw new QpdfParseException("Catalog /AcroForm /Fields entries must be dictionaries.", null, null); }
+                if (item is not PdfReference)
+                {
+                    int number = checked(++nextNumber);
+                    GovernedCollections.Assign(memory, governor, pool, number, field, IntPtr.Size);
+                    memory.Reserve(32L);
+                    item = new PdfReference(number, 0);
+                }
+                ParserContainers.AddItem(memory, fields, (PdfReference)item, IntPtr.Size);
+            }
+        }
+        else if (value is not (null or PdfNull))
+        { throw new QpdfParseException("Catalog /AcroForm /Fields must be an array.", null, null); }
+        return DescribeForm(form, resolver, pool, fields, value is PdfArray, null, false, governor, memory, token);
+    }
+
+    private static CopiedForm DescribeForm(PdfDictionary source, IIndirectResolver resolver,
+        IReadOnlyDictionary<int, QpdfObject> pool, IReadOnlyList<PdfReference> copiedFields, bool hasFields,
+        GraphCopier? copier, bool retainSourceObjects, ResourceGovernor governor, ParserMemoryScope result,
+        CancellationToken cancellationToken)
+    {
         bool hasNeed = false;
         bool need = false;
         QpdfObject? resources = null;
@@ -154,14 +200,14 @@ internal static class AcroFormCopy
             }
 
             if (text.SequenceEqual("NeedAppearances"u8)
-                && CatalogCopy.ResolveValue(raw, engine, governor, cancellationToken) is PdfBoolean flag)
+                && CatalogCopy.ResolveValue(raw, resolver, governor, cancellationToken) is PdfBoolean flag)
             {
                 hasNeed = true;
                 need = flag.Value;
                 continue;
             }
 
-            QpdfObject copied = retainSourceObjects ? copier.RetainSourceValue(raw)
+            QpdfObject copied = copier is null ? raw : retainSourceObjects ? copier.RetainSourceValue(raw)
                 : text.SequenceEqual("CO"u8) ? copier.CopyRegisteredFields(raw, 0) : copier.CopyValue(raw, 0);
             if (text.SequenceEqual("DR"u8))
             {
@@ -173,7 +219,7 @@ internal static class AcroFormCopy
             {
                 QpdfObject? calculationOrder = copied;
                 if (copied is PdfReference orderLink)
-                { PdfObjectLookup.TryResolve(orderLink, copier.CopiedObjects, governor, cancellationToken, out calculationOrder); }
+                { PdfObjectLookup.TryResolve(orderLink, pool, governor, cancellationToken, out calculationOrder); }
                 if (calculationOrder is PdfArray copiedOrder)
                 {
                     hasOrder = true;
@@ -187,8 +233,7 @@ internal static class AcroFormCopy
         }
 
         result.Reserve(80L);
-        CopiedForm form = new(copiedFields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
-        result.TransferTo(ownership); return form;
+        return new CopiedForm(copiedFields, hasFields, hasNeed, need, resources, hasOrder, order, extras);
     }
 
     internal static PdfDictionary? BuildSingle(

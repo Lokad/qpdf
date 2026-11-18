@@ -22,6 +22,9 @@ internal sealed partial class GraphCopier
 
     internal bool IsDisabledSignatureWidget(PdfDictionary value) => _disabledSignatureWidgets?.Contains(value) == true;
 
+    internal void UseDisabledSignatureWidgets(HashSet<PdfDictionary>? widgets)
+        => _disabledSignatureWidgets = widgets;
+
     // Only annotation and field edges enter this role. Private aliases use the
     // ordinary copy map and keep their values. Appearance/resource payloads also
     // use that map, so disabling a field never duplicates or modifies its artwork.
@@ -209,7 +212,7 @@ internal sealed partial class GraphCopier
 
     // JSON publication already has a fully resolved, numbered pool. Reuse the
     // same field-role copier with identity mappings for ordinary graph values.
-    internal static void DisablePublishedSignatures(Dictionary<int, QpdfObject> pool, int catalogId,
+    internal static HashSet<PdfDictionary>? DisablePublishedSignatures(Dictionary<int, QpdfObject> pool, int catalogId,
         ResourceGovernor governor, QpdfLimits limits, ParserMemoryScope ownership)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
@@ -221,10 +224,8 @@ internal sealed partial class GraphCopier
             governor.CheckCancellation();
             ParserContainers.AddItem(scratch, numbers, number, sizeof(int)); next = Math.Max(next, checked(number + 1));
         }
-        ownership.Reserve(192L);
-        GraphCopier copier = new(resolver, pool.Count, governor, limits, next, ownership);
+        GraphCopier copier = CreateBoundOwned(pool, resolver, governor, limits, next, ownership);
         foreach (int number in numbers) { governor.CheckCancellation(); copier.Map(number, number); }
-        copier._copied = pool;
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, governor.CancellationToken);
         foreach (int number in numbers)
         {
@@ -253,5 +254,6 @@ internal sealed partial class GraphCopier
         }
         pool[catalogId] = catalog;
         graph.Memory.TransferTo(ownership, graph.Bytes);
+        return copier._disabledSignatureWidgets;
     }
 }

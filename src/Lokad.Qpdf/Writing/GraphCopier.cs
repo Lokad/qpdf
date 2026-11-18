@@ -57,15 +57,23 @@ internal sealed partial class GraphCopier
         return copier;
     }
 
+    internal static GraphCopier CreateBoundOwned(Dictionary<int, QpdfObject> pool, IIndirectResolver resolver,
+        ResourceGovernor governor, QpdfLimits limits, int firstId, ParserMemoryScope ownership)
+    {
+        ownership.CheckOwner(governor);
+        ownership.Reserve(192L);
+        return new GraphCopier(resolver, pool.Count, governor, limits, firstId, ownership, pool);
+    }
+
     internal Content.PoolResolver CreateResolver(ParserMemoryScope memory)
         => Content.PoolResolver.Create(memory, _copied, _retainsSourceReferences ? _resolver as DocumentEngine : null);
 
     private GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId,
         ParserMemoryScope ownership)
-        : this(engine, engine.XRefEntries.Count, governor, limits, firstId, ownership) { }
+        : this(engine, engine.XRefEntries.Count, governor, limits, firstId, ownership, null) { }
 
     private GraphCopier(IIndirectResolver resolver, int sourceObjectCount, ResourceGovernor governor,
-        QpdfLimits limits, int firstId, ParserMemoryScope ownership)
+        QpdfLimits limits, int firstId, ParserMemoryScope ownership, Dictionary<int, QpdfObject>? pool)
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
@@ -88,7 +96,7 @@ internal sealed partial class GraphCopier
         _ownership = ownership;
         SignaturePolicy = new(_resolver, _governor, _limits, ownership);
         _mapping = ParserContainers.CreateDictionary<int, int>(ownership);
-        _copied = ParserContainers.CreateDictionary<int, QpdfObject>(ownership);
+        _copied = pool ?? ParserContainers.CreateDictionary<int, QpdfObject>(ownership);
     }
 
     internal void HintPageCapacity(int count)

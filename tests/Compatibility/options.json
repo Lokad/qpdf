@@ -4315,6 +4315,7 @@
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
+          "JsonSplitTests.CreationSplitsInheritedPagesAndContinuesLabels",
           "JsonImportTests.CreateRoundTrip",
           "JsonImportTests.CreateReadsDatafiles",
           "JsonImportTests.CreateAppliesNameAndStringForms",
@@ -7472,6 +7473,10 @@
       "evidence": {
         "positive": [
           "SplitReplaceTests.SplitPagesWritesNamedGroups",
+          "JsonSplitTests.CreationSplitsInheritedPagesAndContinuesLabels",
+          "JsonSplitTests.JobUpdateSplitsThePatchedPageOrder",
+          "JsonSplitTests.FreshProtectionUsesDifferentAuthenticatedKeysForTheParts",
+          "JsonSplitTests.RepeatedPageWidgetsKeepTheirOwnPageAndRegistration",
           "SplitReplaceTests.SplitGroupsShareNamingRule",
           "SplitReplaceTests.SplitPercentDPatternApplies",
           "SplitReplaceTests.SplitPrunesUnsharedObjects",
@@ -7490,6 +7495,8 @@
         ],
         "negative": [
           "SplitReplaceTests.SplitOutputAliasingInputFailsCleanly",
+          "JsonSplitTests.ExpandedTargetsCannotAliasInputs",
+          "JsonSplitTests.InspectionAndReplacementRejectSplittingBeforeInput",
           "SplitReplaceTests.JobSplitMalformedFails",
           "SplitReplaceTests.TypedSplitNonPositiveFailsCleanly",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
@@ -7507,6 +7514,9 @@
         ],
         "resource": [
           "ResourceEnforcementTests.SplitYieldsToExhaustedBudget",
+          "JsonSplitTests.PreparationRefusalAndCanceledWriteKeepBothPriorTargets",
+          "JsonSplitTests.LastCommitFailureKeepsTheFirstCompletedPart",
+          "JsonSplitTests.ZeroPagesLeaveTargetsUntouched",
           "ZeroPageRewriteTests.ZeroSplitGroupsPreserveEveryTarget",
           "OptionalContentStateTests.BothCopyPathsRefundEveryAdmissionAndPreservePublication",
           "OptionalContentStateTests.EitherTokenStopsOffBaseInterpretationAfterResolvingTheBase"
@@ -7514,6 +7524,7 @@
         "oracle": [
           "diff:split",
           "diff:split-labels",
+          "diff:json-split",
           "diff:security-sources"
         ]
       }
@@ -7940,6 +7951,7 @@
           "JsonNumberTests.NumericFormsRoundTripThroughCreateAndUpdate",
           "JsonImportTests.UpdateReplacesStreamData",
           "JsonReplacementTests.ReplacementClosesInputsBeforeStagingAndPublishesAtTheSourceKey",
+          "JsonSplitTests.JobUpdateSplitsThePatchedPageOrder",
           "JsonImportTests.UpdateAddsObjects",
           "JsonImportTests.UpdateWithoutTrailerKeeps",
           "JsonImportTests.UpdateNoOpIsStable",

@@ -676,10 +676,10 @@ internal static class InspectionExecution
         using DocumentEngine? engine = source.Engine;
         using ParserMemoryScope graph = ParserMemoryScope.Create(governor);
         using System.Text.Json.JsonDocument json = await Json.JsonImport.ReadJsonAsync(host, imported.Json,
-            null, limits, governor, graph, token).ConfigureAwait(false);
+            null, null, limits, governor, graph, token).ConfigureAwait(false);
         Json.ImportedModel model = engine is null
-            ? await Json.JsonImport.BuildCreateModelAsync(host, json, true, limits, governor, graph, token).ConfigureAwait(false)
-            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true, null,
+            ? await Json.JsonImport.BuildCreateModelAsync(host, json, true, null, limits, governor, graph, token).ConfigureAwait(false)
+            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true, null, null,
                 limits, governor, graph, token).ConfigureAwait(false);
         Json.JsonImport.CheckObjectCount(model, limits);
         if (PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject declaration)

@@ -761,36 +761,10 @@ internal static class MultiPageSelection
                     ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
                 }
             }
-            groupMemory.Reserve(checked(64L + sizeof(int) * (long)reachable.Count));
-            List<int> kept = new(reachable.Count);
-            foreach (int id in reachable)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (pool.ContainsKey(id))
-                {
-                    kept.Add(id);
-                }
-            }
-
-            GovernedSort.Sort(CollectionsMarshal.AsSpan(kept), new WriterNumberOrder(), governor, cancellationToken);
-            Dictionary<int, int> renumber = ParserContainers.CreateDictionary<int, int>(groupMemory);
-            ParserContainers.HintEntryCapacity(groupMemory, renumber, checked(kept.Count + 1), sizeof(int), governor);
-            // Page headers already name the reserved output tree. Each split
-            // rebuilds that tree at the same identity before ordinary layout.
-            GovernedCollections.Assign(groupMemory, governor, renumber, 2, 2, sizeof(int));
-            for (int r = 0; r < kept.Count; r++)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                GovernedCollections.Assign(groupMemory, governor, renumber, kept[r], 3 + r, sizeof(int));
-            }
-
-            List<PdfReference> renumberedKids = ParserContainers.CreateList<PdfReference>(groupMemory);
-            for (int slot = first - 1; slot < last; slot++)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                groupMemory.Reserve(32L);
-                ParserContainers.AddItem(groupMemory, renumberedKids, new PdfReference(renumber[kids[slot].ObjectNumber], 0), IntPtr.Size);
-            }
+            GroupNumbers numbers = NumberGroup(pool, reachable, 0, 2, groupMemory, governor, cancellationToken);
+            Dictionary<int, int> renumber = numbers.Map;
+            List<PdfReference> renumberedKids = MapKids(CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1),
+                renumber, groupMemory, governor, cancellationToken);
 
             PdfReference? groupMetadata = null;
             if (primaryMetadata is not null && renumber.TryGetValue(primaryMetadata.ObjectNumber, out int mappedMetadata))
@@ -858,27 +832,11 @@ internal static class MultiPageSelection
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
-            foreach (int id in kept)
-            {
-                NumberedObject item = new(renumber[id], Writing.ObjectRemap.RemapSplit(pool[id], renumber, pageNumbers, groupMemory, governor, cancellationToken));
-                ParserContainers.AddItem(groupMemory, sub, item, 16L);
-            }
-
+            AppendGroupObjects(sub, pool, numbers, pageNumbers, groupMemory, governor, cancellationToken);
             QpdfPath path = QpdfPath.From(names[g]);
             HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
-            Dictionary<int, (int Number, int Generation)>? groupOriginalIds = null;
-            if (multiOriginalIds is not null)
-            {
-                groupOriginalIds = ParserContainers.CreateDictionary<int, (int Number, int Generation)>(groupMemory);
-                foreach (int keptId in kept)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (multiOriginalIds.TryGetValue(keptId, out var source))
-                    {
-                        GovernedCollections.Assign(groupMemory, governor, groupOriginalIds, renumber[keptId], source, 2L * sizeof(int));
-                    }
-                }
-            }
+            Dictionary<int, (int Number, int Generation)>? groupOriginalIds =
+                MapOriginalIds(multiOriginalIds, numbers, groupMemory, governor, cancellationToken);
 
             using OutputSecurity? freshSecurity = g == 0 ? null : settings.OutputEncryption?.CreateOutput(governor);
             OutputSecurity? groupSecurity = freshSecurity ?? outputSecurity;

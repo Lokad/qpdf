@@ -84,6 +84,23 @@ internal static class ObjectStreamPreparation
         return true;
     }
 
+    internal static HashSet<int> ResolveGeneratedCompressedSet(IReadOnlyDictionary<int, QpdfObject> pool,
+        int catalogNumber, int pagesNumber, ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
+    {
+        ownership.CheckOwner(governor);
+        using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
+        HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
+        foreach ((int number, QpdfObject value) in pool)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (IsCompressibleValue(number, value, catalogNumber, pagesNumber, governor, token))
+            { ParserContainers.AddSetItem(candidate, compressed, number, sizeof(int)); }
+        }
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        candidate.TransferTo(ownership);
+        return compressed;
+    }
+
     internal static HashSet<int> ResolveCompressedSet(
         string mode,
         IReadOnlyDictionary<int, QpdfObject> pool,
@@ -119,26 +136,12 @@ internal static class ObjectStreamPreparation
         }
 
         ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
+        if (mode == "generate")
+        { return ResolveGeneratedCompressedSet(pool, catalogNumber, pagesNumber, ownership, governor, token); }
         using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
         HashSet<int> compressed = ParserContainers.CreateSet<int>(candidate);
         if (mode == "disable")
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            candidate.TransferTo(ownership);
-            return compressed;
-        }
-
-        if (mode == "generate")
-        {
-            foreach (KeyValuePair<int, QpdfObject> entry in pool)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (IsCompressibleValue(entry.Key, entry.Value, catalogNumber, pagesNumber, governor, token))
-                {
-                    ParserContainers.AddSetItem(candidate, compressed, entry.Key, sizeof(int));
-                }
-            }
-
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             candidate.TransferTo(ownership);
             return compressed;

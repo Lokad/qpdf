@@ -7,6 +7,8 @@
 - Create and update PDFs with command compression, QDF, object streams,
   linearization and output protection. Typed layout options select packing and
   linearization. Packing and QDF comments retain matching original pairs.
+- Split an authored or patched page tree, retaining inherited page attributes,
+  label continuation and independent widget registrations.
 - Check bound JSON graphs and issue follow-up listings without a PDF output.
   Update a PDF in place with `--replace-input` / `replaceInput`. The source lease
   closes before staging, and auxiliary inputs are protected from replacement.

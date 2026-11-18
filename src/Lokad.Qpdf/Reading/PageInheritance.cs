@@ -85,7 +85,7 @@ internal static class PageInheritance
 
     // Copying needs the same four attributes. Walk each parent once, retaining
     // only the nearest non-null value for keys absent (or null) on the leaf.
-    internal static InheritedValues FindAncestors(DocumentEngine engine, PageLocation location,
+    internal static InheritedValues FindAncestors(IIndirectResolver engine, PageLocation location,
         ReadOnlySpan<PdfName> names, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
         if (names.Length > 4) { throw new ArgumentOutOfRangeException(nameof(names)); }

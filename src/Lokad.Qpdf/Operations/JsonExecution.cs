@@ -18,11 +18,11 @@ internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
     string ObjectStreams, bool Linearize, QpdfOutputEncryption Encryption,
     DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
-    bool CoalesceContents)
+    bool CoalesceContents, int? SplitPages)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, encryption, new(false, false),
-            null, QdfOptions.Disabled, false, false);
+            null, QdfOptions.Disabled, false, false, null);
 }
 
 internal static class JsonExecution
@@ -313,15 +313,23 @@ internal static class JsonExecution
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
+        SplitInputAliases? splitInputs = null;
+        if (splitMemory is not null)
+        {
+            splitMemory.Reserve(40L);
+            splitInputs = new(splitMemory);
+            if (document is not null) { splitInputs.Remember(document.Path, document.LeasedInputPath, document.InputIdentity); }
+        }
         (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
             ? (outputPath, document.InputIdentity) : null;
-        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, replacement?.Identity,
+        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, replacement?.Identity, splitInputs,
             limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         bool retainOriginalPairs = writer.Qdf.Enabled && !writer.Qdf.NoOriginalIds && !writer.Linearize;
         Json.ImportedModel model;
         if (document is null)
         {
-            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, limits, governor,
+            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, splitInputs, limits, governor,
                 importMemory, cancellationToken).ConfigureAwait(false);
             if (!writer.Encryption.PreservesInput)
             { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
@@ -329,7 +337,7 @@ internal static class JsonExecution
         else
         {
             model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document.Engine, document.HeaderVersionParts, writer.Encryption.PreservesInput,
-                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement,
+                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement, splitInputs,
                 limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         }
 
@@ -337,23 +345,36 @@ internal static class JsonExecution
         var preparedSecurity = await PrepareOutputSecurityAsync(host, writer.Encryption, document, originalId, importMemory,
             governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         using OutputSecurity? security = preparedSecurity.Security;
-        PreparedImportedOutput prepared = PrepareImportedOutput(model, writer, security, limits, importMemory, governor,
+        PreparedImportedOutput prepared = PrepareImportedOutput(model, writer, security, limits, importMemory, splitMemory, governor,
             diagnostics, cancellationToken);
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
             model.OriginalPairs, prepared.Graph.Mapping, importMemory, governor, cancellationToken);
-        if (replaceInput && document is not null) { await document.ReleaseCompleteInputAsync().ConfigureAwait(false); }
-        await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
-            prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
-            writer.Qdf, originalIds, writer.Linearize, null, outputPath, limits, governor, cancellationToken,
-            security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+        if ((replaceInput || splitInputs is not null) && document is not null)
+        { await document.ReleaseCompleteInputAsync().ConfigureAwait(false); }
+        if (writer.SplitPages is int groupSize)
+        {
+            if (splitInputs is null || prepared.Pages is null)
+            { throw new InvalidOperationException("Missing bound JSON split preparation."); }
+            await JsonSplitPublication.PublishAsync(host, outputPath, groupSize, writer, prepared.Version, prepared.Graph,
+                prepared.Pages, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security, splitInputs,
+                limits, governor, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
+                prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
+                writer.Qdf, originalIds, writer.Linearize, null, outputPath, limits, governor, cancellationToken,
+                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+        }
         return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }
 
-    private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph, PreparedOutputModel Output);
+    private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph,
+        PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking);
 
     private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, JsonImportWriterSettings writer,
         OutputSecurity? security, QpdfLimits limits,
-        ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        ParserMemoryScope memory, ParserMemoryScope? splitMemory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         model = ImportedPublication.Apply(model, writer.Publication, limits, memory, governor, token);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
@@ -365,7 +386,7 @@ internal static class JsonExecution
         RequireEncryptionVersion(security, ref version, ref extensionLevel, writer.ForceVersion, governor);
         using ParserMemoryScope? normalizationMemory = writer.NormalizeContent ? ParserMemoryScope.Create(governor) : null;
         Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, memory,
-            normalizationMemory, writer.CoalesceContents, out IReadOnlyList<PageLocation>? pages, token);
+            splitMemory ?? normalizationMemory, writer.CoalesceContents, out IReadOnlyList<PageLocation>? pages, token);
         string mode = ResolveObjectStreamMode(writer.ObjectStreams);
         if (writer.ForceVersion is not null && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0) { mode = "disable"; }
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory);
@@ -375,8 +396,13 @@ internal static class JsonExecution
         }
         PdfDictionary mappedCatalog = (PdfDictionary)renumbered.Objects[1];
         int pagesNumber = PageTreeRootNumber(mappedCatalog, governor, token);
-        HashSet<int> compressed = ResolveCompressedSet(mode, renumbered.Objects, sources, 1, pagesNumber, memory, governor, token);
-        (version, extensionLevel) = RequireObjectStreamVersion(version, extensionLevel, compressed.Count != 0, governor);
+        // Generated packing uses the completed flat split graph, including
+        // occurrence-local page and widget headers created during splitting.
+        bool generateSplitPacking = splitMemory is not null && mode == "generate";
+        HashSet<int>? compressed = generateSplitPacking ? null
+            : ResolveCompressedSet(mode, renumbered.Objects, sources, 1, pagesNumber, memory, governor, token);
+        bool hasPacking = compressed is not null ? compressed.Count != 0 : renumbered.PageCount != 0;
+        (version, extensionLevel) = RequireObjectStreamVersion(version, extensionLevel, hasPacking, governor);
         IIndirectResolver mappedResolver = Content.PoolResolver.Create(graph.Memory, renumbered.Objects);
         PdfDictionaryLookup.TryGet(mappedCatalog, "Extensions"u8, governor, token, out QpdfObject originalExtensions);
         QpdfObject? extensions = PrepareExtensions(originalExtensions, mappedResolver, version, extensionLevel, graph);
@@ -387,7 +413,26 @@ internal static class JsonExecution
             renumbered.Objects[1] = replacement; renumbered.Model[0] = new(1, replacement);
         }
         graph.Retain();
-        PreparedOutputModel output = OutputModelPreparation.Finish(renumbered.Model, compressed, security, memory, governor, token);
+        PreparedOutputModel output;
+        if (splitMemory is null)
+        {
+            output = OutputModelPreparation.Finish(renumbered.Model,
+                compressed ?? throw new InvalidOperationException("Missing JSON import packing policy."), security, memory, governor, token);
+        }
+        else
+        {
+            if (security is not null)
+            {
+                foreach (NumberedObject item in renumbered.Model)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (item.Value is not PdfStream stream || !StreamCryptFilter.MayContain(stream, governor)) { continue; }
+                    OutputModelPreparation.NormalizeIdentityCrypt(renumbered.Model, memory, governor);
+                    break;
+                }
+            }
+            output = new(renumbered.Model, null, 0);
+        }
         // Protected output preparation consumes supported Crypt stages before ordinary
         // stream decoding. The serializer applies ciphertext after compression.
         if (writer.Compression is CompressionRequest compression)
@@ -401,7 +446,12 @@ internal static class JsonExecution
             StreamPreparation.TransformNumberedStreams(output.Model, streamResolver, renumbered.MetadataNumber,
                 contexts, compression, limits, governor, diagnostics, token);
         }
-        return new(version, renumbered, output);
+        if (splitMemory is not null)
+        {
+            foreach (NumberedObject item in output.Model)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
+        }
+        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed);
     }
 
 }

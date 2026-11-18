@@ -437,8 +437,19 @@ Resource-dependent framing across different contexts keeps the content program
 and reports a warning.
 Explicit normalization and compression settings, packing, linearization and
 output protection use the ordinary writer policies.
-Other page, content and image transforms, attachment edits, splitting and
-first-pass capture remain unavailable during import and update.
+Command creation and updates can split the bound page order with
+`--split-pages` / `splitPages`. Each part keeps inherited page attributes,
+continues its labels, and maps references to pages outside the part to null.
+Repeated pages have separate widget registrations and point back to their own
+pages.
+Expanded names use the ordinary splitter, including a single number for a
+one-page final part. Split targets must differ from source PDF, JSON and sidecar
+inputs. When the host can open an existing target, its stable identity is
+checked too. All parts are prepared before the first commit. Later commit
+failures leave earlier parts published. Fresh protection uses a separate key
+for each part. Splitting is unavailable in inspection and replacement modes.
+Other page, content and image transforms, attachment edits and first-pass
+capture remain unavailable during import and update.
 
 ## Writer profile
 

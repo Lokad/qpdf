@@ -175,7 +175,7 @@ internal static class DocumentJson
     }
 
     private static PdfDictionary? ResolveChild(
-        DocumentEngine engine,
+        IIndirectResolver engine,
         PdfDictionary parent,
         string key,
         string role)
@@ -188,7 +188,7 @@ internal static class DocumentJson
         QpdfObject target = raw;
         if (raw is PdfReference reference)
         {
-            if (!((IIndirectResolver)engine).TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+            if (!engine.TryResolve(reference, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
             {
                 throw new QpdfParseException("Unresolvable JSON inspection " + role + " reference.", null, reference.ObjectNumber);
             }
@@ -214,11 +214,16 @@ internal static class DocumentJson
     private static SortedDictionary<int, QpdfObject> ReadLabelTreeCore(
         DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory,
         CancellationToken cancellationToken, out bool hasLabelTree)
+        => ReadLabelTree(engine, ResolveChild(engine, engine.Trailer, "Root", "catalog"),
+            limits, governor, memory, cancellationToken, out hasLabelTree);
+
+    internal static SortedDictionary<int, QpdfObject> ReadLabelTree(
+        IIndirectResolver engine, PdfDictionary? catalog, QpdfLimits limits, ResourceGovernor governor,
+        ParserMemoryScope memory, CancellationToken cancellationToken, out bool hasLabelTree)
     {
         hasLabelTree = false;
         memory.CheckOwner(governor); cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         memory.Reserve(96L); SortedDictionary<int, QpdfObject> labels = new();
-        PdfDictionary? catalog = ResolveChild(engine, engine.Trailer, "Root", "catalog");
         if (catalog is null)
         {
             return labels;
@@ -242,7 +247,7 @@ internal static class DocumentJson
     private readonly record struct LabelSummary(int Height, SortedDictionary<int, QpdfObject>? Values);
 
     private static int WalkLabelNode(
-        DocumentEngine engine,
+        IIndirectResolver engine,
         PdfDictionary node,
         int depth,
         GovernedIntSet visited,
@@ -298,7 +303,7 @@ internal static class DocumentJson
                 governor.NoteOperation();
                 QpdfObject? keyRaw = nums[i];
                 if (keyRaw is PdfReference keyReference)
-                { PdfObjectLookup.TryResolve(keyReference, (IIndirectResolver)engine, governor, cancellationToken, out keyRaw); }
+                { PdfObjectLookup.TryResolve(keyReference, engine, governor, cancellationToken, out keyRaw); }
                 if (keyRaw is not PdfInteger key)
                 {
                     throw new QpdfParseException("Page-label number-tree keys must be integers.", null, null);
@@ -333,7 +338,7 @@ internal static class DocumentJson
                 QpdfObject target = item;
                 if (item is PdfReference reference)
                 {
-                    if (!PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, cancellationToken, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
+                    if (!PdfObjectLookup.TryResolve(reference, engine, governor, cancellationToken, out QpdfObject? resolved) || resolved is null || resolved is PdfNull)
                     {
                         throw new QpdfParseException("Unresolvable page-label kid reference.", null, reference.ObjectNumber);
                     }

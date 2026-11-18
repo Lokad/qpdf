@@ -64,7 +64,7 @@ internal static class OutputModelPreparation
         return number;
     }
 
-    private static void NormalizeIdentityCrypt(List<NumberedObject> model, ParserMemoryScope memory, ResourceGovernor governor)
+    internal static void NormalizeIdentityCrypt(List<NumberedObject> model, ParserMemoryScope memory, ResourceGovernor governor)
     {
         CancellationToken token = governor.CancellationToken;
         using ParserMemoryScope lookupMemory = ParserMemoryScope.Create(governor);

@@ -224,9 +224,28 @@ internal static class PageLabelMerge
         }
     }
 
+    internal static List<(int Index, PdfDictionary Label)> ReadBoundLabels(IIndirectResolver resolver, PdfDictionary catalog,
+        int pageCount, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        using ParserMemoryScope rawMemory = ParserMemoryScope.Create(governor);
+        SortedDictionary<int, QpdfObject> raw = DocumentJson.ReadLabelTree(resolver, catalog, limits, governor, rawMemory, token, out _);
+        List<(int Index, PdfDictionary Label)> labels = ParserContainers.CreateList<(int Index, PdfDictionary Label)>(memory);
+        foreach ((int index, QpdfObject value) in raw)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (index >= pageCount) { break; }
+            if (labels.Count == 0 && index > 0)
+            { GovernedCollections.AddItem(memory, governor, labels, (0, PageLabelStorage.Merged(null, null, 1, governor, token)), 16L); }
+            SourceLabelEntry entry = ResolveEntry(resolver, null, value, governor, token);
+            PdfDictionary label = PageLabelStorage.Merged(entry.Style, entry.Prefix, entry.Start, governor, token);
+            GovernedCollections.AddItem(memory, governor, labels, (index, label), 16L);
+        }
+        return labels;
+    }
+
     private static SourceLabelEntry ResolveEntry(
         IIndirectResolver resolver,
-        GraphCopier copier,
+        GraphCopier? copier,
         QpdfObject value,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -260,7 +279,7 @@ internal static class PageLabelMerge
 
     private static QpdfObject? CopyLabelValue(
         IIndirectResolver resolver,
-        GraphCopier copier,
+        GraphCopier? copier,
         PdfDictionary dictionary,
         string key,
         ResourceGovernor governor,
@@ -293,7 +312,7 @@ internal static class PageLabelMerge
         }
 
         governor.NoteOperation();
-        return copier.CopyValue(raw, 0);
+        return copier is null ? raw : copier.CopyValue(raw, 0);
     }
 
     private static bool IsPageTreeNode(PdfDictionary dictionary)
