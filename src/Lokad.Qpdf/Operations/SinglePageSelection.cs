@@ -32,11 +32,7 @@ internal static class SinglePageSelection
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        bool selectiveCandidate = host is not Hosting.InMemoryQpdfHost
-            && !settings.PreserveUnreferenced && !settings.Linearize && settings.LinearizePass1 is null && !settings.Qdf.Enabled
-            && !settings.CoalesceContents && !settings.NormalizeContent && !settings.ExternalizeInlineImages && !settings.Optimize.Optimize
-            && settings.Underlays.Count == 0 && settings.Overlays.Count == 0 && !settings.FlattenRotation
-            && settings.FlattenAnnotations is null && !settings.GenerateAppearances;
+        bool selectiveCandidate = settings.CanReadSelectedRanges(host);
         IQpdfInput? stableInput = null;
         try
         {

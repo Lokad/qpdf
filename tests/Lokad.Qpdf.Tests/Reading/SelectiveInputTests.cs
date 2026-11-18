@@ -46,7 +46,7 @@ public sealed class SelectiveInputTests
         private byte[] _nextInput = bytes;
         internal int Chunk { get; } = chunk;
         internal InMemoryQpdfHost Outputs { get; } = new();
-        internal int Opened, Leases;
+        internal int Opened, Closed, Leases;
         internal int OutputAttempts;
         internal long ReadBytes;
         internal List<(long Offset, int Count)> Reads { get; } = [];
@@ -89,6 +89,7 @@ public sealed class SelectiveInputTests
             }
             public ValueTask DisposeAsync()
             {
+                host.Closed++;
                 if (!_disposed)
                 {
                     _disposed = true; host.Leases--;
@@ -177,7 +178,7 @@ public sealed class SelectiveInputTests
             Assert.Equal(expected.Status, result.Status); Assert.Equal(expected.ExitCode, result.ExitCode);
             Assert.Equal(expected.Diagnostics, result.Diagnostics);
             Assert.Contains(host.Reads, read => read.Offset == 0 && read.Count == input.Length);
-            Assert.Equal(1, host.Opened); Assert.Equal(0, host.Leases);
+            Assert.Equal(1, host.Opened); Assert.Equal(1, host.Closed); Assert.Equal(0, host.Leases);
             bool published = baseline.TryGetOutput(Output, out byte[] expectedOutput);
             Assert.Equal(published, host.Outputs.TryGetOutput(Output, out byte[] output));
             if (published) { Assert.Equal(expectedOutput, output); Assert.Equal(1, host.OutputAttempts); }
@@ -204,7 +205,7 @@ public sealed class SelectiveInputTests
         QpdfLimits limits = mode == "input" ? QpdfLimits.Default with { MaxInputBytes = Sparse.Length - 1L } : QpdfLimits.Default;
         QpdfExecutionResult result = await Execute(host, job, range, false, limits, cancel.Token);
         Assert.Equal(mode == "cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(1, host.Opened); Assert.Equal(0, host.Leases);
+        Assert.Equal(1, host.Opened); Assert.Equal(1, host.Closed); Assert.Equal(0, host.Leases);
         Assert.Equal(mode == "write" ? 1 : 0, host.OutputAttempts);
         if (mode == "input") { Assert.Empty(host.Reads); }
         Assert.True(host.Outputs.TryGetOutput(Output, out byte[] output)); Assert.Equal("prior"u8.ToArray(), output);
@@ -223,7 +224,7 @@ public sealed class SelectiveInputTests
         QpdfExecutionResult result = await Execute(host, job, "1-1", false,
             QpdfLimits.Default with { MaxOpenHandles = failClose ? 2L : 1L }, CancellationToken.None);
         Assert.Equal(failClose ? QpdfExecutionStatus.Failed : QpdfExecutionStatus.Completed, result.Status);
-        Assert.Equal(1, host.Opened); Assert.Equal(0, host.Leases);
+        Assert.Equal(1, host.Opened); Assert.Equal(1, host.Closed); Assert.Equal(0, host.Leases);
         Assert.Equal(failClose ? 0 : 1, host.OutputAttempts);
         Assert.True(host.Outputs.TryGetOutput(Output, out byte[] output));
         if (failClose) { Assert.Equal("prior"u8.ToArray(), output); }

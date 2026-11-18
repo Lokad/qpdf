@@ -352,6 +352,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all
     // source reads succeed, restore the document's ordinary close ownership.
+    internal bool LeavesInputOpen => _leaveInputOpen;
+
     internal void AcceptSelectionInput()
     {
         Engine.AcceptSelectiveInput();

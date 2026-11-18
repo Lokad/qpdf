@@ -41,6 +41,13 @@ internal readonly struct SelectionSettings
     internal QpdfPassword? PrimaryPassword { get; init; }
     internal QpdfOutputEncryption? OutputEncryption { get; init; }
 
+    internal bool CanReadSelectedRanges(IQpdfHost host)
+        => host is not Hosting.InMemoryQpdfHost
+            && !PreserveUnreferenced && !Linearize && LinearizePass1 is null && !Qdf.Enabled
+            && !CoalesceContents && !NormalizeContent && !ExternalizeInlineImages && !Optimize.Optimize
+            && Underlays.Count == 0 && Overlays.Count == 0 && !FlattenRotation
+            && FlattenAnnotations is null && !GenerateAppearances;
+
     // Typed selection preserves opaque streams and omits command-only
     // catalog/resource defaults. All references here are process-lifetime values.
     internal static SelectionSettings Typed { get; } = new()

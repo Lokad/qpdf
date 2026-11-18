@@ -50,15 +50,12 @@ internal static class MultiPageSelection
         // A pages block uses the multisource copier even with one source. Keep
         // that catalog/selection behavior, retrying its complete preparation on
         // the same lease if a bounded read cannot establish the original result.
-        if (preparedSource is null && sources.Count == 1 && host is not Hosting.InMemoryQpdfHost
-            && !emptyPrimary && !replaceInput && !splitPages.HasValue
-            && !settings.PreserveUnreferenced && !settings.Linearize && settings.LinearizePass1 is null && !settings.Qdf.Enabled
-            && !settings.CoalesceContents && !settings.NormalizeContent && !settings.ExternalizeInlineImages && !settings.Optimize.Optimize
-            && settings.Underlays.Count == 0 && settings.Overlays.Count == 0 && !settings.FlattenRotation
-            && settings.FlattenAnnotations is null && !settings.GenerateAppearances)
+        if (preparedSource is null && sources.Count == 1 && !emptyPrimary && !replaceInput && !splitPages.HasValue
+            && settings.CanReadSelectedRanges(host))
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, sources[0].Input,
                 governor, cancellationToken).ConfigureAwait(false);
+            bool callerOwnsLease = true;
             try
             {
                 for (int attempt = 0; ; attempt++)
@@ -68,32 +65,39 @@ internal static class MultiPageSelection
                         await using QpdfDocument document = await QpdfDocument.OpenSelectionInputAsync(input,
                             sources[0].Input, limits, governor, diagnostics, recovery, attempt == 0,
                             cancellationToken, sources[0].Password).ConfigureAwait(false);
-                        return await SelectPagesCoreAsync(
-                            host: host,
-                            sources: sources,
-                            outputPath: outputPath,
-                            primaryInput: primaryInput,
-                            pruneUnreachableFields: pruneUnreachableFields,
-                            limits: limits,
-                            recovery: recovery,
-                            settings: settings,
-                            collation: collation,
-                            verbatimLabels: verbatimLabels,
-                            splitPages: splitPages,
-                            replaceInput: replaceInput,
-                            governor: governor,
-                            diagnostics: diagnostics,
-                            emptyPrimary: emptyPrimary,
-                            preparedSource: document,
-                            cancellationToken: cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            return await SelectPagesCoreAsync(
+                                host: host,
+                                sources: sources,
+                                outputPath: outputPath,
+                                primaryInput: primaryInput,
+                                pruneUnreachableFields: pruneUnreachableFields,
+                                limits: limits,
+                                recovery: recovery,
+                                settings: settings,
+                                collation: collation,
+                                verbatimLabels: verbatimLabels,
+                                splitPages: splitPages,
+                                replaceInput: replaceInput,
+                                governor: governor,
+                                diagnostics: diagnostics,
+                                emptyPrimary: emptyPrimary,
+                                preparedSource: document,
+                                cancellationToken: cancellationToken).ConfigureAwait(false);
+                        }
+                        finally { callerOwnsLease = document.LeavesInputOpen; }
                     }
-                    catch (CompleteInputRequiredException) when (attempt == 0) { }
+                    catch (CompleteInputRequiredException) when (attempt == 0 && callerOwnsLease) { }
                 }
             }
             finally
             {
-                try { await input.DisposeAsync().ConfigureAwait(false); }
-                finally { governor.FinishDocumentCounters(); }
+                if (callerOwnsLease)
+                {
+                    try { await input.DisposeAsync().ConfigureAwait(false); }
+                    finally { governor.FinishDocumentCounters(); }
+                }
             }
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
