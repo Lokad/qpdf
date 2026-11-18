@@ -69,8 +69,8 @@ version-specific package commands when changing the project version.
 Use the canonical compatibility inventory and meaningful behavior fixtures.
 Never mark an option complete just because it parses. Keep unmet prerequisites
 visible; `--check`, page-resource defaults and image processing span subsystems.
-Ordinary tests must work without `external/`; future reference-dependent jobs
-must be explicit and must not silently skip unavailable tools.
+Run ordinary tests without `external/`. Explicit reference and visual jobs
+must fail when a required tool is unavailable.
 
 Keep documentation concise and current. Do not
 force-add ignored local plans, `external/`, packages or build outputs. Public files must

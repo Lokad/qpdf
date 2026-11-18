@@ -93,10 +93,8 @@ Split imports partition the bound page tree after applying patches and stream
 preparation. They reuse the ordinary split numbering and publication owners.
 `OutputModelPreparation` finalizes reachability, encryption numbering,
 ordering and object-stream grouping. Direct outline roots gain an indirect
-identity for layout. Streamed
-linearization keeps the outline closure together outside packed objects.
-Linearization uses two passes. The shared classifier checks thumbnail
-dependencies against existing parts from each thumbnail's candidate set.
+identity for layout. Two-pass linearization classifies page and shared
+dependencies before writing hints and keeps the outline closure outside packed objects.
 
 `OutputSerialization` dispatches counting, identifier replay and final
 emission. Writers share identifier validation, byte encoding and bounded

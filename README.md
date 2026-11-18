@@ -32,7 +32,7 @@ using Lokad.Qpdf.Hosting;
 using var host = new InMemoryQpdfHost();
 var input = QpdfPath.From("input.pdf");
 var output = QpdfPath.From("output.pdf");
-host.AddInput(input, await File.ReadAllBytesAsync("input.pdf"), QpdfInputOwnership.Copy);
+host.AddInput(input, await File.ReadAllBytesAsync("input.pdf"), QpdfInputOwnership.Transfer);
 
 PdfPageSelectionResult result = await Qpdf.SelectPageAsync(
     host, input, output,
@@ -48,20 +48,13 @@ await File.WriteAllBytesAsync("reordered.pdf", bytes);
 Console.WriteLine($"Wrote {result.PageCount} pages.");
 ```
 
-The included host keeps PDFs in memory; your application handles file or cloud
-storage. Implement `IQpdfHost` to connect other storage directly. Operations accept
-cancellation tokens and configurable limits for input/output size, estimated memory
-and decoded bytes. Results include warnings and resource counters.
+Implement `IQpdfHost` to connect file or cloud storage. Operations take
+cancellation tokens and configurable limits and return warnings and counters.
+`IQpdfMemoryHost` lets a host share a memory budget with the engine.
+[Resource and ownership APIs](docs/MEMORY.md)
 
-Hosts can expose a shared memory budget through `IQpdfMemoryHost`; the standalone
-`QpdfInputReader.ReadExactlyToArrayAsync` helper also accepts that budget directly.
-Custom inputs fill caller-owned `Memory<byte>` and return a count.
-[Resource APIs](docs/COMPATIBILITY.md#resource-apis) describe
-the input and codec contracts. See [cooperative memory admission](docs/MEMORY.md) for caller-scope ownership and the
-current boundary between engine estimates and host-private storage.
-
-For existing qpdf workflows, `Qpdf.ExecuteAsync` accepts a `QpdfCommandInvocation`,
-and `Qpdf.ExecuteJobAsync` accepts job JSON.
+Use `Qpdf.ExecuteAsync` for a `QpdfCommandInvocation` or `Qpdf.ExecuteJobAsync`
+for job JSON.
 
 For authenticated reading of a supported password-encrypted input:
 
@@ -73,17 +66,9 @@ Console.WriteLine(document.PageCount);
 Console.WriteLine(document.Encryption); // Non-secret facts only.
 ```
 
-Omitting credentials tries an empty password. `QpdfPassword.FromText` uses UTF-8
-with bounded encoding recovery; `FromBytes` borrows exact bytes. Keep borrowed
-credentials stable until the operation completes. Authentication failures have
-explicit reasons; passwords and keys are excluded from reports.
-
-Typed page operations preserve supported input protection by default. Pass
-`QpdfOutputEncryption.Remove` to decrypt, `CreateAes256` for fresh R6 protection,
-or `CopyFrom` to use an independently authenticated template. Multi-source
-selection accepts a credential on each `PdfPageSource`; the first source controls
-default output protection. Each split output requesting fresh encryption gets
-its own key.
+Omitting credentials tries an empty password. Keep borrowed `FromBytes`
+credentials stable until the operation completes. This selection uses bounded
+repair and publishes an unencrypted copy:
 
 ```csharp
 await Qpdf.SelectPagesAsync(host,
@@ -95,23 +80,15 @@ await Qpdf.SelectPagesAsync(host,
     }, CancellationToken.None);
 ```
 
-Typed reading and selection are strict by default. Explicit bounded repair uses
-the shared reader and returns recovery warnings; the merge option applies to
-all sources and encryption templates. Repeated logical paths share one input
-and require consistent credentials.
+Typed page operations preserve supported input protection by default. Each
+`PdfPageSource` accepts its own credential. Typed reading defaults to strict
+mode. See the supported profile for recovery, output encryption and secondary
+source policies. [Supported profile](docs/SUPPORTED-PROFILE.md)
 
-Document opening also accepts an explicit recovery policy with credentials and
-limits; checking and JSON use their options' `RecoveryMode`. For result-only JSON,
-call `Qpdf.GetDocumentJsonAsync(host, input, new QpdfJsonOptions(2, ["pages"]), token)`.
-An output path is needed only when publishing the report; file sidecars require
-an explicit prefix when there is no report path.
-
-Checks, inspections, attachments, placements and JSON operations also accept
-credentials. Argv uses `--password=reader` or a host-backed `--password-file`;
-job JSON uses `password` or `passwordFile`. PDF transformations preserve input
-protection unless an output policy such as `--decrypt` or `--encrypt` is chosen.
-See the [supported profile](docs/SUPPORTED-PROFILE.md) for exact APIs, source
-credentials, encoding recovery, JSON encryption policies and security reporting.
+For result-only JSON, call
+`Qpdf.GetDocumentJsonAsync(host, input, new QpdfJsonOptions(2, ["pages"]), token)`.
+Supply a stream prefix when publishing sidecars from a result-only call.
+[JSON inspection](docs/SUPPORTED-PROFILE.md#inspection-profile)
 
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
