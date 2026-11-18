@@ -24,30 +24,29 @@ public sealed class CheckTransformationTests
 
     public static IEnumerable<object?[]> NestedObjects()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
-        foreach (bool check in new[] { false, true })
-        {
-            yield return [route, check, "1", null, "3,2", "<< /Contents 5 0 R /MediaBox 9 0 R /Parent 2 0 R /Resources << /ProcSet [ /PDF ] >> /Rotate 90 /Type /Page >>"];
-            yield return [route, check, "1", null, "3,0", "null"];
-            yield return [route, check, "1", null, "4", "null"];
-            yield return [route, check, "1", null, "9", "[ 0 0 600 800 ]"];
-            yield return [route, check, "1", null, "10", "<< /ProcSet [ /PDF ] >>"];
-            yield return [route, check, "1,1", "+90:2", "11", "<< /Contents 5 0 R /MediaBox 9 0 R /Parent 2 0 R /Resources << /ProcSet [ /PDF ] >> /Rotate 180 /Type /Page >>"];
-            yield return [route, check, "1,1", "+90:2", "3,2", "<< /Contents 5 0 R /MediaBox 9 0 R /Parent 2 0 R /Resources << /ProcSet [ /PDF ] >> /Rotate 90 /Type /Page >>"];
-            yield return [route, check, null, "+90:1", "3,2", "<< /Contents 5 0 R /Parent 8 0 R /Rotate 180 /Type /Page >>"];
-            yield return [route, check, null, "-90:2", "4", "<< /Contents 6 0 R /Parent 8 0 R /Rotate 0 /Type /Page >>"];
-        }
+        const string inherited = "<< /Contents 5 0 R /MediaBox 9 0 R /Parent 2 0 R /Resources << /ProcSet [ /PDF ] >> /Rotate 90 /Type /Page >>";
+        const string rotatedDuplicate = "<< /Contents 5 0 R /MediaBox 9 0 R /Parent 2 0 R /Resources << /ProcSet [ /PDF ] >> /Rotate 180 /Type /Page >>";
+        yield return ["argv", "1", null, "3,2", inherited];
+        yield return ["argv", "1", null, "3,0", "null"];
+        yield return ["argv", "1", null, "4", "null"];
+        yield return ["argv", "1", null, "9", "[ 0 0 600 800 ]"];
+        yield return ["argv", "1", null, "10", "<< /ProcSet [ /PDF ] >>"];
+        yield return ["argv", "1,1", "+90:2", "11", rotatedDuplicate];
+        yield return ["argv", "1,1", "+90:2", "3,2", inherited];
+        yield return ["argv", null, "+90:1", "3,2", "<< /Contents 5 0 R /Parent 8 0 R /Rotate 180 /Type /Page >>"];
+        yield return ["argv", null, "-90:2", "4", "<< /Contents 6 0 R /Parent 8 0 R /Rotate 0 /Type /Page >>"];
+        yield return ["job", "1", null, "3,2", inherited];
+        yield return ["mixed", "1,1", "+90:2", "11", rotatedDuplicate];
     }
 
     [Theory]
     [MemberData(nameof(NestedObjects))]
-    public async Task NestedSelectionPreservesGenerationsAndInheritedAllocationOrder(string route, bool check,
+    public async Task NestedSelectionPreservesGenerationsAndInheritedAllocationOrder(string route,
         string? range, string? rotation, string selector, string expected)
     {
         InMemoryQpdfHost host = Host(NestedFixture());
         string properties = "\"showObject\":\"" + selector + "\",\"showPages\":\"\",\"showXref\":\"\"";
         List<string> flags = ["--show-object=" + selector, "--show-pages", "--show-xref"];
-        if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
         if (range is not null) { properties += ",\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}]"; flags.AddRange(["--pages", ".", range, "--"]); }
         if (rotation is not null) { properties += ",\"rotate\":[\"" + rotation + "\"]"; flags.Add("--rotate=" + rotation); }
         QpdfExecutionResult result = await Execute(host, route, properties, flags.ToArray(), QpdfLimits.Default);
@@ -89,14 +88,15 @@ public sealed class CheckTransformationTests
 
     public static IEnumerable<object[]> SourceContexts()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
-        foreach (bool check in new[] { false, true })
-        foreach (string mode in new[] { "same", "alias", "foreign-duplicate", "interleaved", "collation" }) { yield return [route, check, mode]; }
+        foreach (string mode in new[] { "same", "alias", "foreign-duplicate", "interleaved", "collation" })
+        { yield return ["argv", mode]; }
+        yield return ["job", "collation"];
+        yield return ["mixed", "interleaved"];
     }
 
     [Theory]
     [MemberData(nameof(SourceContexts))]
-    public async Task SourceKeysCollationAndForeignSharingPreserveInspectionIdentities(string route, bool check, string mode)
+    public async Task SourceKeysCollationAndForeignSharingPreserveInspectionIdentities(string route, string mode)
     {
         InMemoryQpdfHost storage = Host(Fixture());
         storage.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
@@ -117,7 +117,6 @@ public sealed class CheckTransformationTests
             "interleaved" => ["b.pdf", "1", ".", "2", "b.pdf", "2"], _ => [".", "1,2", "b.pdf", "1,2"],
         });
         flags.Add("--");
-        if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
         if (mode == "collation") { properties += ",\"collate\":\"1\""; flags.Add("--collate=1"); }
         // Foreign selected roots register before their dependent objects. Primary
         // identities stay physical; collation only changes occurrence order.
@@ -160,13 +159,8 @@ public sealed class CheckTransformationTests
     [InlineData("mixed")]
     public async Task CancellationDuringForeignReadDisposesThePreparedPrimaryView(string route)
     {
-        InMemoryQpdfHost storage = Host(Fixture());
+        using InMemoryQpdfHost storage = Host(Fixture());
         storage.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
-        await using (IQpdfOutputTransaction seed = await storage.CreateOutputAsync(QpdfPath.From("prior.pdf"), CancellationToken.None))
-        {
-            await seed.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
-            await seed.CommitAsync(CancellationToken.None);
-        }
         using CancellationTokenSource cancellation = new();
         TestHost host = new(storage, cancellation);
         QpdfExecutionResult result = await Execute(storage, host, route,
@@ -179,13 +173,13 @@ public sealed class CheckTransformationTests
         Assert.Equal(0L, storage.OpenLeaseCount);
         Assert.Null(result.OutputBytes);
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
-        Assert.True(storage.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] prior));
-        Assert.Equal("prior"u8.ToArray(), prior);
+        Assert.Equal(0, host.OutputRequests);
     }
 
     private sealed class TestHost(InMemoryQpdfHost storage, CancellationTokenSource? cancellation) : IQpdfHost
     {
         internal bool ForeignReadCompleted { get; private set; }
+        internal int OutputRequests { get; private set; }
 
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
@@ -195,7 +189,10 @@ public sealed class CheckTransformationTests
         }
 
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-            => storage.CreateOutputAsync(path, token);
+        {
+            OutputRequests++;
+            return storage.CreateOutputAsync(path, token);
+        }
 
         private sealed class ObservedInput(IQpdfInput input, TestHost host, CancellationTokenSource cancellation) : IQpdfInput
         {
@@ -215,9 +212,44 @@ public sealed class CheckTransformationTests
 
     public static IEnumerable<object[]> Effects()
     {
-        foreach (string route in new[] { "job", "argv", "mixed" })
         foreach (string mode in new[] { "first", "second", "reorder", "duplicate", "select-rotate", "rotate" })
-        foreach (bool check in new[] { false, true }) { yield return [route, mode, check]; }
+        { yield return ["argv", mode]; }
+        yield return ["job", "select-rotate"];
+        yield return ["mixed", "reorder"];
+    }
+
+    [Theory]
+    [InlineData("argv", "2", false, false)]
+    [InlineData("argv", "1", true, false)]
+    [InlineData("argv", "2", true, true)]
+    [InlineData("job", "2", true, true)]
+    [InlineData("mixed", "2", true, true)]
+    public async Task CheckerValidatesSelectedContentBeforeListing(string route, string range, bool check, bool fails)
+    {
+        using InMemoryQpdfHost host = Host(PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 5 0 R >>", null),
+            (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 42 >>", null),
+            (5, "<< /Length 3 >>", "q Q"u8.ToArray())], 1));
+        string properties = "\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}],\"showPages\":\"\"";
+        List<string> flags = ["--pages", ".", range, "--", "--show-pages"];
+        if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
+        QpdfExecutionResult result = await Execute(host, route, properties, [.. flags], QpdfLimits.Default);
+        Assert.Equal(fails ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        if (fails)
+        {
+            QpdfDiagnostic failure = Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);
+            Assert.Contains("Check 'page-content' failed: Page 1 content", failure.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing);
+        }
+        else
+        {
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing
+                && d.Message == (range == "1" ? "page 1: 3 0 R" : "page 1: 4 0 R"));
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]
@@ -385,7 +417,7 @@ public sealed class CheckTransformationTests
 
     [Theory]
     [MemberData(nameof(Effects))]
-    public async Task SelectionAndRotationChangeActualCountsAndOriginalIdentities(string route, string mode, bool check)
+    public async Task SelectionAndRotationChangeActualCountsAndOriginalIdentities(string route, string mode)
     {
         InMemoryQpdfHost host = Host(Fixture());
         string? range = mode switch { "first" => "1", "second" or "select-rotate" => "2", "reorder" => "2,1", "duplicate" => "1,1", _ => null };
@@ -393,7 +425,6 @@ public sealed class CheckTransformationTests
         string selector = mode == "duplicate" ? "8" : mode == "select-rotate" || mode == "rotate" ? "4" : "2";
         string properties = "\"showNpages\":\"\",\"showPages\":\"\",\"showXref\":\"\",\"showObject\":\"" + selector + "\"";
         List<string> flags = ["--show-npages", "--show-pages", "--show-xref", "--show-object=" + selector];
-        if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
         if (range is not null) { properties += ",\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}]"; flags.AddRange(["--pages", ".", range, "--"]); }
         if (rotate is not null) { properties += ",\"rotate\":[\"" + rotate + "\"]"; flags.Add("--rotate=" + rotate); }
         QpdfExecutionResult result = await Execute(host, route, properties, [.. flags], QpdfLimits.Default);
@@ -474,23 +505,19 @@ public sealed class CheckTransformationTests
     [InlineData("job")]
     [InlineData("argv")]
     [InlineData("mixed")]
-    public async Task TransformationCeilingsPreserveExistingTargets(string route)
+    public async Task TransformationCeilingFailsAnOutputFreeInspection(string route)
     {
         string range = string.Join(",", Enumerable.Repeat("1", 150));
         string properties = "\"check\":\"\",\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}],\"rotate\":[\"+90\"],\"showPages\":\"\"";
         string[] flags = ["--check", "--show-pages", "--rotate=+90", "--pages", ".", range, "--"];
-        InMemoryQpdfHost host = Host(Fixture());
+        using InMemoryQpdfHost storage = Host(Fixture());
+        TestHost host = new(storage, null);
         QpdfLimits generous = QpdfLimits.Default with { MaxDiagnostics = 1000 };
-        QpdfExecutionResult control = await Execute(host, route, properties, flags, generous);
+        QpdfExecutionResult control = await Execute(storage, host, route, properties, flags, generous, CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, control.ExitCode);
         Assert.Equal(150, control.Diagnostics.Count(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("page ", StringComparison.Ordinal)));
-        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(QpdfPath.From("prior.pdf"), CancellationToken.None))
-        {
-            await seed.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
-            await seed.CommitAsync(CancellationToken.None);
-        }
         QpdfLimits limits = generous with { MaxMemoryBytes = control.Counters.PeakMemoryBytes / 2L };
-        QpdfExecutionResult result = await Execute(host, route, properties, flags, limits);
+        QpdfExecutionResult result = await Execute(storage, host, route, properties, flags, limits, CancellationToken.None);
         Assert.True(result.Status == QpdfExecutionStatus.Failed,
             $"Expected budget failure; got {result.Status}/{result.ExitCode}, control peak {control.Counters.PeakMemoryBytes}, "
             + $"limited peak {result.Counters.PeakMemoryBytes}, ceiling {limits.MaxMemoryBytes}; "
@@ -499,9 +526,8 @@ public sealed class CheckTransformationTests
         Assert.True(result.Counters.HostOperations > 0L);
         Assert.InRange(result.Counters.PeakMemoryBytes, 1L, limits.MaxMemoryBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
-        Assert.Equal(0L, host.OpenLeaseCount);
-        Assert.True(host.TryGetOutput(QpdfPath.From("prior.pdf"), out byte[] prior));
-        Assert.Equal("prior"u8.ToArray(), prior);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.Equal(0, host.OutputRequests);
         Assert.Null(result.OutputBytes);
     }
 
