@@ -172,6 +172,8 @@ internal static class LinearizationCheck
             throw new ArgumentNullException(nameof(governor));
         }
 
+        // Hints describe the acquired file and its original objects.
+        using DocumentEngine.PhysicalGraphScope physicalGraph = new(engine);
         LinearizationDataOwner? hints = null;
         ParserMemoryScope? classification = null;
         ClassifiedGraph? graph = null;

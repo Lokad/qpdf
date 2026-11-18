@@ -73,7 +73,7 @@ internal static partial class InspectionGraphPreparation
     {
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
-        bool content = plan is JsonPlan && (plan.CoalesceContents || externalize || plan.OptimizeImages);
+        bool content = plan.CoalesceContents || plan is JsonPlan && (externalize || plan.OptimizeImages);
         JsonPlan? json = plan as JsonPlan;
         bool authoredLabels = json is not null && json.Labels.Count > 0;
         bool publication = json is not null && (authoredLabels || json.RemoveInfo || json.RemoveMetadata

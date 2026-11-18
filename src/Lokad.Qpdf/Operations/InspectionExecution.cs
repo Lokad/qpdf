@@ -304,7 +304,7 @@ internal static class InspectionExecution
             if (plan.CheckLinearization || plan.ShowLinearization)
             {
                 using LinearizationAnalysis dedicated = plan.RunCheck ? default
-                    : LinearizationCheck.Analyze(document.Engine, document.PageCount, limits, governor,
+                    : LinearizationCheck.Analyze(document.Engine, document.PhysicalPageCount, limits, governor,
                         plan.ShowLinearization, cancellationToken);
                 LinearizationAnalysis analysis = plan.RunCheck ? checkAnalysis : dedicated;
                 if (plan.CheckLinearization) { InspectLinearization(analysis.Inspection, plan.Input, diagnostics); }
@@ -529,7 +529,8 @@ internal static class InspectionExecution
             if (plan.Import is null && plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
-                && plan.Sources.Count == 0 && plan.Rotations.Count == 0 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
+                && !plan.CoalesceContents && plan.Sources.Count == 0 && plan.Rotations.Count == 0
+                && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
             {
                 long count = await PageCountInspection.ReadAsync(host, plan.Input, password, plan.Recovery, limits,
                     governor, diagnostics, true, cancellationToken).ConfigureAwait(false);

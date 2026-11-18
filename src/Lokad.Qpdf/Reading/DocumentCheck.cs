@@ -98,11 +98,11 @@ internal static class DocumentCheck
         }
         AddGraphChecks(engine, engine.Trailer, document.PageReferences, streams, options, limits, outcomeMemory,
             outcomes, governor, diagnostics, cancellationToken);
-        LinearizationAnalysis analysis = LinearizationCheck.Analyze(engine, document.PageCount, limits, governor,
+        LinearizationAnalysis analysis = LinearizationCheck.Analyze(engine, document.PhysicalPageCount, limits, governor,
             retainLinearizationReport, cancellationToken);
         try
         {
-            QpdfCheckOutcome linearization = LinearizationCheck.Check(analysis.Inspection, document.PageCount, governor);
+            QpdfCheckOutcome linearization = LinearizationCheck.Check(analysis.Inspection, document.PhysicalPageCount, governor);
             AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
             if (linearization.Status == QpdfCheckStatus.Skipped)
             { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'linearization': ", linearization.Detail]); }

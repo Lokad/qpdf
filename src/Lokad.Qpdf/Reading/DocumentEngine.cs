@@ -308,6 +308,28 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         _inspectionTrailer = trailer;
     }
 
+    internal readonly ref struct PhysicalGraphScope
+    {
+        private readonly DocumentEngine _engine;
+        private readonly IReadOnlyDictionary<int, QpdfObject>? _objects;
+        private readonly PdfDictionary? _trailer;
+
+        internal PhysicalGraphScope(DocumentEngine engine)
+        {
+            _engine = engine;
+            _objects = engine._inspectionObjects;
+            _trailer = engine._inspectionTrailer;
+            engine._inspectionObjects = null;
+            engine._inspectionTrailer = null;
+        }
+
+        public void Dispose()
+        {
+            _engine._inspectionObjects = _objects;
+            _engine._inspectionTrailer = _trailer;
+        }
+    }
+
     internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];
     internal bool HasInspectionObjects => _inspectionObjects is not null;
     internal QpdfDocument.VersionParts? InspectionVersionParts { get; set; }

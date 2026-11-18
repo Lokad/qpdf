@@ -66,6 +66,7 @@ $cases = @(
   @{N='foreign-interleaved';Sources=@(@{file='inputs/b.pdf';range='1'},@{file='.';range='2'},@{file='inputs/b.pdf';range='2'});O='2';ImportedIdentities=@{9=10;10=11;11=9}},
   @{N='collation';Sources=@(@{file='.';range='1,2'},@{file='inputs/b.pdf';range='1,2'});Collate='1';O='2';ImportedIdentities=@{9=10;10=11;11=9}},
   @{N='nested-first';Nested=$true;R='1';O='3,2';Pattern='/MediaBox 9 0 R'},
+  @{N='coalesced-listing';Nested=$true;ContentGenerations=$true;Coalesce=$true;O='3,2';Pattern='/Contents 9 0 R'},
   @{N='nested-root';Nested=$true;R='1';O='2';Line='<< /Count 1 /Kids [ 3 2 R ] /Type /Pages >>'},
   @{N='nested-box';Nested=$true;R='1';O='9';Line='[ 0 0 600 800 ]'},
   @{N='nested-resources';Nested=$true;R='1';O='10';Line='<< /ProcSet [ /PDF ] >>'},
@@ -86,7 +87,7 @@ $cases = @(
 # checker ordering, source/range refusal and each configuration route. Unit
 # tests observe selected-content checking and count managed output attempts.
 $checkRoutes = @{
-  'first'='argv'; 'collation'='job'; 'content-generations'='mixed';
+  'first'='argv'; 'collation'='job'; 'content-generations'='mixed'; 'coalesced-listing'='job';
   'range-bounds'='job'; 'missing-source'='mixed'
 }
 $records = foreach ($item in $cases) {
@@ -104,6 +105,7 @@ $records = foreach ($item in $cases) {
     $settings = @{showNpages='';showPages='';showXref='';showObject=$item.O}
     [string[]]$argv = @('inputs/a.pdf','--show-npages','--show-pages','--show-xref',('--show-object='+$item.O))
     if ($check) { $settings.check=''; $argv += '--check' }
+    if ($item.Coalesce) { $settings.coalesceContents=''; $argv += '--coalesce-contents' }
     if ($item.Rotate) { $settings.rotate=@($item.Rotate); $argv += ('--rotate='+$item.Rotate) }
     if ($item.Collate) { $settings.collate=$item.Collate; $argv += ('--collate='+$item.Collate) }
     $sources = if ($item.Sources) { $item.Sources } elseif ($item.R) { @(@{file=$(if ($item.Source) {$item.Source} else {'.'});range=$item.R}) } else { @() }

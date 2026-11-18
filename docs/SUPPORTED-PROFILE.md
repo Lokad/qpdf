@@ -331,6 +331,10 @@ content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
 inspections. Page edits and physical-layout listings are unavailable here.
 
+Text inspection of a PDF can coalesce page contents before checking or listing
+the effective graph. Xref listings and linearization reports describe the
+acquired file.
+
 Filtered stream inspection accepts normalization for returned bytes or an explicit
 host output target. Raw extraction retains its encoded bytes.
 Image filter/parameter descriptors retain stored aliases, live references and

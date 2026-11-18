@@ -76,6 +76,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     /// <summary>Gets the page count from page-tree traversal.</summary>
     public int PageCount => _inspectionPages?.Count ?? _pageCount;
 
+    internal int PhysicalPageCount => _pageCount;
+
     /// <summary>Gets non-secret encryption facts, or null for an unencrypted input.</summary>
     public QpdfEncryptionInfo? Encryption => Engine.Security is DocumentSecurity security
         ? new(security.Revision, security.KeyLengthBits, security.Permissions, security.EncryptMetadata, security.Authentication == PasswordAuthentication.Owner) : null;

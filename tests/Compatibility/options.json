@@ -2786,6 +2786,7 @@
           "ContentTransformsTests.CoalesceJoinsStreams",
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
           "ContentTransformsTests.CoalesceKeepsOpaqueStreams",
+          "CheckTransformationTests.CoalescingChangesThePageListingAndPreservesTheSourceArray",
           "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
           "JsonImportContentTests.CreationJoinsVisiblePagesWhileKeepingThePrivateArrayAndDirectKid",
           "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
@@ -2810,12 +2811,14 @@
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
+          "CheckTransformationTests.CoalescingChargesDecodeWorkBeforeAnOtherwiseStandaloneCount",
           "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules",
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
           "JsonImportContentTests.DecodeRefusalLeavesThePriorTargetAndOpensNoTransaction"
         ],
         "oracle": [
           "diff:coalesce-payloads",
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
           "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceJsonImportContent"
         ]

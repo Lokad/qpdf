@@ -823,6 +823,7 @@ internal static partial class JobPlanner
                     EmptyDocument = checkEmpty,
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
+                    CoalesceContents = coalesceContents,
                     Rotations = rotations,
                     RunCheck = check,
                     Overlays = overlays,

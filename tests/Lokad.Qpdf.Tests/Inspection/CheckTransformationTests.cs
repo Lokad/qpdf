@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -7,6 +8,95 @@ namespace Lokad.Qpdf.Tests.Inspection;
 public sealed class CheckTransformationTests
 {
     private static byte[] Fixture() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-2page.pdf"));
+
+    private static byte[] CoalescingFixture(bool encoded)
+    {
+        byte[] program = "q Q"u8.ToArray();
+        if (encoded)
+        {
+            using MemoryStream buffer = new();
+            using (ZLibStream compressor = new(buffer, CompressionLevel.Fastest, true)) { compressor.Write(program); }
+            program = buffer.ToArray();
+        }
+        string header = "<< /Length " + program.Length + (encoded ? " /Filter /FlateDecode >>" : " >>");
+        return PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /AuditContents 6 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> /Contents 6 0 R >>", null),
+            (4, header, program),
+            (5, header, program),
+            (6, "[4 0 R 5 0 R]", null),
+        ], 1);
+    }
+
+    [Theory]
+    [InlineData("argv", false)]
+    [InlineData("job", true)]
+    public async Task CoalescingChangesThePageListingAndPreservesTheSourceArray(string route, bool check)
+    {
+        using InMemoryQpdfHost host = Host(CoalescingFixture(false));
+        string[] plain = ["--show-pages", "--show-xref", "--show-object=6"];
+        QpdfExecutionResult original = await Execute(host, "argv", "", plain, QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, original.ExitCode);
+        Assert.Equal(["    4 0 R", "    5 0 R"], ListedContents(original));
+
+        string properties = "\"showPages\":\"\",\"showXref\":\"\",\"showObject\":\"6\",\"coalesceContents\":\"\"";
+        if (check) { properties += ",\"check\":\"\""; }
+        QpdfExecutionResult coalesced = await Execute(host, route, properties,
+            [.. plain, "--coalesce-contents"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, coalesced.ExitCode);
+        Assert.Equal(["    7 0 R"], ListedContents(coalesced));
+        Assert.Equal("[ 4 0 R 5 0 R ]", Assert.Single(coalesced.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message);
+        Assert.Equal(original.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.XrefListing),
+            coalesced.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.XrefListing));
+        Assert.Equal(0L, coalesced.Counters.TotalOutputBytes);
+
+        QpdfExecutionResult joined = await Execute(host, "argv", "",
+            ["--coalesce-contents", "--show-object=7", "--filtered-stream-data"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, joined.ExitCode);
+        Assert.Equal("q Q\nq Q"u8.ToArray(), Assert.IsType<ReadOnlyMemory<byte>>(joined.OutputBytes).ToArray());
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task PhysicalHintsStillDescribeTheAcquiredFileWhenCheckingCoalescedPages()
+    {
+        using InMemoryQpdfHost source = Host(CoalescingFixture(false));
+        QpdfExecutionResult written = await Execute(source, "argv", "",
+            ["--linearize", "--stream-data=preserve", "linear.pdf"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, written.ExitCode);
+        Assert.True(source.TryGetOutput(QpdfPath.From("linear.pdf"), out byte[] bytes));
+        using InMemoryQpdfHost host = Host(bytes);
+        string[] flags = ["--check", "--check-linearization", "--show-linearization", "--show-pages"];
+        QpdfExecutionResult original = await Execute(host, "argv", "", flags, QpdfLimits.Default);
+        QpdfExecutionResult changed = await Execute(host, "argv", "", [.. flags, "--coalesce-contents"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, original.ExitCode);
+        Assert.Equal(QpdfExitCode.Success, changed.ExitCode);
+        Assert.Equal(2, ListedContents(original).Length);
+        Assert.Single(ListedContents(changed));
+        QpdfDiagnostic[] physical = original.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.LinearizationReport).ToArray();
+        Assert.Contains(physical, d => d.Message == "a.pdf: no linearization errors");
+        Assert.Equal(physical, changed.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.LinearizationReport));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task CoalescingChargesDecodeWorkBeforeAnOtherwiseStandaloneCount()
+    {
+        using InMemoryQpdfHost host = Host(CoalescingFixture(true));
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 5 };
+        QpdfExecutionResult original = await Execute(host, "argv", "", ["--show-npages"], limits);
+        QpdfExecutionResult changed = await Execute(host, "argv", "", ["--coalesce-contents", "--show-npages"], limits);
+        Assert.Equal(QpdfExitCode.Success, original.ExitCode);
+        Assert.Equal(QpdfExitCode.Error, changed.ExitCode);
+        Assert.Contains(changed.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.DoesNotContain(changed.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static string[] ListedContents(QpdfExecutionResult result)
+        => result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("    ", StringComparison.Ordinal))
+            .Select(d => d.Message).ToArray();
 
     private static byte[] NestedFixture() => NestedFixture(false);
 
@@ -154,18 +244,23 @@ public sealed class CheckTransformationTests
     }
 
     [Theory]
-    [InlineData("job")]
-    [InlineData("argv")]
-    [InlineData("mixed")]
-    public async Task CancellationDuringForeignReadDisposesThePreparedPrimaryView(string route)
+    [InlineData("job", true)]
+    [InlineData("argv", false)]
+    [InlineData("mixed", false)]
+    public async Task CancellationDuringForeignReadDisposesThePreparedPrimaryView(string route, bool coalesce)
     {
         using InMemoryQpdfHost storage = Host(Fixture());
         storage.AddInput(QpdfPath.From("b.pdf"), Fixture(), QpdfInputOwnership.Copy);
         using CancellationTokenSource cancellation = new();
         TestHost host = new(storage, cancellation);
-        QpdfExecutionResult result = await Execute(storage, host, route,
-            "\"check\":\"\",\"pages\":[{\"file\":\"b.pdf\",\"range\":\"1\"}],\"showNpages\":\"\"",
-            ["--check", "--show-npages", "--pages", "b.pdf", "1", "--"], QpdfLimits.Default, cancellation.Token);
+        string properties = "\"check\":\"\",\"pages\":[{\"file\":\"b.pdf\",\"range\":\"1\"}],\"showNpages\":\"\"";
+        string[] flags = ["--check", "--show-npages", "--pages", "b.pdf", "1", "--"];
+        if (coalesce)
+        {
+            properties += ",\"coalesceContents\":\"\"";
+            flags = [.. flags, "--coalesce-contents"];
+        }
+        QpdfExecutionResult result = await Execute(storage, host, route, properties, flags, QpdfLimits.Default, cancellation.Token);
         Assert.True(host.ForeignReadCompleted);
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status);
         Assert.True(result.Counters.PeakMemoryBytes > 0L);
