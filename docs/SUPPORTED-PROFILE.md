@@ -361,8 +361,10 @@ and omits null-valued dictionary fields. Live references to null objects retain
 their identity in arrays; stored descriptor fields keep their own projection rules.
 V1 emits stream dictionaries only, including when inline/file
 settings are accepted; it creates no sidecars. V2 can omit/include stream payloads
-or publish host sidecars. V2 import/update matches complete object number and
-generation pairs before assigning output numbers. New JSON edges bind live source
+or publish host sidecars. An import can reuse a sidecar read by logical path
+while keeping separate stream dictionaries. V2 import and update match complete
+object number and generation pairs before assigning output numbers. New JSON
+edges bind live source
 pairs and declared objects, including forward references; stale/free/missing
 original source edges remain null even when a patch declares that pair. A stream
 patch without payload data reuses bytes only from its matching source pair.

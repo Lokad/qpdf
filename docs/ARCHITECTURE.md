@@ -64,6 +64,9 @@ their provenance so their new pairs cannot revive invalid original edges.
 The shared remapper validates original source edges
 against live xrefs and binds JSON edges against source/declared pairs, borrowing
 stream payloads while their backing owner lives. Its binding index is temporary.
+JSON imports reuse sidecar payloads by logical path in an eight-entry index.
+Each stream retains its own header and borrows the admitted bytes. The index
+retires when model binding completes.
 Original object-stream membership enters the normalized ID space during binding,
 then follows final numbering. Ordinary metadata/catalog policy applies after binding,
 before numbering; fresh roles retain independent aliases while shared reachability

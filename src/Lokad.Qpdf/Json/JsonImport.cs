@@ -119,6 +119,7 @@ internal static partial class JsonImport
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
         Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null, bindingMemory, governor, cancellationToken);
         Dictionary<int, QpdfObject> objects = new(bindings.Count);
+        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory);
         PdfDictionary? trailer = null;
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
@@ -138,7 +139,7 @@ internal static partial class JsonImport
                 throw new QpdfParseException("qpdf JSON object must be a dictionary.", 0L, null);
             }
 
-            QpdfObject value = await ReadObjectAsync(host, property.Value, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            QpdfObject value = await ReadObjectAsync(sidecars, property.Value, null, limits, governor, memory, cancellationToken).ConfigureAwait(false);
             objects[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
         }
 
@@ -229,6 +230,7 @@ internal static partial class JsonImport
         PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(prepared?.Trailer ?? engine.Trailer,
             engine.XRefEntries, bindings, prepared?.AddedReferences, memory, governor, cancellationToken);
         PdfDictionary originalTrailer = trailer;
+        using SidecarReader sidecars = SidecarReader.Create(host, limits, governor, memory, bindingMemory);
         QpdfObject originalEncryption = PdfNull.Instance;
         if (engine.Security is not null && PdfDictionaryLookup.TryGet(trailer, "Encrypt"u8, governor, cancellationToken, out QpdfObject declaration))
         {
@@ -254,7 +256,7 @@ internal static partial class JsonImport
             }
 
             merged.TryGetValue(number, out QpdfObject? existing);
-            QpdfObject value = await ReadObjectAsync(host, property.Value, existing as PdfStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+            QpdfObject value = await ReadObjectAsync(sidecars, property.Value, existing as PdfStream, limits, governor, memory, cancellationToken).ConfigureAwait(false);
             merged[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
         }
 
@@ -396,7 +398,7 @@ internal static partial class JsonImport
     }
 
     private static async ValueTask<QpdfObject> ReadObjectAsync(
-        IQpdfHost host,
+        SidecarReader sidecars,
         JsonElement value,
         PdfStream? existingStream,
         QpdfLimits limits,
@@ -508,7 +510,7 @@ internal static partial class JsonImport
             }
             if (datafile is not null)
             {
-                byte[] data = await ReadSidecarAsync(host, datafile, limits, governor, memory, cancellationToken).ConfigureAwait(false);
+                byte[] data = await sidecars.ReadAsync(datafile, cancellationToken).ConfigureAwait(false);
                 return PdfStream.FromOwnedData(streamDict, data);
             }
             if (existingStream is not null)
@@ -521,41 +523,76 @@ internal static partial class JsonImport
         return result ?? PdfNull.Instance;
     }
 
-    private static async ValueTask<byte[]> ReadSidecarAsync(
-        IQpdfHost host,
-        string name,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        ParserMemoryScope memory,
-        CancellationToken cancellationToken)
+    private sealed class SidecarReader : IDisposable
     {
-        if (name.Length == 0 || name.Length > QpdfPath.MaxLength || name.Contains((char)0))
+        private const int Capacity = 8;
+        private readonly IQpdfHost _host;
+        private readonly QpdfLimits _limits;
+        private readonly ResourceGovernor _governor;
+        private readonly ParserMemoryScope _payloadMemory;
+        private readonly ParserMemoryScope _lookupMemory;
+        private (string Name, byte[] Bytes)[]? _entries;
+        private int _next;
+
+        private SidecarReader(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor,
+            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory)
         {
-            throw new QpdfParseException("qpdf JSON stream datafile is not a valid logical path.", 0L, null);
+            _host = host; _limits = limits; _governor = governor;
+            _payloadMemory = payloadMemory; _lookupMemory = lookupMemory;
         }
 
-        QpdfPath path = QpdfPath.From(name);
-        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
-        try
+        internal static SidecarReader Create(IQpdfHost host, QpdfLimits limits, ResourceGovernor governor,
+            ParserMemoryScope payloadMemory, ParserMemoryScope lookupMemory)
         {
-            if (input.Length > limits.MaxInputBytes)
+            lookupMemory.Reserve(80L);
+            return new SidecarReader(host, limits, governor, payloadMemory, lookupMemory);
+        }
+
+        internal async ValueTask<byte[]> ReadAsync(string name, CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            if (name.Length == 0 || name.Length > QpdfPath.MaxLength || name.Contains((char)0))
             {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limits.MaxInputBytes);
+                throw new QpdfParseException("qpdf JSON stream datafile is not a valid logical path.", 0L, null);
+            }
+            if (_entries is not null)
+            {
+                foreach (var entry in _entries)
+                {
+                    if (string.Equals(entry.Name, name, StringComparison.Ordinal)) { return entry.Bytes; }
+                }
+            }
+            else
+            {
+                _lookupMemory.Reserve(32L + Capacity * 2L * IntPtr.Size);
+                _entries = new (string, byte[])[Capacity];
             }
 
-            if (input.Length > int.MaxValue)
-            {
-                throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, int.MaxValue);
-            }
-
-            memory.Reserve(checked(input.Length + 32L));
-            byte[] bytes = await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, governor, cancellationToken).ConfigureAwait(false);
+            byte[] bytes = await ReadPayloadAsync(QpdfPath.From(name), token).ConfigureAwait(false);
+            // The loaded bytes are immutable and funded by the imported model.
+            // Replacing an index entry leaves existing streams and owners intact.
+            _entries[_next] = (name, bytes);
+            _next = (_next + 1) % Capacity;
             return bytes;
         }
-        finally
+
+        private async ValueTask<byte[]> ReadPayloadAsync(QpdfPath path, CancellationToken token)
         {
-            await input.DisposeAsync().ConfigureAwait(false);
+            IQpdfInput input = await GovernedHost.OpenInputAsync(_host, path, _governor, token).ConfigureAwait(false);
+            try
+            {
+                long limit = Math.Min(_limits.MaxInputBytes, int.MaxValue);
+                if (input.Length > limit)
+                {
+                    throw new QpdfLimitException(nameof(QpdfLimits.MaxInputBytes), input.Length, limit);
+                }
+                _payloadMemory.Reserve(checked(input.Length + 32L));
+                return await QpdfInputReader.ReadAdmittedAsync(input, 0L, (int)input.Length, _governor, token).ConfigureAwait(false);
+            }
+            finally { await input.DisposeAsync().ConfigureAwait(false); }
         }
+
+        public void Dispose() => _entries = null;
     }
     private static string? ReadString(JsonElement value)
     {
