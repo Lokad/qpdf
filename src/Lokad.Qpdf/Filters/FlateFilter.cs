@@ -24,6 +24,13 @@ internal static partial class FlateFilter
         => Decode(input, parms, limits, governor, CancellationToken.None);
 
     internal static byte[] Decode(byte[] input, PredictorParameters? parms, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        => DecodeCore(input, parms, limits, governor, token, null);
+
+    internal static byte[] DecodeForOutput(byte[] input, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        => DecodeCore(input, null, limits, governor, token, limits.MaxOutputBytes);
+
+    private static byte[] DecodeCore(byte[] input, PredictorParameters? parms, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken token, long? maximumOutput)
     {
         if (input is null)
         {
@@ -46,7 +53,7 @@ internal static partial class FlateFilter
         long selectorStride = parms is not null && parms.Predictor >= 10
             ? PredictorStages.RowLength(parms, FilterName) + 1L
             : 0L;
-        byte[] inflated = Inflate(input, selectorStride, governor, limits, token);
+        byte[] inflated = Inflate(input, selectorStride, governor, limits, token, maximumOutput);
         byte[] result;
         if (parms is null || parms.Predictor == 1)
         {
@@ -78,7 +85,8 @@ internal static partial class FlateFilter
         }
     }
 
-    private static byte[] Inflate(byte[] input, long selectorStride, ResourceGovernor governor, QpdfLimits limits, CancellationToken token)
+    private static byte[] Inflate(byte[] input, long selectorStride, ResourceGovernor governor, QpdfLimits limits,
+        CancellationToken token, long? maximumOutput)
     {
         governor.CheckCancellation();
         if (input.Length < 7)
@@ -122,7 +130,14 @@ internal static partial class FlateFilter
                 maximumRaw = Math.Min(Array.MaxLength, maximumRaw + maximumRaw / (selectorStride - 1L) + 1L);
             }
 
-            using GovernedBufferStream output = new(governor, maximumRaw, nameof(QpdfLimits.MaxDecodedBytes), token);
+            string limitName = nameof(QpdfLimits.MaxDecodedBytes);
+            if (maximumOutput is long outputLimit && outputLimit < maximumRaw)
+            {
+                maximumRaw = outputLimit;
+                limitName = nameof(QpdfLimits.MaxOutputBytes);
+            }
+            long companionReadCeiling = Math.Min(maximumRaw, governor.RemainingDecodedBytes);
+            using GovernedBufferStream output = new(governor, maximumRaw, limitName, token);
             byte[] buffer = new byte[ChunkBytes];
             try
             {
@@ -133,7 +148,14 @@ internal static partial class FlateFilter
                     // Check cancellation between bounded codec reads; input
                     // refills also check it when no output is produced.
                     governor.NoteOperation();
-                    int read = decompressor.Read(buffer, 0, buffer.Length);
+                    int capacity = buffer.Length;
+                    if (maximumOutput.HasValue)
+                    {
+                        // Ask for one extra byte at the tighter ceiling so an
+                        // exact fit still validates the frame terminator.
+                        capacity = (int)Math.Min(capacity, companionReadCeiling - output.Length + 1L);
+                    }
+                    int read = decompressor.Read(buffer, 0, capacity);
                     if (read == 0)
                     {
                         break;

@@ -98,7 +98,7 @@ are generally not compatibility guarantees.
 | Image JSON | Decode-none reports retain raw filter specifications with `filterable:false`, including malformed decoder settings. Enabled decoding retains strict specification validation; native can warn and report the descriptor instead. |
 | IDs / compression | Default IDs are deterministic content hashes; static IDs use the native test constant. BCL Flate levels map 1/2..8/9 to fastest/optimal/smallest. JPEG quality is 0..100 (development adapter maps 0 to 1); equal settings across codecs need not produce equivalent quality. Numbering, packing, predictors and hint bytes may differ. |
 | Linearized outlines | Outline closures stay outside object streams so hint spans remain contiguous. Pinned native packing can split a root from later outline containers and warn about its own offsets/lengths; the reference controls retain that failure and compare a valid classic equivalent. |
-| Companions | Fix-QDF requires LF outer syntax, sequential numbering and consistent stream/length framing; ambiguous marker payloads reject. Zlib-flate rejects truncation rather than returning partial output. |
+| Companions | Fix-QDF requires LF outer syntax, sequential numbering and unambiguous stream/length framing. Zlib-flate reports malformed frames and enforces decoded and output limits during inflation. Once the codec returns a byte beyond the tighter limit, the operation refuses before validating the rest of the frame. An exact fit still requires frame validation. |
 
 Rotation destination limits follow the viewer-dependent semantics in
 [ISO 32000-1, 12.3.2.2 and Table 151](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf).

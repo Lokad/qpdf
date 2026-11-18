@@ -1,6 +1,7 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -88,7 +89,7 @@ public sealed class ZlibFlateTests
     {
         byte[] raw = BinaryPayload();
         InMemoryQpdfHost host = HostWith("inputs/a.bin", await CompressAsync(raw, null));
-        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length, MaxOpenHandles = 1L };
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = raw.Length, MaxOutputBytes = raw.Length, MaxOpenHandles = 1L };
         QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, QpdfPath.From("inputs/a.bin"),
             QpdfPath.From("outputs/b.bin"), new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null),
             limits, CancellationToken.None);
@@ -96,6 +97,7 @@ public sealed class ZlibFlateTests
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/b.bin"), out byte[] output));
         Assert.Equal(raw, output);
         Assert.Equal(raw.Length, result.Counters.TotalDecodedBytes);
+        Assert.Equal(raw.Length, result.Counters.TotalOutputBytes);
         Assert.Equal(0L, result.Counters.OpenHandles);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -117,6 +119,40 @@ public sealed class ZlibFlateTests
         Assert.Equal(corrupt ? "prior"u8.ToArray() : raw, output);
         Assert.Equal(corrupt ? 0L : raw.LongLength, result.Counters.TotalDecodedBytes);
         Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+    }
+
+    [Theory]
+    [InlineData(4096, 4097, false, nameof(QpdfLimits.MaxOutputBytes))]
+    [InlineData(4097, 4096, false, nameof(QpdfLimits.MaxDecodedBytes))]
+    [InlineData(4096, 4097, true, nameof(QpdfLimits.MaxOutputBytes))]
+    public async Task UncompressRefusesAtTheFirstByteBeyondTheTighterLimit(
+        int outputLimit, int decodedLimit, bool corruptChecksum, string limit)
+    {
+        byte[] raw = new byte[262144];
+        byte[] encoded = await CompressAsync(raw, null);
+        if (corruptChecksum) { encoded[^1] ^= 128; }
+        QpdfPath input = QpdfPath.From("input"), target = QpdfPath.From("output");
+        using RecordingJobHost host = new(null, null, "success", true);
+        host.Inner.AddInput(input, encoded, QpdfInputOwnership.Transfer);
+        byte[] old = [17, 23, 41];
+        await using (IQpdfOutputTransaction prior = await host.Inner.CreateOutputAsync(target, CancellationToken.None))
+        {
+            await prior.WriteAsync(old, CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = outputLimit, MaxDecodedBytes = decodedLimit };
+        QpdfExecutionResult result = await Qpdf.RunZlibFlateAsync(host, input, target,
+            new QpdfZlibFlateOptions(QpdfZlibFlateMode.Uncompress, null), limits, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded
+            && item.Message.Contains($"Budget {limit} exceeded: requested 4097, allowed 4096.", StringComparison.Ordinal));
+        Assert.True(result.Counters.PeakMemoryBytes < raw.Length);
+        Assert.Equal(0L, result.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, result.Counters.TotalOutputBytes);
+        Assert.Empty(host.CreatedPaths);
+        Assert.True(host.Inner.TryGetOutput(target, out byte[] output));
+        Assert.Equal(old, output);
+        ExecutionJobFixtures.AssertClosed(host, result);
     }
 
     [Fact]

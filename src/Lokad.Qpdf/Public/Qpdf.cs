@@ -1046,12 +1046,8 @@ public static partial class Qpdf
 
                 byte[] output = options.Mode == QpdfZlibFlateMode.Compress
                     ? FlateFilter.Encode(bytes, options.CompressionLevel, limits, governor)
-                    : DecodeZlibFlate(bytes, limits, governor);
+                    : DecodeZlibFlate(bytes, limits, governor, cancellationToken);
                 working.AdoptReserved(output.Length == 0 ? 0L : checked(output.LongLength + GovernedBufferStream.ArrayOverheadBytes));
-                if (output.Length > limits.MaxOutputBytes)
-                {
-                    throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), output.Length, limits.MaxOutputBytes);
-                }
 
                 await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
                 TransactionSink sink = new(transaction, governor);
@@ -1072,11 +1068,11 @@ public static partial class Qpdf
         finally { governor.AbandonExecutionResult(); }
     }
 
-    private static byte[] DecodeZlibFlate(byte[] bytes, QpdfLimits limits, ResourceGovernor governor)
+    private static byte[] DecodeZlibFlate(byte[] bytes, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         try
         {
-            return FlateFilter.Decode(bytes, null, limits, governor);
+            return FlateFilter.DecodeForOutput(bytes, limits, governor, token);
         }
         catch (QpdfFilterException ex)
         {
