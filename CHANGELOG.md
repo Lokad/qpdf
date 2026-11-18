@@ -2,6 +2,10 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply coalescing and inline-image externalization before JSON export, including
+  assembled pages and nested Forms, while preserving original aliases and exact
+  source references. Keep generated page identities linked to the visible tree.
+
 - Prepare declared page identities and inherited attributes before JSON updates,
   including direct/repeated pages and updates from assembled exports. Reject
   repeated tree containers during preparation to keep identities and work bounded.

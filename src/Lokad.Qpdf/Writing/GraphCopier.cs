@@ -37,6 +37,8 @@ internal sealed partial class GraphCopier
     private int _rootPageNumber = -1;
     private List<int>? _attemptSources;
     private int _copyAttempts;
+    private bool _retainsSourceReferences;
+    private bool _normalizesInspectionReferences;
 
     internal static GraphCopier CreateOwned(DocumentEngine engine, ResourceGovernor governor,
         QpdfLimits limits, int firstId, ParserMemoryScope ownership)
@@ -45,6 +47,18 @@ internal sealed partial class GraphCopier
         ownership.Reserve(192L);
         return new GraphCopier(engine, governor, limits, firstId, ownership);
     }
+
+    internal static GraphCopier CreateInspectionOwned(DocumentEngine engine, ResourceGovernor governor,
+        QpdfLimits limits, int firstId, ParserMemoryScope ownership, bool retainSourceReferences)
+    {
+        GraphCopier copier = CreateOwned(engine, governor, limits, firstId, ownership);
+        copier._retainsSourceReferences = retainSourceReferences;
+        copier._normalizesInspectionReferences = !retainSourceReferences;
+        return copier;
+    }
+
+    internal Content.PoolResolver CreateResolver(ParserMemoryScope memory)
+        => Content.PoolResolver.Create(memory, _copied, _retainsSourceReferences ? _resolver as DocumentEngine : null);
 
     private GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId,
         ParserMemoryScope ownership)
@@ -635,9 +649,7 @@ internal sealed partial class GraphCopier
 
         if (_mapping.TryGetValue(reference.ObjectNumber, out int mapped))
         {
-            if (mapped == reference.ObjectNumber && reference.Generation == 0) { return reference; }
-            _ownership.Reserve(24L);
-            return new PdfReference(mapped, 0);
+            return CopiedReference(reference, mapped);
         }
 
         if (resolved is PdfDictionary dictionary)
@@ -663,9 +675,17 @@ internal sealed partial class GraphCopier
         Map(reference.ObjectNumber, id);
         QpdfObject copied = CopyValue(resolved, depth + 1);
         Store(id, copied);
-        if (id == reference.ObjectNumber && reference.Generation == 0) { return reference; }
-        _ownership.Reserve(24L);
-        return new PdfReference(id, 0);
+        return CopiedReference(reference, id);
+    }
+
+    private PdfReference CopiedReference(PdfReference reference, int number)
+    {
+        // Ordinary writers can borrow unchanged values. Foreign inspection
+        // edges belong to the destination even when their pair is unchanged.
+        if (number == reference.ObjectNumber && reference.Generation == 0
+            && (!_normalizesInspectionReferences || !reference.IsFromSource)) { return reference; }
+        _ownership.Reserve(32L);
+        return new PdfReference(number, 0);
     }
 
     private PdfDictionary CopyDictionary(PdfDictionary dictionary, int depth)

@@ -317,8 +317,16 @@ page positions validate the complete object number/generation pair.
 Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive
-export and recreation. The primary retains catalog and security policy. Other
-page/content/image/layout transforms remain unavailable during JSON inspection.
+export and recreation. The primary retains catalog and security policy.
+Coalescing and inline-image externalization, including nested Forms, share the
+ordinary content owners before JSON projection. Prepared direct/repeated pages
+remain linked from the visible tree; exact source generations and independent
+aliases retain their meaning. Content-only preparation does not claim that all
+inherited resources were pushed.
+Other form/frame transforms remain unavailable. Image optimization, catalog
+removal and authored-label settings currently leave JSON export unchanged;
+their missing combinations remain in the inventory. PDF serializer settings
+retain their separate native ignore policy.
 
 Typed `Qpdf.CountPagesAsync` traverses the page tree and returns its count, warnings
 and final counters after input cleanup. Its credential/recovery/limits overload

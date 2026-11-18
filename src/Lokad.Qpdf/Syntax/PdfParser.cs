@@ -491,13 +491,13 @@ internal sealed class PdfParser
                 }
 
                 ReserveMemory(32L);
-                return new PdfReference((int)number, (int)generation);
+                return new PdfReference((int)number, (int)generation, true);
             }
 
             int objectNumber = ParseObjectNumber(in first);
             int objectGeneration = ParseGeneration(in second);
             ReserveMemory(32L);
-            return new PdfReference(objectNumber, objectGeneration);
+            return new PdfReference(objectNumber, objectGeneration, true);
         }
 
         tokenizer.SetPosition(saved);

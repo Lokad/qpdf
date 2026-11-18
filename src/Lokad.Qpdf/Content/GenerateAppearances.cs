@@ -75,7 +75,7 @@ internal static class GenerateAppearances
             }
 
             using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
-            PoolResolver resolver = PoolResolver.Create(graph.Memory, copier.CopiedObjects);
+            PoolResolver resolver = copier.CreateResolver(graph.Memory);
             QpdfObject annotsTarget = annotsRaw is PdfReference annotsReference
                 ? ResolveOrNull(resolver, annotsReference) ?? annotsRaw
                 : annotsRaw;

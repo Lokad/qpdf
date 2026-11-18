@@ -66,7 +66,7 @@ internal static class StreamPreparation
         }
 
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        Content.PoolResolver resolver = Content.PoolResolver.Create(scratch, copier.CopiedObjects);
+        Content.PoolResolver resolver = copier.CreateResolver(scratch);
         List<int> ids = ParserContainers.CreateList<int>(scratch);
         foreach (int id in copier.CopiedObjects.Keys)
         {

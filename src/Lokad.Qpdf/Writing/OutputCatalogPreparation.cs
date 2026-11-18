@@ -57,7 +57,7 @@ internal static class OutputCatalogPreparation
         void Set(ReadOnlySpan<byte> key, QpdfObject value)
             => entries.Assign(graph.Memory, governor, PdfDictionaryRebuild.CreateName(graph, key), value, token);
         Set("Type"u8, PdfDictionaryRebuild.CreateName(graph, "Catalog"u8));
-        graph.Memory.Reserve(24L); graph.Add(24L);
+        graph.Memory.Reserve(32L); graph.Add(32L);
         Set("Pages"u8, new PdfReference(2, 0));
         if (contents.PageLabels is not null)
         {

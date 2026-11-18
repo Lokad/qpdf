@@ -21,14 +21,22 @@ internal sealed record ContentPrunePolicy(bool Enabled, string? Mode);
 internal sealed class PoolResolver : IIndirectResolver
 {
     private readonly IReadOnlyDictionary<int, QpdfObject> _pool;
+    private readonly DocumentEngine? _source;
 
     internal PoolResolver(IReadOnlyDictionary<int, QpdfObject> pool)
+        : this(pool, null) { }
+
+    private PoolResolver(IReadOnlyDictionary<int, QpdfObject> pool, DocumentEngine? source)
     {
         _pool = pool ?? throw new ArgumentNullException(nameof(pool));
+        _source = source;
     }
 
     internal static PoolResolver Create(ParserMemoryScope memory, IReadOnlyDictionary<int, QpdfObject> pool)
     { memory.Reserve(32L); return new(pool); }
+
+    internal static PoolResolver Create(ParserMemoryScope memory, IReadOnlyDictionary<int, QpdfObject> pool, DocumentEngine? source)
+    { memory.Reserve(32L); return new(pool, source); }
 
     bool IIndirectResolver.TryResolve(PdfReference reference, out QpdfObject? value)
     {
@@ -37,14 +45,21 @@ internal sealed class PoolResolver : IIndirectResolver
             throw new ArgumentNullException(nameof(reference));
         }
 
+        if (_source is not null)
+        {
+            if (reference.IsFromSource && !_source.HasOriginalReference(reference))
+            { value = PdfNull.Instance; return true; }
+            int generation = _source.InspectionObjectGeneration(reference.ObjectNumber);
+            if (reference.Generation != generation) { value = PdfNull.Instance; return true; }
+        }
         if (_pool.TryGetValue(reference.ObjectNumber, out QpdfObject? found) && found is not null)
         {
             value = found;
             return true;
         }
 
-        value = null;
-        return false;
+        if (_source is not null) { return ((IIndirectResolver)_source).TryResolve(reference, out value); }
+        value = null; return false;
     }
 }
 
@@ -157,7 +172,7 @@ internal static class ContentTransforms
     {
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         using FormResourceWalk forms = FormResourceWalk.Create(governor, token);
-        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        PoolResolver resolver = forms.CreateResolver(copier);
         foreach (int pageId in pageIds)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -193,7 +208,7 @@ internal static class ContentTransforms
         }
         if (contents is not (PdfArray or PdfReference or PdfStream)) { return null; }
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PoolResolver resolver = copier.CreateResolver(resolverMemory);
         ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
         if (entries is null)
         { diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on unreadable page contents."); }
@@ -226,11 +241,11 @@ internal static class ContentTransforms
         }
 
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PoolResolver resolver = copier.CreateResolver(resolverMemory);
         PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents);
         QpdfObject? target = contents;
         if (target is PdfReference originalReference)
-        { PdfObjectLookup.TryResolve(originalReference, copier.CopiedObjects, governor, cancellationToken, out target); }
+        { PdfObjectLookup.TryResolve(originalReference, resolver, governor, cancellationToken, out target); }
         PdfArray? original = target as PdfArray;
         if (original is not null && coalescedArrays.TryGetValue(original, out PdfReference? existing))
         {
@@ -317,7 +332,7 @@ internal static class ContentTransforms
         DiagnosticBag diagnostics, CancellationToken token)
     {
         using ParserMemoryScope rewriteMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(rewriteMemory, copier.CopiedObjects);
+        PoolResolver resolver = copier.CreateResolver(rewriteMemory);
         PdfDictionary? resources = PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject rawResources)
             ? CatalogCopy.ResolveDictionary(rawResources, resolver, governor, token) : null;
         if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, token, out QpdfObject contents)) { return page; }
@@ -356,7 +371,7 @@ internal static class ContentTransforms
             {
                 GovernedIntDictionary<QpdfObject> rewritten = GovernedIntDictionary<QpdfObject>.Create(rewriteMemory, governor, IntPtr.Size, token);
                 rewritten.Assign(rewriteMemory, 0, replacement);
-                PdfDictionary rebuilt = ReplaceContentEntries(copier, page, rewritten, governor, token);
+                PdfDictionary rebuilt = ReplaceContentEntries(resolver, page, rewritten, governor, token);
                 PdfDictionaryLookup.TryGet(rebuilt, "Contents"u8, governor, token, out replacement);
             }
         }
@@ -544,7 +559,7 @@ internal static class ContentTransforms
     }
 
     private static PdfDictionary ReplaceContentEntries(
-        GraphCopier copier,
+        IIndirectResolver resolver,
         PdfDictionary page,
         GovernedIntDictionary<QpdfObject> rewritten,
         ResourceGovernor governor,
@@ -557,7 +572,7 @@ internal static class ContentTransforms
 
         QpdfObject? target = contents;
         if (contents is PdfReference link)
-        { PdfObjectLookup.TryResolve(link, copier.CopiedObjects, governor, cancellationToken, out target); }
+        { PdfObjectLookup.TryResolve(link, resolver, governor, cancellationToken, out target); }
         if (target is PdfStream && rewritten.TryGetValue(0, out QpdfObject? single))
         { return ReplaceEntry(page, "Contents"u8, single, governor, cancellationToken); }
         if (target is PdfArray array)
@@ -819,7 +834,7 @@ internal static class ContentTransforms
     {
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using FormResourceWalk forms = FormResourceWalk.Create(governor, token);
-        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        PoolResolver resolver = forms.CreateResolver(copier);
         foreach (int id in pageIds)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();

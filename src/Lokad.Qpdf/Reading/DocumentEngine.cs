@@ -298,6 +298,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
         _inspectionObjects = objects;
         _inspectionTrailer = null;
         InspectionVersionParts = null;
+        InspectionPushedInheritedResources = null;
     }
 
     internal void SetInspectionTrailer(PdfDictionary trailer)
@@ -309,6 +310,7 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
     internal IEnumerable<int> InspectionObjectNumbers => _inspectionObjects?.Keys ?? [];
     internal bool HasInspectionObjects => _inspectionObjects is not null;
     internal QpdfDocument.VersionParts? InspectionVersionParts { get; set; }
+    internal bool? InspectionPushedInheritedResources { get; set; }
 
     internal int InspectionObjectGeneration(int number)
         => Table.Entries.TryGetValue(number, out XrefEntry entry) && entry.Kind == XrefEntryKind.Uncompressed ? entry.Second : 0;
@@ -320,9 +322,12 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
     internal bool HasLiveReference(PdfReference reference)
     {
         _ = Cache;
-        return HasNewInspectionObject(reference.ObjectNumber) ? reference.Generation == 0
-            : Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry) && entry.MatchesGeneration(reference.Generation);
+        return HasNewInspectionObject(reference.ObjectNumber) ? !reference.IsFromSource && reference.Generation == 0
+            : HasOriginalReference(reference);
     }
+
+    internal bool HasOriginalReference(PdfReference reference)
+        => Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry entry) && entry.MatchesGeneration(reference.Generation);
 
     internal bool IsNullReference(PdfReference reference)
     {
@@ -355,6 +360,8 @@ internal sealed partial class DocumentEngine : IStreamRecoveryResolver, IDisposa
 
         if (_inspectionObjects is not null && _inspectionObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? edited))
         {
+            if (reference.IsFromSource && !HasOriginalReference(reference))
+            { value = PdfNull.Instance; return true; }
             int generation = Table.Entries.TryGetValue(reference.ObjectNumber, out XrefEntry original)
                 && original.Kind == XrefEntryKind.Uncompressed ? original.Second : 0;
             value = reference.Generation == generation ? edited : PdfNull.Instance;

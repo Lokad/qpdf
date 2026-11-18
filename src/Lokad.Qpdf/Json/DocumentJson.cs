@@ -1247,7 +1247,7 @@ internal static class DocumentJson
             QpdfDocument.VersionParts version = engine.InspectionVersionParts ?? document.HeaderVersionParts;
             builder.Append('"'); builder.AppendInteger(version.Major); builder.Append('.'); builder.AppendInteger(version.Minor); builder.Append('"');
             builder.Append(",\"pushedinheritedpageresources\": ");
-            builder.Append(engine.HasInspectionObjects ? "true" : "false");
+            builder.Append((engine.InspectionPushedInheritedResources ?? engine.HasInspectionObjects) ? "true" : "false");
             builder.Append(",\"calledgetallpages\": ");
             builder.Append(touchesPages || engine.HasInspectionObjects ? "true" : "false");
             builder.Append(",\"maxobjectid\": ");

@@ -104,7 +104,7 @@ internal static class SplitAssembly
         foreach (int root in roots)
         {
             governor.NoteOperation();
-            memory.Reserve(24L);
+            memory.Reserve(32L);
             ParserContainers.AddItem(memory, references, new PdfReference(root, 0));
         }
         PdfArray rootArray = ParserContainers.CopyArray(memory, references);

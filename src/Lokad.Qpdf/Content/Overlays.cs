@@ -618,7 +618,7 @@ internal static class Overlays
         CancellationToken cancellationToken,
         ref int allocator)
     {
-        IIndirectResolver resolver = retainedResolver ?? new PoolResolver(copier.CopiedObjects);
+        IIndirectResolver resolver = retainedResolver ?? copier.CreateResolver(planning);
         double[]? trim = ReadPageBox(page, "TrimBox", resolver);
         double[]? crop = ReadPageBox(page, "CropBox", resolver);
         double[]? media = ReadPageBox(page, "MediaBox", resolver);
@@ -1348,7 +1348,7 @@ internal static class Overlays
         int destinationRotation = 0;
         if (destCopier.CopiedObjects.TryGetValue(destPageId, out QpdfObject? destinationRaw) && destinationRaw is PdfDictionary destination
             && PdfDictionaryLookup.TryGet(destination, "Rotate"u8, governor, cancellationToken, out QpdfObject rotationRaw)
-            && CatalogCopy.ResolveValue(rotationRaw, new PoolResolver(destCopier.CopiedObjects), governor, cancellationToken) is PdfInteger rotation)
+            && CatalogCopy.ResolveValue(rotationRaw, destCopier.CreateResolver(scratch), governor, cancellationToken) is PdfInteger rotation)
         { destinationRotation = (int)((rotation.Value % 360 + 360) % 360); }
 
         using OwnedAllocationBatch appearanceGraph = OwnedAllocationBatch.Create(governor, cancellationToken);
@@ -1680,7 +1680,7 @@ internal static class Overlays
         sourceCopier.AdvanceNextId(allocator);
         QpdfObject field = sourceCopier.CopyFieldValue(node, depth);
         allocator = Math.Max(allocator, sourceCopier.NextId);
-        PoolResolver resolver = PoolResolver.Create(scratch, sourceCopier.CopiedObjects);
+        PoolResolver resolver = sourceCopier.CreateResolver(scratch);
         QpdfObject result = CopyOverlayNode(field, resolver, sourceCopier, destCopier, memo, scratch,
             ref allocator, ref nullId, limits, governor, ownership, cancellationToken, depth, true);
         return result;

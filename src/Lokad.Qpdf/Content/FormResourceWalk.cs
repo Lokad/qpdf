@@ -1,6 +1,7 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
+using Lokad.Qpdf.Writing;
 
 namespace Lokad.Qpdf.Content;
 
@@ -51,6 +52,8 @@ internal sealed partial class FormResourceWalk : IDisposable
     internal Form Get(int index) { Visit(); return Forms[index]; }
     internal PoolResolver CreateResolver(IReadOnlyDictionary<int, QpdfObject> pool)
     { Visit(); return PoolResolver.Create(Memory, pool); }
+    internal PoolResolver CreateResolver(GraphCopier copier)
+    { Visit(); return copier.CreateResolver(Memory); }
     internal bool VisitNumber(int number) { Visit(); return (_visited ?? throw new ObjectDisposedException(nameof(FormResourceWalk))).Add(Memory, number); }
 
     internal void Add(int? id, PdfStream stream)

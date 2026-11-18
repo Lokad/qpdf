@@ -16,20 +16,21 @@ internal sealed partial class FormResourceWalk
         Visit();
         if (replacements.Count == 0) { return; }
         ResourceGovernor governor = Governor; CancellationToken token = _token;
-        PoolResolver resolver = CreateResolver(copier.CopiedObjects);
-        GovernedIntSet formIds = GovernedIntSet.Create(Memory, governor, token);
+        PoolResolver resolver = CreateResolver(copier);
+        GovernedIntDictionary<PdfStream> formIds = GovernedIntDictionary<PdfStream>.Create(Memory, governor, IntPtr.Size, token);
         GovernedIntDictionary<List<int>> parents = GovernedIntDictionary<List<int>>.Create(Memory, governor, IntPtr.Size, token);
         foreach (Form form in Forms)
         {
             Visit();
-            if (form.Id is not int id || !formIds.Add(Memory, id)) { continue; }
+            if (form.Id is not int id || !formIds.TryAdd(Memory, id, form.Stream)) { continue; }
             PdfDictionary? resources = ResolveDictionary(form.Stream.Dictionary, "Resources"u8, resolver);
             PdfDictionary? objects = resources is null ? null : ResolveDictionary(resources, "XObject"u8, resolver);
             if (objects is null) { continue; }
             using PdfDictionary.EntryEnumerator entries = objects.GetEntryEnumerator();
             while (entries.MoveNext(governor, token))
             {
-                if (entries.Current.Value is not PdfReference child) { continue; }
+                if (entries.Current.Value is not PdfReference child
+                    || CatalogCopy.ResolveValue(child, resolver, governor, token) is not PdfStream) { continue; }
                 if (!parents.TryGetValue(child.ObjectNumber, out List<int>? ancestors))
                 {
                     ancestors = ParserContainers.CreateList<int>(Memory);
@@ -64,7 +65,7 @@ internal sealed partial class FormResourceWalk
         foreach (int id in pending)
         {
             Visit();
-            PdfStream source = replacements.TryGetValue(id, out PdfStream? candidate) ? candidate : (PdfStream)copier.CopiedObjects[id];
+            PdfStream source = replacements.TryGetValue(id, out PdfStream? candidate) ? candidate : formIds[id];
             PdfReference link = copier.AddIndirectObjectWithId(source, allocator);
             allocator = checked(allocator + 1); links.TryAdd(Memory, id, link);
         }
@@ -91,7 +92,8 @@ internal sealed partial class FormResourceWalk
                         {
                             while (scan.MoveNext(governor, token))
                             {
-                                if (scan.Current.Value is PdfReference link && links.ContainsKey(link.ObjectNumber)) { replace = true; break; }
+                                if (scan.Current.Value is PdfReference link && links.ContainsKey(link.ObjectNumber)
+                                    && CatalogCopy.ResolveValue(link, resolver, governor, token) is PdfStream) { replace = true; break; }
                             }
                         }
                         if (replace)
@@ -101,7 +103,8 @@ internal sealed partial class FormResourceWalk
                             while (scan.MoveNext(governor, token))
                             {
                                 QpdfObject value = scan.Current.Value;
-                                if (value is PdfReference link && links.TryGetValue(link.ObjectNumber, out PdfReference? replacement)) { value = replacement; }
+                                if (value is PdfReference link && links.TryGetValue(link.ObjectNumber, out PdfReference? replacement)
+                                    && CatalogCopy.ResolveValue(link, resolver, governor, token) is PdfStream) { value = replacement; }
                                 entries.Assign(graph.Memory, governor, scan.Current.Key, value, token);
                             }
                             copiedObjects = PdfDictionaryRebuild.Complete(graph, entries, allocation);
@@ -120,8 +123,8 @@ internal sealed partial class FormResourceWalk
         foreach (int id in pending)
         {
             Visit();
-            if (!formIds.Contains(id)) { continue; }
-            PdfStream stream = replacements.TryGetValue(id, out PdfStream? candidate) ? candidate : (PdfStream)copier.CopiedObjects[id];
+            if (!formIds.TryGetValue(id, out PdfStream? original)) { continue; }
+            PdfStream stream = replacements.TryGetValue(id, out PdfStream? candidate) ? candidate : original;
             PdfDictionary header = RewriteResources(stream.Dictionary);
             if (ReferenceEquals(header, stream.Dictionary)) { continue; }
             graph.Memory.Reserve(32L); PdfStream replacement = stream.WithDictionary(header); graph.Add(32L);

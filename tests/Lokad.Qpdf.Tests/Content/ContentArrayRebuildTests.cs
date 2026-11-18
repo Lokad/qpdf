@@ -18,7 +18,7 @@ public sealed class ContentArrayRebuildTests
     private static readonly MethodInfo Method = typeof(ContentTransforms).GetMethod("ReplaceContentEntries", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException();
     private static PdfDictionary Replace(PdfDictionary page, Prepared prepared, ResourceGovernor governor)
     {
-        try { return Method.Invoke(null, [prepared.Copier, page, prepared.Mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
+        try { return Method.Invoke(null, [prepared.Resolver, page, prepared.Mapping, governor, CancellationToken.None]) as PdfDictionary ?? throw new InvalidOperationException(); }
         catch (TargetInvocationException error) when (error.InnerException is not null)
         { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); throw; }
     }
@@ -27,6 +27,7 @@ public sealed class ContentArrayRebuildTests
         private readonly ParserMemoryScope _memory;
         private readonly DocumentEngine _engine;
         internal readonly GraphCopier Copier;
+        internal readonly PoolResolver Resolver;
         internal readonly PdfStream Original = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly PdfStream Replacement = new(DecoderOwnershipFixtures.Dictionary(), new byte[2 * 1024 * 1024]);
         internal readonly GovernedIntDictionary<QpdfObject> Mapping;
@@ -38,6 +39,7 @@ public sealed class ContentArrayRebuildTests
             _engine = fixtureEngine;
             _memory = ParserMemoryScope.Create(construction);
             Copier = GraphCopier.CreateOwned(_engine, construction, QpdfLimits.Default, 1, _memory);
+            Resolver = Copier.CreateResolver(_memory);
             Mapping = GovernedIntDictionary<QpdfObject>.Create(_memory, construction, IntPtr.Size, CancellationToken.None);
             if (fill) { Mapping.Assign(_memory, replacementIndex, Replacement); }
         }

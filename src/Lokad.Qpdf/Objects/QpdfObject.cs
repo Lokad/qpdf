@@ -626,10 +626,18 @@ public sealed class PdfReference : QpdfObject, IEquatable<PdfReference>
 {
     /// <summary>Creates a reference.</summary>
     public PdfReference(int objectNumber, int generation)
+        : this(objectNumber, generation, false) { }
+
+    internal PdfReference(int objectNumber, int generation, bool fromSource)
     {
         ObjectNumber = objectNumber;
         Generation = generation;
+        IsFromSource = fromSource;
     }
+
+    // Inspection can introduce the same pair as an originally dangling edge.
+    // Origin does not participate in public PDF-reference value equality.
+    internal bool IsFromSource { get; }
 
     /// <summary>Gets the object number.</summary>
     public int ObjectNumber { get; }

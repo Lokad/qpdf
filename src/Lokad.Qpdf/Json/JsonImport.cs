@@ -957,7 +957,7 @@ internal static partial class JsonImport
         // Remapping already owns this immutable dictionary and its references.
         // Give only the catalog role an indirect identity before packing policy.
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        graph.Memory.Reserve(24L); graph.Add(24L);
+        graph.Memory.Reserve(32L); graph.Add(32L);
         PdfReference reference = new(number, 0);
         PdfDictionary replacement = PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Outlines"u8, reference);
         ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size);

@@ -1134,6 +1134,9 @@ internal static partial class JobPlanner
                     ? ParseInspectionCollation(collationSizes, jsonSources.Count, textStorage) : null;
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
+                    CoalesceContents = coalesceContents,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
                     Sources = jsonSources,
                     Collation = jsonCollation,
                     PasswordFiles = passwordFiles,

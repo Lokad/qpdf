@@ -24,15 +24,17 @@ internal static class InlineImages
         PdfDictionary? context = null;
         if (externalized is not null)
         {
+            using ParserMemoryScope lookup = ParserMemoryScope.Create(governor);
+            PoolResolver resolver = copier.CreateResolver(lookup);
             if (PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject raw))
             {
                 source = raw;
                 if (raw is PdfReference reference)
-                { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, cancellationToken, out source); }
+                { PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out source); }
             }
             if (source is PdfStream or PdfArray
                 && PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, cancellationToken, out raw))
-            { context = CatalogCopy.ResolveDictionary(raw, copier.CopiedObjects, governor, cancellationToken); }
+            { context = CatalogCopy.ResolveDictionary(raw, resolver, governor, cancellationToken); }
             if (source is not null && context is not null && externalized.TryGet(source, context, out ExternalizedPageContents.Result cached))
             {
                 PdfDictionary cachedPage = ReplaceEntry(page, "Resources"u8, cached.Resources, governor, cancellationToken);
@@ -76,7 +78,7 @@ internal static class InlineImages
         CancellationToken cancellationToken, byte filterOptions)
     {
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PoolResolver resolver = copier.CreateResolver(resolverMemory);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         if (!chunks.TryAdd(form, resolver, limits))
         {
@@ -119,7 +121,7 @@ internal static class InlineImages
         }
 
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(resolverMemory, copier.CopiedObjects);
+        PoolResolver resolver = copier.CreateResolver(resolverMemory);
         using ContentEntries? streams = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
         if (streams is null) { return null; }
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
@@ -151,8 +153,8 @@ internal static class InlineImages
         bool form, byte filterOptions)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = PoolResolver.Create(scratch, copier.CopiedObjects);
-        QpdfObject? resources = EnsureResources(copier, page, governor, cancellationToken);
+        PoolResolver resolver = copier.CreateResolver(scratch);
+        QpdfObject? resources = EnsureResources(resolver, page, governor, cancellationToken);
         bool canAttach = resources is PdfDictionary prepared &&
             PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
         if (joined.Length < minBytes) { return page is null ? default : new(false, null, resources); }
@@ -211,14 +213,14 @@ internal static class InlineImages
         return new(true, stream, resources);
     }
 
-    private static QpdfObject? EnsureResources(GraphCopier copier, PdfDictionary? page, ResourceGovernor governor, CancellationToken token)
+    private static QpdfObject? EnsureResources(IIndirectResolver resolver, PdfDictionary? page, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionary? existing = null;
         if (page is not null)
         {
             if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)) { return null; }
             QpdfObject? target = raw;
-            if (raw is PdfReference reference) { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, token, out target); }
+            if (raw is PdfReference reference) { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out target); }
             existing = target as PdfDictionary;
             if (existing is null) { return target; }
         }
@@ -229,7 +231,7 @@ internal static class InlineImages
         {
             QpdfObject? target = rawXObjects;
             if (rawXObjects is PdfReference reference)
-            { PdfObjectLookup.TryResolve(reference, copier.CopiedObjects, governor, token, out target); }
+            { PdfObjectLookup.TryResolve(reference, resolver, governor, token, out target); }
             resolvedXObjects = target as PdfDictionary;
             existingXObjects = target;
         }

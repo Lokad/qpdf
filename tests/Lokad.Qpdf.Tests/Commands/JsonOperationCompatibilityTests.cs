@@ -49,8 +49,8 @@ public sealed class JsonOperationCompatibilityTests
         foreach (string mode in new[] { "create", "update", "inspect", "json-output" })
         foreach (string route in new[] { "argv", "job", "mixed" })
         {
-            // Inspection retains its documented writer-ignore policy. These
-            // layout/geometry combinations already reject in the argv route.
+            // Export refusals are distinct from supported content transforms
+            // and accepted settings with remaining compatibility gaps.
             if (mode is "inspect" or "json-output"
                 && key is not ("qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
                     or "generateAppearances" or "overlay" or "underlay")) { continue; }

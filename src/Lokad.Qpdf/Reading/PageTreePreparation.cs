@@ -13,16 +13,24 @@ internal static class PageTreePreparation
         [PdfName.FromAscii("CropBox"), PdfName.FromAscii("MediaBox"), PdfName.FromAscii("Resources"), PdfName.FromAscii("Rotate")];
 
     internal sealed record Prepared(PdfDictionary Trailer, Dictionary<int, QpdfObject> Objects,
-        HashSet<PdfReference> AddedReferences);
+        HashSet<PdfReference> AddedReferences, List<PageLocation>? Pages);
 
     internal static Prepared Prepare(DocumentEngine source, bool pushInherited, QpdfLimits limits,
+        ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
+        => PrepareCore(source, pushInherited, false, limits, values, temporary, governor, token);
+
+    internal static Prepared PrepareForInspection(DocumentEngine source, bool pushInherited, QpdfLimits limits,
+        ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
+        => PrepareCore(source, pushInherited, true, limits, values, temporary, governor, token);
+
+    private static Prepared PrepareCore(DocumentEngine source, bool pushInherited, bool collectPages, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
     {
         values.CheckOwner(governor); temporary.CheckOwner(governor);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         temporary.Reserve(128L);
-        Builder builder = new(source, pushInherited, limits, temporary, traversal, graph);
+        Builder builder = new(source, pushInherited, collectPages, limits, temporary, traversal, graph);
         Prepared prepared = builder.Build();
         // The overlay indexes are temporary; immutable headers may be borrowed
         // by the normalized model after those indexes and this builder retire.
@@ -41,11 +49,12 @@ internal static class PageTreePreparation
         private readonly Dictionary<int, QpdfObject> _objects;
         private readonly HashSet<PdfReference> _added;
         private readonly HashSet<int> _containers, _pages;
+        private readonly List<PageLocation>? _locations;
         private int _greatest;
         private ResourceGovernor Governor => _graph.Governor;
         private CancellationToken Token => _graph.Token;
 
-        internal Builder(DocumentEngine source, bool pushInherited, QpdfLimits limits,
+        internal Builder(DocumentEngine source, bool pushInherited, bool collectPages, QpdfLimits limits,
             ParserMemoryScope temporary, ParserMemoryScope traversal, OwnedAllocationBatch graph)
         {
             _source = source; _pushInherited = pushInherited; _limits = limits;
@@ -55,6 +64,7 @@ internal static class PageTreePreparation
             _added = new(ReferenceEqualityComparer.Instance);
             _containers = ParserContainers.CreateSet<int>(traversal);
             _pages = ParserContainers.CreateSet<int>(traversal);
+            _locations = collectPages ? ParserContainers.CreateList<PageLocation>(graph.Memory) : null;
         }
 
         internal Prepared Build()
@@ -83,8 +93,17 @@ internal static class PageTreePreparation
                 : Store(root, PdfDictionaryRebuild.ReplaceEntry(_graph, catalog, "Pages"u8, preparedPages));
             if (!ReferenceEquals(root, preparedRoot))
             { trailer = PdfDictionaryRebuild.ReplaceEntry(_graph, trailer, "Root"u8, preparedRoot); }
-            _temporary.Reserve(40L);
-            return new(trailer, _objects, _added);
+            if (_locations is not null)
+            {
+                for (int index = 0; index < _locations.Count; index++)
+                {
+                    Visit(0);
+                    PdfReference reference = _locations[index].Source ?? throw new InvalidOperationException("Unprepared page identity.");
+                    _locations[index] = new(reference, Dictionary(reference));
+                }
+            }
+            _temporary.Reserve(48L);
+            return new(trailer, _objects, _added, _locations);
         }
 
         private void Visit(long depth)
@@ -165,6 +184,8 @@ internal static class PageTreePreparation
                     if (childRaw is PdfReference page
                         && !ParserContainers.AddSetItem(_traversal, _pages, page.ObjectNumber, sizeof(int)))
                     { childRaw = Allocate(Clone(leaf)); }
+                    if (_locations is not null)
+                    { ParserContainers.AddItem(_graph.Memory, _locations, new PageLocation((PdfReference)childRaw, leaf), 16L); }
                 }
                 if (ReferenceEquals(childRaw, kids[index])) { continue; }
                 changed ??= CopyItems(kids);

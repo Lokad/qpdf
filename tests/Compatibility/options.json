@@ -2773,10 +2773,13 @@
         "positive": [
           "ContentTransformsTests.CoalesceJoinsStreams",
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
-          "ContentTransformsTests.CoalesceKeepsOpaqueStreams"
+          "ContentTransformsTests.CoalesceKeepsOpaqueStreams",
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
         ],
         "negative": [
-          "ContentTransformsTests.MalformedContentFlagsFail"
+          "ContentTransformsTests.MalformedContentFlagsFail",
+          "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
@@ -2784,14 +2787,20 @@
           "ResourcePruningScopeTests.PruningSharesContentsClassificationWithTheOtherTransforms",
           "ResourcePruningScopeTests.NonIndependentChildProtectsTheEnclosingFormBeforePruning",
           "ResourcePruningRoleTests.PruningRedirectsResourceRolesAndKeepsOriginalFormAliases",
-          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames"
+          "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames",
+          "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
+          "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
-          "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules"
+          "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules",
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
-          "diff:coalesce-payloads"
+          "diff:coalesce-payloads",
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
       }
     },
@@ -3427,19 +3436,27 @@
           "InlinePacketBoundaryTests.EveryConsumerSkipsCompleteFilteredPackets",
           "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing",
           "InlineContextReuseTests.ReusesOnlyTheSameImmutableContentAndResourceContext",
-          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace",
+          "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
+          "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate"
         ],
         "negative": [
           "InlineImagesTests.MalformedExternalizeFlagsFail",
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
           "InlineContextReuseTests.PartialConversionsRetainPerPageDiagnosticsRegardlessOfSuppression",
-          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent",
+          "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
           "InlineImagesTests.JobRoundTripMatchesArgv",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
           "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization",
-          "InlineContextReuseTests.JobAdapterSharesTheCompletedContext"
+          "InlineContextReuseTests.JobAdapterSharesTheCompletedContext",
+          "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
+          "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
         ],
         "resource": [
           "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
@@ -3451,11 +3468,13 @@
           "PacketFramingTests.FlateFrameStateAlsoReceivesSharedAdmission",
           "InlineContextReuseTests.DecodeCeilingsChargeActualDistinctContexts",
           "InlineContextReuseTests.SharedResultRetiresOnEveryAdmissionAndPublicationFailure",
-          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance",
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
           "diff:inline",
-          "tools/ReferenceInlineContexts.ps1"
+          "tools/ReferenceInlineContexts.ps1",
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
       }
     },
@@ -3888,19 +3907,29 @@
           "InlineImagesTests.CustomThresholdKeepsLarge",
           "InlineImagesTests.ZeroThresholdExternalizesSingleByte",
           "InlineImagesTests.UniqueNamingSkipsTaken",
-          "InlineImagesTests.WholeFileJobExternalizes"
+          "InlineImagesTests.WholeFileJobExternalizes",
+          "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
+          "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate"
         ],
         "negative": [
-          "InlineImagesTests.JobMalformedFails"
+          "InlineImagesTests.JobMalformedFails",
+          "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
-          "InlineImagesTests.JobRoundTripMatchesArgv"
+          "InlineImagesTests.JobRoundTripMatchesArgv",
+          "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
+          "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
         ],
         "resource": [
-          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.ExternalizeInlineImagesYieldsToExhaustedBudget",
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
-          "diff:inline"
+          "diff:inline",
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
       }
     },
@@ -4088,9 +4117,13 @@
           "source": "manual/cli.rst:3624"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
+        "JSON export accepts catalog-removal and authored-label policies without applying their effects.",
+        "JSON export accepts image optimization and its settings without applying the optimizer."
+      ],
       "evidence": {
         "positive": [
           "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
@@ -4121,7 +4154,10 @@
           "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection",
           "AttachmentJsonStreamKeysTests.EveryValidEfStreamIsReportedWithoutChangingFilenamePreference",
           "RawImageDescriptorTests.DisabledDecodingProjectsStoredMalformedSpecifications",
-          "RawImageDescriptorTests.TypedMinimalAndJobVersionOneUseTheSameInactivePolicy"
+          "RawImageDescriptorTests.TypedMinimalAndJobVersionOneUseTheSameInactivePolicy",
+          "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
+          "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4133,7 +4169,9 @@
           "OutlineNamedDestinationTests.CyclicNamedTreesFailBeforeReplacingTheReport",
           "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput",
           "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport",
-          "AttachmentJsonStreamKeysTests.AdditionalLongNamesObeyOutputLimitsBeforeOpeningTheReport"
+          "AttachmentJsonStreamKeysTests.AdditionalLongNamesObeyOutputLimitsBeforeOpeningTheReport",
+          "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4157,7 +4195,11 @@
           "JsonReferenceProjectionTests.CompressedPairsUseGenerationZeroAndRetainLiveNullArrayReferences",
           "JsonReferenceProjectionTests.AssembledObjectsKeepTheirNewLiveIdentities",
           "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem",
-          "AttachmentJsonStreamKeysTests.BothVersionsAndCommandAdaptersUseTheSameStreamMap"
+          "AttachmentJsonStreamKeysTests.BothVersionsAndCommandAdaptersUseTheSameStreamMap",
+          "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
+          "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4181,14 +4223,16 @@
           "JsonLabelProjectionTests.CounterOverflowPreservesPriorReportsAndRefundsCallerStorage",
           "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
           "AttachmentJsonStreamKeysTests.ExtraStreamInspectionRefundsEveryRefusedSharedGrowth",
-          "RawImageDescriptorTests.InactiveInspectionAvoidsStageStorageWhileRetainingParsedContainerLimits"
+          "RawImageDescriptorTests.InactiveInspectionAvoidsStageStorageWhileRetainingParsedContainerLimits",
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
           "diff:json-pages",
           "diff:json-structure",
           "diff:json-images",
           "diff:json-page-assembly",
-          "diff:json-images-raw-malformed"
+          "diff:json-images-raw-malformed",
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
       }
     },
@@ -4459,9 +4503,13 @@
           "source": "manual/cli.rst:3739"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
+        "JSON export accepts catalog-removal and authored-label policies without applying their effects.",
+        "JSON export accepts image optimization and its settings without applying the optimizer."
+      ],
       "evidence": {
         "positive": [
           "JsonModesTests.JsonOutputIsMinimal",
@@ -4470,12 +4518,17 @@
           "JsonPageAssemblyTests.AssembledPagesAndObjectExportsKeepTheSameGraph",
           "JsonPageAssemblyTests.PageLabelsFollowTheAssembledSourceOccurrences",
           "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
-          "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection"
+          "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection",
+          "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
+          "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
         ],
         "negative": [
           "JsonModesTests.JsonOutputRejectsVersionOne",
           "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput",
-          "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport"
+          "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport",
+          "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
@@ -4487,7 +4540,11 @@
           "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor",
           "JsonReferenceProjectionTests.CompressedPairsUseGenerationZeroAndRetainLiveNullArrayReferences",
           "JsonReferenceProjectionTests.AssembledObjectsKeepTheirNewLiveIdentities",
-          "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem"
+          "JsonReferenceProjectionTests.SelectedObjectExportsResolveRequiredSourcePairsWithoutEmittingThem",
+          "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
+          "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4501,12 +4558,14 @@
           "JsonPageAssemblyTests.AssembledJsonRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
-          "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners"
+          "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
           "diff:json-output",
           "diff:security-json",
-          "diff:json-page-assembly"
+          "diff:json-page-assembly",
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
       }
     },
@@ -5353,7 +5412,8 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Decoding is separately qualified through an explicit host capability that preserves raw PDF samples."
+        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Decoding is separately qualified through an explicit host capability that preserves raw PDF samples.",
+        "JSON export accepts optimization settings without applying the optimizer."
       ],
       "evidence": {
         "positive": [

@@ -44,6 +44,32 @@ public sealed class GraphCopierSharingTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnchangedPairsBorrowOrdinaryValuesAndNormalizeForeignInspectionEdges(bool inspection)
+    {
+        var objects = PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray());
+        objects.Add((6, "<< /Self 6 0 R /Next 7 0 R >>", null)); objects.Add((7, "42", null));
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("source"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        await using QpdfDocument document = await QpdfDocument.OpenCore(host, QpdfPath.From("source"),
+            QpdfLimits.Default, governor, new(governor), QpdfRecoveryMode.Strict, CancellationToken.None);
+        PdfDictionary original = Assert.IsType<PdfDictionary>(document.GetObject(6));
+        using ParserMemoryScope ownership = ParserMemoryScope.Create(governor);
+        GraphCopier copier = inspection
+            ? GraphCopier.CreateInspectionOwned(document.Engine, governor, QpdfLimits.Default, 6, ownership, false)
+            : GraphCopier.CreateOwned(document.Engine, governor, QpdfLimits.Default, 6, ownership);
+        Assert.Equal(new PdfReference(6, 0), copier.CopyValue(new PdfReference(6, 0), 0));
+        PdfDictionary copied = Assert.IsType<PdfDictionary>(copier.CopiedObjects[6]);
+        if (inspection) { Assert.NotSame(original, copied); }
+        else { Assert.Same(original, copied); }
+        Assert.True(copied.TryGet(PdfName.FromAscii("Self"), out QpdfObject self));
+        Assert.Equal(!inspection, Assert.IsType<PdfReference>(self).IsFromSource);
+        Assert.Equal(new PdfReference(6, 0), self);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]

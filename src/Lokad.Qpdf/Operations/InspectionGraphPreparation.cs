@@ -72,21 +72,42 @@ internal static class InspectionGraphPreparation
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
-        if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay) { return null; }
+        bool content = plan is JsonPlan && (plan.CoalesceContents || plan.ExternalizeInlineImages);
+        if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay && !content) { return null; }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         InspectionGraph? lifetime = null;
         try
         {
             memory.Reserve(32L);
             lifetime = new(document, memory);
+            using ParserMemoryScope? preparation = content ? ParserMemoryScope.Create(governor) : null;
+            PageTreePreparation.Prepared? prepared = preparation is null ? null
+                : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
+                    limits, memory, preparation, governor, cancellationToken);
+            if (prepared is not null)
+            {
+                document.Engine.SetInspectionObjects(prepared.Objects);
+                document.Engine.SetInspectionTrailer(prepared.Trailer);
+                document.SetInspectionPages(prepared.Pages ?? throw new InvalidOperationException("Missing prepared inspection pages."));
+            }
             int greatest = 0;
             foreach (int number in document.Engine.XRefEntries.Keys)
             {
                 governor.NoteOperation();
                 greatest = Math.Max(greatest, number);
             }
+            if (prepared is not null)
+            {
+                foreach (int number in prepared.Objects.Keys)
+                { governor.NoteOperation(); greatest = Math.Max(greatest, number); }
+            }
             if (greatest == int.MaxValue) { throw new QpdfParseException("No object identity is available for page transformations.", null, null); }
-            GraphCopier pool = GraphCopier.CreateOwned(document.Engine, governor, limits, greatest + 1, memory);
+            GraphCopier pool = GraphCopier.CreateInspectionOwned(document.Engine, governor, limits, greatest + 1, memory, true);
+            if (prepared is not null)
+            {
+                foreach (KeyValuePair<int, QpdfObject> entry in prepared.Objects)
+                { governor.NoteOperation(); StoreInspectionObject(pool, entry.Key, entry.Value); }
+            }
             List<InspectionPage> original = ParserContainers.CreateList<InspectionPage>(memory);
             memory.Reserve(96L);
             Dictionary<QpdfObject, PdfReference> promoted = new(ReferenceEqualityComparer.Instance);
@@ -116,6 +137,12 @@ internal static class InspectionGraphPreparation
                         }
                         SetInspectionEntry(extra, key, kept, memory);
                     }
+                }
+                else if (content && plan.ExternalizeInlineImages)
+                {
+                    PdfName key = PdfName.FromAscii("Resources");
+                    QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
+                    if (resources is not null) { SetInspectionEntry(extra, key, resources, memory); }
                 }
                 (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true, null);
                 ParserContainers.AddItem(memory, original, new InspectionPage(id, location.Source?.Generation ?? 0, page), 16L);
@@ -217,6 +244,11 @@ internal static class InspectionGraphPreparation
                 }
             }
             document.Engine.SetInspectionObjects(pool.CopiedObjects);
+            if (prepared is not null)
+            {
+                document.Engine.SetInspectionTrailer(prepared.Trailer);
+                document.Engine.InspectionPushedInheritedResources = plan.Sources.Count > 0 || overlay;
+            }
             if (labelOccurrences is not null)
             {
                 PdfReference? labels = null;
@@ -277,6 +309,18 @@ internal static class InspectionGraphPreparation
                     memory, limits, governor, diagnostics, cancellationToken);
             }
 
+            if (content)
+            {
+                using ParserMemoryScope contentMemory = ParserMemoryScope.Create(governor);
+                List<int> pageIds = ParserContainers.CreateList<int>(contentMemory, selectedPages.Count, sizeof(int));
+                foreach (InspectionPage page in selectedPages)
+                { governor.NoteOperation(); ParserContainers.AddItem(contentMemory, pageIds, page.Number, sizeof(int)); }
+                memory.Reserve(48L);
+                Content.ContentTransformRequest request = new(plan.CoalesceContents, false, false, null, plan.ExternalizeInlineImages, plan.IiMinBytes);
+                Content.ContentTransforms.ApplyPageTransforms(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
+                if (plan.ExternalizeInlineImages)
+                { Content.ContentTransforms.ExternalizeForms(pool, pageIds, request, null, limits, governor, diagnostics, cancellationToken); }
+            }
             List<List<(PdfRotationMode Mode, int Angle)>?> folds = ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory);
             for (int i = 0; i < selectedPages.Count; i++)
             {
@@ -323,7 +367,7 @@ internal static class InspectionGraphPreparation
             foreach (InspectionPage selected in selectedPages)
             {
                 governor.NoteOperation();
-                memory.Reserve(24L);
+                memory.Reserve(32L);
                 PdfDictionary page = pool.CopiedObjects[selected.Number] as PdfDictionary
                     ?? throw new QpdfParseException("Selected page was removed from the graph.", null, selected.Number);
                 ParserContainers.AddItem(memory, transformed, new PageLocation(new PdfReference(selected.Number, selected.Generation), page), 16L);
@@ -390,7 +434,7 @@ internal static class InspectionGraphPreparation
                 QpdfPath.From(source.Key), plan.Sources[source.Value[0]].Password,
                 limits, governor, diagnostics, plan.Recovery, token, false).ConfigureAwait(false);
             QpdfDocument reader = secondary ?? document;
-            GraphCopier copier = primary ? pool : GraphCopier.CreateOwned(reader.Engine, governor, limits, pool.NextId, memory);
+            GraphCopier copier = primary ? pool : GraphCopier.CreateInspectionOwned(reader.Engine, governor, limits, pool.NextId, memory, false);
             using ParserMemoryScope ranges = ParserMemoryScope.Create(governor);
             List<(int Group, IReadOnlyList<int> Pages, bool Included)> requests =
                 ParserContainers.CreateList<(int, IReadOnlyList<int>, bool)>(ranges);

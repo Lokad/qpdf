@@ -2872,6 +2872,8 @@ else { Write-Output '[extends] trio ok with matching font object 6' }
 Invoke-ReferenceAttachmentDates
 . (Join-Path $repoRoot 'tools/ReferenceJsonAssembly.ps1')
 Invoke-ReferenceJsonAssembly
+. (Join-Path $repoRoot 'tools/ReferenceJsonContent.ps1')
+Invoke-ReferenceJsonContent
 . (Join-Path $repoRoot 'tools/ReferenceSecurity.ps1')
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceXrefRoles.ps1')
