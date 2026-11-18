@@ -3104,6 +3104,7 @@
       "evidence": {
         "positive": [
           "CompressionTests.DecodeGeneralizedUncompressesHex",
+          "JsonModesTests.TypedDecodeLevelSelectsTheRunLengthStage",
           "DctDecodeTests.GrayJpegDecodesAtAll",
           "DctDecodeTests.RgbJpegDecodesAtAll",
           "DctDecodeTests.ChainedFlateDctDecodesAtAll",
@@ -3114,6 +3115,7 @@
         ],
         "negative": [
           "DctDecodeTests.FourComponentFrameStaysOpaque",
+          "JsonModesTests.InvalidTypedDecodeLevelRejectsBeforeAccessingTheHost",
           "DctDecodeTests.SpecializedLevelKeepsDctOpaqueSilently",
           "DctDecodeTests.TruncatedJpegAtAllWarnsAndStaysOpaque",
           "DctDecodeTests.TwoComponentFrameStaysOpaque",

@@ -381,8 +381,10 @@ Other form and frame transforms remain unavailable during JSON export.
 Typed `GetDocumentJsonAsync` returns JSON. An explicit output path also
 publishes the report. None and inline stream modes can return reports without
 output capability. File mode requires a stream prefix when the report has no
-target, including in v1. Caller budget scopes must outlive returned text and
-warnings. [Publication checks](#governance)
+target, including in v1. Set `QpdfJsonOptions.DecodeLevel` to choose the filter
+decode depth. An omitted level uses generalized decoding for full reports
+and leaves streams encoded in minimal reports. Caller budget scopes must
+outlive returned text and warnings. [Publication checks](#governance)
 
 `--test-json-schema` checks generated syntax and the selected version's nested
 help description: required/unknown keys, wildcard maps and array patterns.

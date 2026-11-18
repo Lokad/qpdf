@@ -2,7 +2,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf;
 
-/// <summary>JSON inspection options: format version plus key filter.</summary>
+/// <summary>Options for JSON inspection of a PDF.</summary>
 public sealed record QpdfJsonOptions
 {
     /// <summary>Gets the input recovery policy; the default is strict parsing.</summary>
@@ -11,6 +11,11 @@ public sealed record QpdfJsonOptions
 
     /// <summary>Gets the input credential; null tries an empty password. Raw bytes are borrowed until inspection completes.</summary>
     public QpdfPassword? Password { get; init; }
+
+    /// <summary>Gets the stream filter decode depth for JSON inspection.</summary>
+    /// <remarks>Null uses generalized decoding for full reports and no filter decoding for minimal
+    /// reports. Undefined values reject before host access.</remarks>
+    public QpdfStreamDecodeLevel? DecodeLevel { get; init; }
 
     /// <summary>Creates JSON inspection options.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The version is not 1 or 2.</exception>

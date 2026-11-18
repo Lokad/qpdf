@@ -469,6 +469,15 @@ public static partial class Qpdf
         limits.Validate();
         if (options.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
         { throw new ArgumentOutOfRangeException(nameof(options), options.RecoveryMode, "Unknown recovery mode."); }
+        string? decodeLevel = options.DecodeLevel switch
+        {
+            null => null,
+            QpdfStreamDecodeLevel.None => "none",
+            QpdfStreamDecodeLevel.Generalized => "generalized",
+            QpdfStreamDecodeLevel.Specialized => "specialized",
+            QpdfStreamDecodeLevel.All => "all",
+            _ => throw new ArgumentOutOfRangeException(nameof(options), options.DecodeLevel, "Unknown stream decode level."),
+        };
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(QpdfJsonResult.StorageBytes);
         try
@@ -478,7 +487,7 @@ public static partial class Qpdf
             using (ConfigurationText? textStorage = options.Objects.Count == 0 ? null : ConfigurationText.Create(governor))
             {
                 HashSet<(bool Trailer, int Number, int Generation)>? wanted = ValidateJsonObjects(options.Objects, 0L, textStorage);
-                Commands.JsonInspection inspection = new(options.Version, options.Keys, null, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput)
+                Commands.JsonInspection inspection = new(options.Version, options.Keys, decodeLevel, options.StreamData, options.StreamPrefix, wanted, options.MinimalOutput)
                 { Password = options.Password };
                 result = await JsonCoreAsync(host, inputPath, outputPath, inspection, limits, options.RecoveryMode, false, governor, diagnostics, false, true, cancellationToken).ConfigureAwait(false);
             }

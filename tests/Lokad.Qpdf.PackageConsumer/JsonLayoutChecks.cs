@@ -47,6 +47,42 @@ internal static class JsonLayoutChecks
         Check(updatedTable.GetProperty("obj:" + target).GetProperty("value").GetProperty("/Marker").GetString() == "u:updated"
             && Encoding.Latin1.GetString(changed).Contains("/Type /ObjStm", StringComparison.Ordinal), "protected packed update");
         Check(host.OpenLeaseCount == 0, "layout input cleanup");
+        await CheckDecodeLevelAsync();
+    }
+
+    private static async Task CheckDecodeLevelAsync()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath json = QpdfPath.From("encoded.json"), pdf = QpdfPath.From("encoded.pdf");
+        const string model = """
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R"}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Kids":["3 0 R"],"/Count":1}},
+              "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/Contents":"4 0 R","/MediaBox":[0,0,100,100],"/Resources":{}}},
+              "obj:4 0 R":{"stream":{"dict":{"/Filter":"/ASCIIHexDecode"},"data":"NzEwQTUxMEE+"}},
+              "trailer":{"value":{"/Root":"1 0 R"}}
+            }]}
+            """;
+        host.AddInput(json, Encoding.UTF8.GetBytes(model), QpdfInputOwnership.Transfer);
+        await Qpdf.CreatePdfFromJsonAsync(host, json, pdf, CancellationToken.None);
+        Check(host.TryGetOutput(pdf, out byte[] bytes), "encoded fixture publication");
+        host.AddInput(pdf, bytes, QpdfInputOwnership.Transfer);
+
+        await CheckReportAsync(false, QpdfStreamDecodeLevel.None, "NzEwQTUxMEE+", true);
+        await CheckReportAsync(true, QpdfStreamDecodeLevel.Generalized, "cQpRCg==", false);
+
+        async Task CheckReportAsync(bool minimal, QpdfStreamDecodeLevel level, string payload, bool hasFilter)
+        {
+            QpdfJsonOptions options = new(2, ["qpdf"], "inline", null, [], minimal) { DecodeLevel = level };
+            QpdfJsonResult report = await Qpdf.GetDocumentJsonAsync(host, pdf, options, CancellationToken.None);
+            using JsonDocument parsed = JsonDocument.Parse(report.Json);
+            JsonElement root = parsed.RootElement;
+            JsonElement stream = root.GetProperty("qpdf")[1].EnumerateObject()
+                .Single(item => item.Value.TryGetProperty("stream", out _)).Value.GetProperty("stream");
+            Check(root.TryGetProperty("parameters", out _) == !minimal, "decode level preserves report shape");
+            Check(stream.GetProperty("data").GetString() == payload
+                && stream.GetProperty("dict").TryGetProperty("/Filter", out _) == hasFilter, "decode level controls the stream");
+        }
     }
 
     private static void Check(bool condition, string message)

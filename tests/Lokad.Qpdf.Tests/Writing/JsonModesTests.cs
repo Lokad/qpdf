@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -116,6 +117,37 @@ public sealed class JsonModesTests
         Assert.Equal(Convert.ToBase64String(HexData), stream.GetProperty("data").GetString());
         Assert.Equal("/ASCIIHexDecode", stream.GetProperty("dict").GetProperty("/Filter").GetString());
         Assert.Equal("none", document.RootElement.GetProperty("parameters").GetProperty("decodelevel").GetString());
+    }
+
+    [Theory]
+    [InlineData(QpdfStreamDecodeLevel.None, "none", false)]
+    [InlineData(QpdfStreamDecodeLevel.Generalized, "generalized", false)]
+    [InlineData(QpdfStreamDecodeLevel.Specialized, "specialized", true)]
+    [InlineData(QpdfStreamDecodeLevel.All, "all", true)]
+    public async Task TypedDecodeLevelSelectsTheRunLengthStage(QpdfStreamDecodeLevel level, string name, bool decoded)
+    {
+        byte[] encoded = [3, (byte)'q', 10, (byte)'Q', 10, 128];
+        using InMemoryQpdfHost host = HostWith("inputs/a.pdf",
+            BuildPdf(string.Empty, string.Empty, [("<< /Length 6 /Filter /RunLengthDecode >>", encoded)]));
+        QpdfJsonOptions options = new(2, ["qpdf"], "inline", null, [], false) { DecodeLevel = level };
+        QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("inputs/a.pdf"), options, CancellationToken.None);
+        using JsonDocument report = JsonDocument.Parse(result.Json);
+        JsonElement root = report.RootElement;
+        JsonElement stream = root.GetProperty("qpdf")[1].GetProperty("obj:4 0 R").GetProperty("stream");
+        Assert.Equal(name, root.GetProperty("parameters").GetProperty("decodelevel").GetString());
+        Assert.Equal(decoded ? "q\nQ\n"u8.ToArray() : encoded, stream.GetProperty("data").GetBytesFromBase64());
+        Assert.Equal(!decoded, stream.GetProperty("dict").TryGetProperty("/Filter", out _));
+    }
+
+    [Fact]
+    public async Task InvalidTypedDecodeLevelRejectsBeforeAccessingTheHost()
+    {
+        using RecordingJobHost host = new(HostWith("inputs/a.pdf", StreamFixture()), null, null, "success", true);
+        QpdfJsonOptions options = new(2, ["qpdf"]) { DecodeLevel = (QpdfStreamDecodeLevel)999 };
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Qpdf.GetDocumentJsonAsync(host,
+            QpdfPath.From("inputs/a.pdf"), QpdfPath.From("outputs/a.json"), options, CancellationToken.None).AsTask());
+        Assert.Empty(host.OpenedPaths);
+        Assert.Empty(host.CreatedPaths);
     }
 
     [Fact]
