@@ -94,8 +94,9 @@ Supply a stream prefix when publishing sidecars from a result-only call.
 JPEG decoding and recompression use the optional `IQpdfJpegCodec` interface.
 Supply your implementation with `new InMemoryQpdfHost(QpdfLimits.Default, codec)`;
 custom hosts expose it through `IQpdfJpegCodecHost`. Existing JPEGs can pass through
-unchanged without a codec. See the [codec contract](docs/MEMORY.md#jpeg-codecs)
-for buffer ownership, cancellation and resource admission.
+unchanged without a codec.
+[JPEG capabilities](docs/SUPPORTED-PROFILE.md#jpeg-codec-capabilities) ·
+[Codec ownership](docs/MEMORY.md#jpeg-codecs)
 
 ## Limitations
 
@@ -104,8 +105,7 @@ Rendering, OCR, text extraction and general PDF authoring are outside scope.
 Derived PDFs retain stored signature appearances and invalidate signatures.
 [Signed-input policy](docs/SUPPORTED-PROFILE.md#signed-inputs-and-exclusions)
 
-CMYK/YCCK JPEG decoding requires a host codec with `SupportsCmykDecoding`;
-four-component recompression and Zopfli compression are unavailable. See the [supported profile](docs/SUPPORTED-PROFILE.md) for details.
+Zopfli compression is unavailable. [Supported profile](docs/SUPPORTED-PROFILE.md)
 
 ## Build from source
 

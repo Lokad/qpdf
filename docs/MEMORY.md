@@ -31,10 +31,6 @@ disk, drop optional data or wait for memory. Construction failure rolls back its
 fresh ownership; retained source/result storage stays funded. Conservative graph
 charges can outlive individual objects without per-object lifetime tracking.
 
-Signature disabling funds its field-role maps and replacement headers under the
-existing graph owner. Stored appearance payloads keep their ordinary sharing;
-private aliases retain their original values under the same lifetime rules.
-
 ## Input leases
 
 `QpdfPath` is a logical key; `IQpdfHost` owns access and replacement policy.
@@ -99,10 +95,10 @@ admission probe can decline an optional candidate and complete using its existin
 funded capacity; failure after refusal preserves the memory-admission category.
 Actual allocation failures remain OutOfMemoryException.
 
-Decode streams expose their admitted input segment through `MemoryStream.TryGetBuffer`;
-borrow only the segment for the call and keep it immutable. The development-only
-Lokad.Image 0.2.0 adapter forwards budget interfaces without a private owner tree
-or blanket workspace charge. The core has no runtime codec dependency.
+Decode streams expose their admitted input segment through
+`MemoryStream.TryGetBuffer`. Borrow only that segment for the call and keep it
+immutable. All supported color models use the same buffer and budget contract.
+[JPEG capabilities](SUPPORTED-PROFILE.md#jpeg-codec-capabilities)
 
 ## Engine guarantees and limits
 
@@ -134,12 +130,9 @@ both owned prefixes clear before their storage retires.
 define how each file changes the credential.
 
 Parsing, copying, filters, images, JSON, writer passes and inspection admit major
-buffers/container capacity before construction. Opted-in CMYK JPEG decoding uses
-the same admitted sample buffer and borrowed codec budget as Gray/RGB decoding.
-Immutable streams/keys are borrowed
-when possible; actual copies have their own owner. Phase scratch refunds after
-consumption; accepted graph/result bytes transfer without reference walks, weak
-tables or finalizers. Failure/cancellation preserves rollback and cleanup ordering.
+buffers and container capacity before construction. The engine borrows immutable
+streams and keys when possible. Owners fund copies and release scratch after
+consumption. Returned graph and result data transfer to caller ownership.
 
 Diagnostics store actual messages under count/UTF-8 ceilings. Overflow fails
 explicitly, retaining the accepted prefix and a bounded terminal error. Suppressed
@@ -150,4 +143,4 @@ Structural/cycle/decompression limits and cooperative cancellation remain
 independent of memory admission. There is no cumulative CPU fuel or host-call
 quota; host-operation counters observe actual opens, reads and writes. Hosts can
 supply deadline tokens. See [resource APIs](COMPATIBILITY.md#resource-apis)
-and [benchmark methodology](BENCHMARKS.md) for migration and measurement details.
+and [benchmark methodology](BENCHMARKS.md) for measurement details.

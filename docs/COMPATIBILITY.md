@@ -19,7 +19,7 @@ not establish implemented behavior. Development changes are in the
 | Crypto implementation | Standalone `--show-crypto` reports `managed`. Names describe the implementation in this build; native qpdf can list different providers. |
 | Encryption reporting | `show-encryption` reports non-secret declared settings and password-match status. Wrong credentials permit reporting but skip combined content inspections. Reports omit passwords/keys and include per-filter cipher names only for V4/V5 handlers; explicit output paths are rejected. |
 | Encrypted JSON | Authenticated exports use plaintext values and selected stream payloads. Password and key fields are null. Import and update use the [JSON protection policies](SUPPORTED-PROFILE.md#authenticated-json-updates-and-creation). |
-| JPEG | Decoding/recompression needs a caller-supplied codec. Gray/RGB is supported. CMYK/YCCK decoding requires an explicit host capability and yields raw PDF CMYK samples, preserving the PDF color space and Decode array. Four-component recompression remains ineligible. |
+| JPEG | Decoding and recompression use a caller-supplied codec. Output quality can vary across codecs. [Supported JPEG capabilities](SUPPORTED-PROFILE.md#jpeg-codec-capabilities) |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
 | Host effects | Logical paths, inputs, descriptors, environment and publication require host capabilities. Fileless results replace ambient stdout. |
@@ -98,7 +98,7 @@ are generally not compatibility guarantees.
 | Xref-tagged graph streams | Retained `/Type /XRef` streams use ordinary graph encryption and remain present in QDF; physical xref sections stay clear. Native raw JSON can return their ciphertext, and native QDF can discard them, leaving a bad reference. Independent header/AES controls cover these differences. |
 | Checking | Skipped coverage stays visible. Inspection does not apply every writer removal setting or establish rendering/conformance. Physical linearization defects can fail where native warns. |
 | Image JSON | Decode-none reports retain raw filter specifications with `filterable:false`, including malformed decoder settings. Enabled decoding retains strict specification validation; native can warn and report the descriptor instead. |
-| IDs / compression | Default IDs are deterministic content hashes; static IDs use the native test constant. BCL Flate levels map 1/2..8/9 to fastest/optimal/smallest. JPEG quality is 0..100 (development adapter maps 0 to 1); equal settings across codecs need not produce equivalent quality. Numbering, packing, predictors and hint bytes may differ. |
+| IDs / compression | Default IDs are deterministic content hashes; static IDs use the native test constant. BCL Flate levels map 1/2..8/9 to fastest/optimal/smallest. Numbering, packing, predictors and hint bytes may differ. |
 | Linearized outlines | Outline closures stay outside object streams so hint spans remain contiguous. Pinned native packing can split a root from later outline containers and warn about its own offsets/lengths; the reference controls retain that failure and compare a valid classic equivalent. |
 | Companions | Fix-QDF requires LF outer syntax, sequential numbering and unambiguous stream/length framing. Zlib-flate reports malformed frames and enforces decoded and output limits during inflation. Once the codec returns a byte beyond the tighter limit, the operation refuses before validating the rest of the frame. An exact fit still requires frame validation. |
 
@@ -106,11 +106,6 @@ Nullable destination positions retain prior viewer coordinates. A quarter turn
 can make one coordinate depend on the other. Turning a width fit into a height
 fit also changes how the viewer computes zoom. These semantics explain the
 rotation refusals above. [ISO 32000-1, 12.3.2.2 and Table 151](https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf)
-
-JPEG quality is codec-specific. For the RGB-noise case, the visual lane records
-`documented-codec-difference` when the cross-encoder comparison exceeds its
-bound and both results meet the original-image bounds. A missing-image control
-must fail those bounds. [JPEG fixtures and visual evidence](https://github.com/Lokad/qpdf/blob/master/tests/Fixtures/JPEG.md)
 
 ## Resource APIs
 
@@ -132,6 +127,7 @@ CI runs offline behavior tests, locked builds and isolated package consumers.
 The reference job compares native and managed semantics with an independent
 reader, including ordered page content, parser recovery, password policies and
 decoded JSON payloads. Reference jobs fail when tools are missing.
+[JPEG fixtures and visual evidence](https://github.com/Lokad/qpdf/blob/master/tests/Fixtures/JPEG.md)
 
 Run `tools/run-reference-checks.ps1 -QpdfExe $oracle -WorkRoot artifacts/reference-check`
 from PowerShell with the pinned executable and a fresh workspace. The default
