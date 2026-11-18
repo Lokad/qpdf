@@ -48,6 +48,28 @@ public sealed class JsonSplitTests
     }
 
     [Fact]
+    public async Task SharedResourceMemberIsPackedInEachPart()
+    {
+        using InMemoryQpdfHost host = new();
+        AddCreation(host, JsonPath, Body);
+        QpdfExecutionResult result = await Create(host, JsonPath, QpdfLimits.Default, CancellationToken.None,
+            "--object-streams=generate");
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        foreach (QpdfPath output in new[] { First, Last })
+        {
+            QpdfPath read = QpdfPath.From("read-" + output.Value);
+            host.AddInput(read, Output(host, output), QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, read, CancellationToken.None);
+            PdfDictionary resources = Assert.IsType<PdfDictionary>(
+                Resolve(document, Value(document.PageReferences[0].Page, "Resources")));
+            PdfReference shared = Assert.IsType<PdfReference>(Value(resources, "AuditShared"));
+            Assert.Equal(XrefEntryKind.Compressed, document.Engine.XRefEntries[shared.ObjectNumber].Kind);
+            PdfDictionary member = Assert.IsType<PdfDictionary>(document.GetObject(shared));
+            Assert.Equal(19L, Assert.IsType<PdfInteger>(Value(member, "Audit")).Value);
+        }
+    }
+
+    [Fact]
     public async Task ZeroPagesLeaveTargetsUntouched()
     {
         using RecordingJobHost host = new(null, null, "success", true);
@@ -261,7 +283,8 @@ public sealed class JsonSplitTests
             {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
               "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/AuditPage":"5 0 R",
                 "/PageLabels":{"/Nums":[0,{"/S":"/D","/St":7,"/P":"u:Audit-"}]}}},
-              "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":3,"/Kids":["9 0 R","5 0 R"],"/MediaBox":[0,0,100,200],"/Resources":{}}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":3,"/Kids":["9 0 R","5 0 R"],"/MediaBox":[0,0,100,200],
+                "/Resources":{"/AuditShared":"10 0 R"}}},
               "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"9 0 R","/Contents":"6 0 R"}},
               "obj:4 0 R":{"value":{"/Type":"/Page","/Parent":"9 0 R","/Contents":"7 0 R"}},
               "obj:5 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/Contents":"8 0 R"}},
@@ -269,6 +292,7 @@ public sealed class JsonSplitTests
               "obj:7 0 R":{"stream":{"dict":{},"data":"{{{{second}}}}"}},
               "obj:8 0 R":{"stream":{"dict":{},"datafile":{{{{JsonSerializer.Serialize(payload.Value)}}}}}},
               "obj:9 0 R":{"value":{"/Type":"/Pages","/Parent":"2 0 R","/Count":2,"/Kids":["3 0 R","4 0 R"],"/MediaBox":[0,0,120,240]}},
+              "obj:10 0 R":{"value":{"/Audit":19}},
               "trailer":{"value":{"/Root":"1 0 R"}}
             }]}
             """), QpdfInputOwnership.Transfer);

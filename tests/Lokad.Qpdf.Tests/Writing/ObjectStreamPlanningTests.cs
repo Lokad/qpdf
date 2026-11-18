@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -143,6 +144,29 @@ public sealed class ObjectStreamPlanningTests
             Assert.Empty(Collect(engine, false, owner, governor, CancellationToken.None));
             Assert.Equal(new[] { 4, 6, 8, 10 }, Collect(engine, true, owner, governor, CancellationToken.None).Order());
         }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RemappingVisitsTheSmallerCollectionForEachPart(bool sparseMap)
+    {
+        const int groupCount = 128;
+        const int largeCount = 16384;
+        HashSet<int> candidates = sparseMap ? Enumerable.Range(1, largeCount).ToHashSet()
+            : [1, 2, largeCount + 1];
+        Dictionary<int, int> numbers = sparseMap ? new() { [1] = 11, [2] = 12, [largeCount + 1] = 13 }
+            : Enumerable.Range(1, largeCount).ToDictionary(number => number, number => number + 10);
+        ResourceGovernor governor = new(QpdfLimits.Default with { CancellationCheckInterval = long.MaxValue }, CancellationToken.None);
+        FieldInfo work = typeof(ResourceGovernor).GetField("_operationsSinceCheck", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Missing packing membership work observation.");
+        for (int group = 0; group < groupCount; group++)
+        {
+            using ParserMemoryScope owner = ParserMemoryScope.Create(governor);
+            Assert.Equal(new[] { 11, 12 }, Remap(candidates, numbers, owner, governor, CancellationToken.None).Order());
+        }
+        Assert.Equal(groupCount * 3L, Convert.ToInt64(work.GetValue(governor)));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

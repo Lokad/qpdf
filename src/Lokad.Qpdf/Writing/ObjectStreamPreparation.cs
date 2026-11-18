@@ -189,12 +189,22 @@ internal static class ObjectStreamPreparation
         ownership.CheckOwner(governor); token.ThrowIfCancellationRequested();
         using ParserMemoryScope candidate = ParserMemoryScope.Create(governor);
         HashSet<int> remapped = ParserContainers.CreateSet<int>(candidate);
-        foreach (int id in compressed)
+        if (compressed.Count <= renumber.Count)
         {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (renumber.TryGetValue(id, out int mapped))
+            foreach (int number in compressed)
             {
-                ParserContainers.AddSetItem(candidate, remapped, mapped, sizeof(int));
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteOperation();
+                if (renumber.TryGetValue(number, out int mapped))
+                { ParserContainers.AddSetItem(candidate, remapped, mapped, sizeof(int)); }
+            }
+        }
+        else
+        {
+            foreach ((int number, int mapped) in renumber)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation(); governor.NoteOperation();
+                if (compressed.Contains(number))
+                { ParserContainers.AddSetItem(candidate, remapped, mapped, sizeof(int)); }
             }
         }
 
