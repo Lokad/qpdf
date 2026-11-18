@@ -148,7 +148,15 @@ foreach ($case in @(
     @{ Name='packaged-fragment'; Readme='[license](./LICENSE.txt#text)'; Reject=$false },
     @{ Name='packaged-reference'; Readme="[license][text]`n[text]: LICENSE.txt"; Reject=$false },
     @{ Name='external-link'; Readme='[docs](https://example.invalid/not-fetched)'; Reject=$false },
-    @{ Name='local-anchor'; Readme='[section](#section)'; Reject=$false },
+    @{ Name='local-anchor'; Readme=('## Section' + [Environment]::NewLine + '[section](#section)'); Reject=$false },
+    @{ Name='guide-parent-link'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[license](../LICENSE.txt)'; Reject=$false },
+    @{ Name='guide-heading'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[input](MEMORY.md#input-leases)'; Reject=$false },
+    @{ Name='duplicate-guide-heading'; Member='docs/MEMORY.md'; Readme=(@('## Example heading', '', 'Example heading', '---', '', '[section](#example-heading-1)') -join [Environment]::NewLine); Reject=$false },
+    @{ Name='fenced-markdown'; Member='docs/SUPPORTED-PROFILE.md'; Readme=(@('~~~md', '[example](missing.md)', '~~~') -join [Environment]::NewLine); Reject=$false },
+    @{ Name='missing-readme-heading'; Readme='[section](#missing-heading)'; Reject=$true; Heading=$true },
+    @{ Name='missing-guide-link'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[guide](missing.md)'; Reject=$true },
+    @{ Name='missing-guide-heading'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[section](MEMORY.md#missing-heading)'; Reject=$true; Heading=$true },
+    @{ Name='path-outside-package'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[license](../../LICENSE.txt)'; Reject=$true },
     @{ Name='missing-inline-link'; Readme='[docs](docs/missing.md)'; Reject=$true },
     @{ Name='missing-reference-link'; Readme="[docs][text]`n[text]: docs/missing.md"; Reject=$true }
 )) {
@@ -160,12 +168,17 @@ foreach ($case in @(
         -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
     $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
     try {
-        $archive.GetEntry('README.md').Delete()
-        $writer = [IO.StreamWriter]::new($archive.CreateEntry('README.md').Open())
-        try { $writer.WriteLine($case.Readme) } finally { $writer.Dispose() }
+        $member = if ($case.Member) { $case.Member } else { 'README.md' }
+        $entry = $archive.GetEntry($member)
+        $reader = [IO.StreamReader]::new($entry.Open())
+        try { $original = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        $entry.Delete()
+        $writer = [IO.StreamWriter]::new($archive.CreateEntry($member).Open())
+        try { $writer.WriteLine($original); $writer.WriteLine($case.Readme) } finally { $writer.Dispose() }
     } finally { $archive.Dispose() }
     if ($case.Reject) {
-        Assert-Rejection $case.Name 'README link target is missing from package' (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
+        $issue = if ($case.Heading) { 'Package Markdown heading is missing' } else { 'Package Markdown link target is missing' }
+        Assert-Rejection $case.Name $issue (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
     } else {
         $output = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $artifact 2>&1 | Out-String
         [IO.File]::WriteAllText((Join-Path $testRoot ($case.Name + '.log')), $output)
