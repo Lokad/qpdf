@@ -800,11 +800,11 @@ internal static partial class JobPlanner
                     throw new QpdfParseException("Job inspection cannot be combined with output or these transformation/JSON settings.", 0L, null);
                 }
 
-                if (importJson && (jsonInput && seenUpdateFromJson || empty
+                if (importJson && (empty
                     || hasPages || seenCollate || coalesceContents || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
                     || checkLinearization || showLinearization || showXref))
                 {
-                    throw new QpdfParseException("JSON graph inspection requires one import and cannot be combined with page transforms or physical layout inspection.", 0L, null);
+                    throw new QpdfParseException("JSON graph inspection cannot be combined with page transforms or physical layout inspection.", 0L, null);
                 }
 
                 List<PdfPageSource> inspectionSources = new();
@@ -817,8 +817,7 @@ internal static partial class JobPlanner
                 (QpdfPath checkInput, bool checkEmpty) = ResolveInspectionInput(input, empty, "check");
                 return new CheckPlan(checkInput, recovery)
                 {
-                    Import = importJson ? new ImportedInspectionInput(jsonInput ? checkInput : SelectionPlan.CheckedPath(updateFromJson
-                        ?? throw new InvalidOperationException("Missing validated JSON patch path.")), !jsonInput) : null,
+                    Import = importJson ? ResolveInspectionImport(checkInput, jsonInput, updateFromJson) : null,
                     PasswordFiles = passwordFiles,
                     Password = password,
                     ShowEncryption = showEncryption,
@@ -1111,12 +1110,7 @@ internal static partial class JobPlanner
                     ? ParseInspectionCollation(collationSizes, jsonSources.Count, textStorage) : null;
                 return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
                 {
-                    Import = importJson ? new ImportedInspectionInput(jsonInput ? inspectionInput : SelectionPlan.CheckedPath(updateFromJson
-                        ?? throw new InvalidOperationException("Missing validated JSON patch path.")), !jsonInput)
-                    {
-                        FollowingPatch = jsonInput && seenUpdateFromJson ? SelectionPlan.CheckedPath(updateFromJson
-                            ?? throw new InvalidOperationException("Missing validated second-stage patch path.")) : null,
-                    } : null,
+                    Import = importJson ? ResolveInspectionImport(inspectionInput, jsonInput, updateFromJson) : null,
                     CoalesceContents = coalesceContents,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
@@ -1313,6 +1307,14 @@ internal static partial class JobPlanner
             properties[property.Name] = property;
         }
         return properties.Values;
+    }
+
+    private static ImportedInspectionInput ResolveInspectionImport(QpdfPath input, bool create, string? patch)
+    {
+        QpdfPath? path = patch is null ? null : SelectionPlan.CheckedPath(patch);
+        return create
+            ? new ImportedInspectionInput(input, false) { FollowingPatch = path }
+            : new ImportedInspectionInput(path ?? throw new InvalidOperationException("Missing validated JSON patch path."), true);
     }
 
     private static List<OutputRotation> ParseRotateArray(JobValue value, ConfigurationText textStorage)

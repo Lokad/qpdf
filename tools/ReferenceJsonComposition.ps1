@@ -85,4 +85,30 @@ function Invoke-ReferenceJsonComposition {
   }
   Assert-Trio 'json-composition/recreated' "$case/recreated.pdf" "$case/inputs/native.pdf" 1
   Invoke-PhysicalPatchProjection
+
+  foreach ($checked in @($false, $true)) {
+    if ($checked) {
+      @{inputFile='inputs/create.json';jsonInput='';updateFromJson='inputs/patch.json';
+        check='';showNpages='';showObject='41,7'} | ConvertTo-Json |
+        Set-Content -LiteralPath "$case/inspect-job.json"
+      $nativeArgs = @('--job-json-file=inspect-job.json')
+      $probeArgs = @('emit-job','--workdir',$case,'--job',"$case/inspect-job.json")
+    } else {
+      $nativeArgs = $binding + @('--show-npages','--show-object=41,7')
+      $probeArgs = @('emit','--workdir',$case,'--') + $nativeArgs
+    }
+    if ((Invoke-Oracle $case $nativeArgs) -ne 0) { throw 'Native composed inspection failed.' }
+    $native = Get-Content -Raw -LiteralPath "$case/ora-stdout.txt"
+    $run = Invoke-ReferenceProbeRequest -Arguments $probeArgs -WorkingDirectory $case
+    $managed = Get-Content -Raw -LiteralPath $run.StandardOutput
+    if ($run.ExitCode -ne 0 -or $managed -notmatch '(?m)PageCount Info inputs/create\.json: 1\r?$' -or
+        $managed -notmatch '(?m)ObjectListing Info \(late\)\r?$' -or
+        $native -notmatch '(?m)^1\r?$' -or $native -notmatch '(?m)^\(late\)\r?$') {
+      throw 'Composed inspection did not report the bound page count and patched object.'
+    }
+    if (($managed -match 'CheckSkipped') -ne $checked -or ($native -match '(?m)^checking ') -ne $checked) {
+      throw 'Composed inspection disagrees about whether checking ran.'
+    }
+    Write-Output "[json-composition/inspect-$checked] bound count, patched pair and requested check agree."
+  }
 }

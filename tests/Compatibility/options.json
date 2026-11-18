@@ -2633,6 +2633,7 @@
           "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace",
           "ImportedCheckTests.CreationChecksReachableStreamsAndListsExactOriginalPairs",
           "ImportedCheckTests.CheckUsesThePatchedStreamBeforeFollowUpInspection",
+          "ImportedCheckTests.CreateAndPatchInspectionsUseTheEffectiveGraph",
           "ImportedCheckTests.PatchCanRepairThePageTreeBeforeTraversal"
         ],
         "negative": [
@@ -2704,7 +2705,8 @@
           "diff:binary-inspection",
           "diff:check-transformations",
           "diff:outline-hint",
-          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck",
+          "tools/ReferenceJsonComposition.ps1: Invoke-ReferenceJsonComposition"
         ]
       }
     },
@@ -7188,7 +7190,8 @@
           "SubtreeReuseTests.SharedSubtreesKeepWorkProportionalToTheirGraphAndResult",
           "SubtreeReuseTests.ReusedSubtreesStillEnforceDepthOnDeeperPaths",
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState",
-          "ImportedCheckTests.NamedAttachmentUsesAClosedBoundGraphAndProtectsPriorOutput"
+          "ImportedCheckTests.NamedAttachmentUsesAClosedBoundGraphAndProtectsPriorOutput",
+          "ImportedCheckTests.ComposedNamedExtractionProtectsThePatchAndItsSidecar"
         ],
         "oracle": [
           "diff:attachments-show",

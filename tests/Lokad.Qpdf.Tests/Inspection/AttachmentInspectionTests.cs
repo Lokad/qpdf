@@ -42,10 +42,6 @@ public sealed class AttachmentInspectionTests
             switch (conflict)
             {
                 case "json": argv.Add("--json=2"); job.Add("json", "2"); break;
-                case "two-imports":
-                    argv.AddRange(["--json-input", "--update-from-json=missing-patch"]);
-                    job.Add("jsonInput", ""); job.Add("updateFromJson", "missing-patch");
-                    break;
                 case "bound-xref":
                     argv.AddRange(["--json-input", "--show-xref"]);
                     job.Add("jsonInput", ""); job.Add("showXref", "");
@@ -61,7 +57,7 @@ public sealed class AttachmentInspectionTests
 
     public static IEnumerable<object[]> ConflictCases()
     {
-        foreach (string conflict in new[] { "json", "two-imports", "bound-xref" })
+        foreach (string conflict in new[] { "json", "bound-xref" })
         foreach (string route in new[] { "argv", "job", "mixed" })
         foreach (bool target in new[] { false, true }) { yield return [conflict, route, target]; }
     }

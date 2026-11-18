@@ -317,8 +317,9 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
-Argv and job JSON can inspect the graph from `--json-input` or
-`--update-from-json`. Updates authenticate the source before binding the patch.
+Argv and job JSON can inspect a graph created from JSON, updated from a PDF,
+or created and then patched in the same job. PDF updates authenticate the
+source before binding the patch.
 Page counts, pages with images, objects and attachments use the bound graph
 and its declared generations. Encryption reports describe the authenticated
 source. Attachment extraction returns bytes or commits

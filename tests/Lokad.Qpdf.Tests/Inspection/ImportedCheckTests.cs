@@ -8,6 +8,7 @@ public sealed class ImportedCheckTests
 {
     private static readonly QpdfPath Graph = QpdfPath.From("graph"), Source = QpdfPath.From("source");
     private static readonly QpdfPath Payload = QpdfPath.From("payload"), Output = QpdfPath.From("output");
+    private static readonly QpdfPath FollowingPatch = QpdfPath.From("patch");
     private static readonly byte[] Program = "q\n0 0 31 40 re f\nQ\n"u8.ToArray();
     private static readonly byte[] AttachmentBytes = [0, 254, 128, 10, 255, 32, 26, 1, 127];
     private const string Creation = """
@@ -82,6 +83,44 @@ public sealed class ImportedCheckTests
         }
         Assert.Equal(new[] { "source", "graph" }, host.Inputs);
         AssertClosed(storage, host, result);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreateAndPatchInspectionsUseTheEffectiveGraph(bool damaged)
+    {
+        using InMemoryQpdfHost storage = new();
+        AddJson(storage, Encoding.UTF8.GetBytes(Creation));
+        byte[] patch = damaged
+            ? """{"qpdf":[{"jsonversion":2},{"obj:23 4 R":{"stream":{"dict":{"/Filter":"/FlateDecode"}}},"obj:47 8 R":{"value":"u:declared-second"}}]}"""u8.ToArray()
+            : """{"qpdf":[{"jsonversion":2},{"obj:47 8 R":{"value":"u:declared-second"}}]}"""u8.ToArray();
+        storage.AddInput(FollowingPatch, patch, QpdfInputOwnership.Transfer);
+        ObservingHost host = new(storage, null);
+        QpdfExecutionResult result = damaged
+            ? await Qpdf.ExecuteJobAsync(host,
+                """{"inputFile":"graph","jsonInput":"","updateFromJson":"patch","check":"","showNpages":"","showObject":"47,8"}""",
+                CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host,
+                new(["graph", "--json-input", "--update-from-json=patch", "--check", "--show-npages", "--show-object=47,8"]),
+                CancellationToken.None);
+        Assert.Equal(damaged ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(new[] { "graph", "patch" }, host.Inputs);
+        AssertClosed(storage, host, result);
+        if (damaged)
+        {
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed && d.Message.Contains("stream 23", StringComparison.Ordinal));
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code is QpdfDiagnosticCode.ObjectListing or QpdfDiagnosticCode.PageCount);
+            return;
+        }
+
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckSkipped && d.Message.Contains("cross-reference offsets", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount && d.Message == "graph: 1");
+        Assert.Equal("(declared-second)", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message);
+        QpdfExecutionResult stale = await Qpdf.ExecuteJobAsync(storage,
+            """{"inputFile":"graph","jsonInput":"","updateFromJson":"patch","showObject":"47,7"}""", CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, stale.ExitCode);
+        Assert.Equal("null", Assert.Single(stale.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message);
     }
 
     [Fact]
@@ -194,6 +233,50 @@ public sealed class ImportedCheckTests
                 Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments && d.Message.Contains("aliases an input", StringComparison.Ordinal));
             }
             else { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded); }
+        }
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("patch")]
+    [InlineData("second-payload")]
+    public async Task ComposedNamedExtractionProtectsThePatchAndItsSidecar(string? alias)
+    {
+        using InMemoryQpdfHost storage = new();
+        SeedAttachment(storage, false);
+        storage.AddInput(FollowingPatch,
+            """{"qpdf":[{"jsonversion":2},{"obj:67 3 R":{"stream":{"dict":{"/Type":"/EmbeddedFile"},"datafile":"second-payload"}}}]}"""u8.ToArray(),
+            QpdfInputOwnership.Transfer);
+        QpdfPath secondSidecar = QpdfPath.From("second-payload");
+        byte[] replacement = [255, 0, 127, 238];
+        storage.AddInput(secondSidecar, replacement, QpdfInputOwnership.Copy);
+        byte[] prior = "prior output"u8.ToArray();
+        await using (IQpdfOutputTransaction seed = await storage.CreateOutputAsync(Output, CancellationToken.None))
+        {
+            await seed.WriteAsync(prior, CancellationToken.None);
+            await seed.CommitAsync(CancellationToken.None);
+        }
+
+        ObservingHost host = new(storage, null);
+        if (alias is not null) { host.Aliases.Add(Output, QpdfPath.From(alias)); }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["graph", "--json-input", "--update-from-json=patch", "--show-attachment=key", "output"]), CancellationToken.None);
+        Assert.Equal(alias is null ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains("second-payload", host.Inputs);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(Output, out byte[] bytes));
+        if (alias is null)
+        {
+            Assert.Equal(1, host.Outputs);
+            Assert.Equal(0, host.OpenLeasesAtStaging);
+            Assert.Equal(replacement, bytes);
+        }
+        else
+        {
+            Assert.Equal(0, host.Outputs);
+            Assert.Equal(prior, bytes);
+            Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments && d.Message.Contains("aliases an input", StringComparison.Ordinal));
         }
     }
 
