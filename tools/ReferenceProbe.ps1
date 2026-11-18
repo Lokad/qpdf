@@ -111,6 +111,25 @@ function Invoke-ReferenceProbeRequest {
     }
 }
 
+function Assert-ReferenceProbeOutcome {
+    param(
+        [hashtable] $Result, [string] $Case, [int] $ExpectedExit,
+        [string[]] $ExpectedOutput, [string] $ExpectedError
+    )
+    $output = [IO.File]::ReadAllLines($Result.StandardOutput)
+    $errorText = [IO.File]::ReadAllText($Result.StandardError).TrimEnd("`r", "`n")
+    if ($Result.ExitCode -ne $ExpectedExit -or $errorText -cne $ExpectedError) {
+        throw "$Case returned exit $($Result.ExitCode) and stderr '$errorText'. Expected exit $ExpectedExit and stderr '$ExpectedError'. See $($Result.StandardError)."
+    }
+    foreach ($line in $ExpectedOutput) {
+        if ($output -cnotcontains $line) { throw "$Case is missing '$line'. See $($Result.StandardOutput)." }
+    }
+}
+
+function Get-TruncatedProbeDiagnostic([string] $Path) {
+    return "qpdfprobe: Independent reader (PdfPig 0.1.16) failed to open '$Path': PdfDocumentFormatException: Could not find an xref trailer or stream dictionary in the input file."
+}
+
 function Invoke-ReferenceProbe {
     param([string[]] $Arguments)
     if ($Arguments.Length -eq 0 -or [IO.Path]::GetFullPath($Arguments[0]) -cne $script:referenceProbeState.Probe) {

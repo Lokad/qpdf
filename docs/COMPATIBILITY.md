@@ -176,9 +176,12 @@ The reference job compares native and managed semantics with an independent
 reader, including ordered page content, parser recovery, password policies and
 decoded JSON payloads. Reference jobs fail when tools are missing.
 
-Run `tools/run-reference-checks.ps1 -QpdfExe $oracle` from PowerShell with the
-pinned executable. It builds QpdfProbe with a locked restore. Pass `-ProbeDll`
-to run the positive, differential and parser checks with an existing build.
+Run `tools/run-reference-checks.ps1 -QpdfExe $oracle -WorkRoot artifacts/reference-check`
+from PowerShell with the pinned executable and a fresh workspace. The default
+is a new directory under `artifacts/reference-checks`. The workspace contains
+stage logs, `results.json`, and the reader, content, differential and parser
+evidence. The runner builds the net11.0 probe with a locked restore. Pass
+`-ProbeDll` to use an existing build.
 `tools/bootstrap-qpdf.ps1` checks that the supplied executable reports qpdf
 12.4.2 and records its SHA-256.
 

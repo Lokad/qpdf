@@ -139,6 +139,7 @@ jobs:
         run: |
           ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE `
             -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
+            -WorkRoot artifacts/reference-ci `
             2>&1 | Tee-Object artifacts/ci/logs/reference.log
       - name: Capture failure process diagnostics
         if: failure()
@@ -153,13 +154,12 @@ jobs:
           name: reference-results-${{ github.run_attempt }}
           path: |
             artifacts/ci/
-            external/parser-checks/**/results.json
-            external/parser-checks/**/*.txt
-            external/parser-checks/**/*.log
-            external/diff/**/results.json
-            external/diff/**/*.reference.json
-            external/diff/**/*.state.json
-            external/diff/**/*.txt
-            external/diff/**/*.log
+            artifacts/reference-ci/**/results.json
+            artifacts/reference-ci/**/*.reference.json
+            artifacts/reference-ci/**/*.state.json
+            artifacts/reference-ci/**/*.txt
+            artifacts/reference-ci/**/*.log
+            artifacts/reference-ci/**/*-stdout.bin
+            artifacts/reference-ci/**/*-stderr.bin
           retention-days: 14
           if-no-files-found: error

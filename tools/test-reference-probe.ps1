@@ -73,6 +73,7 @@ Write-Output 'Header controls passed: LF/CRLF/CR validate and compare, plus four
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
+    $truncated = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../tests/Fixtures/truncated-1page.pdf')).Path
     $cases = @(
         @('emit','--workdir',$WorkRoot,'--','inputs/a.pdf','--show-npages'),
         @('emit','--workdir',$WorkRoot,'--',$unicodeInput,'--show-npages'),
@@ -80,7 +81,7 @@ try {
         @('emit','--workdir',$WorkRoot,'--','inputs/missing.pdf','--show-npages'),
         @('emit','--workdir',$WorkRoot,'--','inputs/a.pdf','--bogus-flag'),
         @('emit','--workdir',$WorkRoot,'--','inputs/a.pdf','--show-npages'),
-        @('validate','--input',(Join-Path $PSScriptRoot '../tests/Fixtures/truncated-1page.pdf')),
+        @('validate','--input',$truncated),
         @('--help')
     )
     foreach ($arguments in $cases) {
@@ -91,7 +92,22 @@ try {
         [IO.File]::WriteAllText($warm.StandardError+'.cold',$cold.Error)
         if ($cold.ExitCode -ne $warm.ExitCode -or $cold.Output -cne $warmOutput -or
             $cold.Error -cne [IO.File]::ReadAllText($warm.StandardError)) { throw "Cold/batch result differs: $($arguments -join ' ')" }
+        if ($arguments[0] -eq 'validate') {
+            Assert-ReferenceProbeOutcome -Result $warm -Case 'Truncated PDF' -ExpectedExit 1 -ExpectedError (Get-TruncatedProbeDiagnostic $truncated)
+        }
     }
+    $missing = Join-Path $WorkRoot 'missing.pdf'
+    $warm = Invoke-ReferenceProbeRequest -Arguments @('validate','--input',$missing) -WorkingDirectory $WorkRoot
+    Assert-ReferenceProbeOutcome -Result $warm -Case 'Missing PDF' -ExpectedExit 1 -ExpectedError "qpdfprobe: Input PDF not found: $missing."
+    $wrongFailureRejected = $false
+    try {
+        Assert-ReferenceProbeOutcome -Result $warm -Case 'Truncated PDF' -ExpectedExit 1 -ExpectedError (Get-TruncatedProbeDiagnostic $truncated)
+    } catch {
+        if ($_.Exception.Message -notmatch '^Truncated PDF returned exit 1 and stderr') { throw }
+        $wrongFailureRejected = $true
+    }
+    if (-not $wrongFailureRejected) { throw 'A missing input satisfied the truncated-reader expectation.' }
+    Write-Output 'Reference outcome control passed: a missing PDF with the same exit code is rejected by the truncated-reader assertion.'
     $coldPdf = Join-Path $WorkRoot 'cold.pdf'; $warmPdf = Join-Path $WorkRoot 'warm.pdf'
     $cold = Invoke-ColdProbe -Arguments @('emit-job','--workdir',$WorkRoot,'--job','job.json','--out',"outputs/a.pdf=$coldPdf") -InputText ''
     $warm = Invoke-ReferenceProbeRequest -Arguments @('emit-job','--workdir',$WorkRoot,'--job','job.json','--out',"outputs/a.pdf=$warmPdf") -WorkingDirectory $WorkRoot
@@ -130,7 +146,7 @@ try {
     }
 } finally { Complete-ReferenceProbe }
 $transport=Get-Content (Join-Path $WorkRoot 'managed-calls/results.json') -Raw | ConvertFrom-Json
-if ($transport.Workers -ne 2 -or $transport.Requests.Count -ne 87) { throw 'Bounded worker/request coverage changed.' }
+if ($transport.Workers -ne 2 -or $transport.Requests.Count -ne 88) { throw 'Bounded worker/request coverage changed.' }
 $bad=Invoke-ColdProbe -Arguments @('batch') -InputText "{bad}`n"
 if ($bad.ExitCode -ne 1 -or $bad.Error -notmatch 'Invalid batch JSON') { throw 'Malformed protocol did not fail explicitly.' }
 $large=Invoke-ColdProbe -Arguments @('batch') -InputText ((' ' * (4*1024*1024+1))+"`n")
@@ -153,7 +169,7 @@ foreach ($rasterCase in @(
     $rasterResult = Invoke-ColdProbe -Arguments (@('compare-raster','--left',$rasterCase.Left,'--right',$rasterCase.Right) + $rasterCase.Options) -InputText ''
     if ($rasterResult.ExitCode -ne $rasterCase.Exit -or ($rasterResult.Output + $rasterResult.Error) -notmatch [regex]::Escape($rasterCase.Message)) { throw "Raster control failed: $($rasterCase.Name)" }
 }
-Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 87 requests/two bounded workers and both protocol negatives.'
+Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 88 requests/two bounded workers and both protocol negatives.'
 Write-Output 'Raster controls passed: exact nonblank match, mismatch, blank crop, wrong expected dimensions and truncated payload.'
 
 # Exercise both real version guards through their existing command-line paths.
@@ -182,6 +198,29 @@ try {
     }
 } finally { $env:QPDF_TEST_ORACLE_VERSION = $previousVersion }
 Write-Output 'Oracle version controls passed: pinned LF/CRLF banners accepted; prefix, patch, other, qualified, wrong-line and missing versions reject in both guards.'
+
+$aggregate = Join-Path $PSScriptRoot 'run-reference-checks.ps1'
+$invalidProbe = Join-Path $WorkRoot 'invalid-probe.dll'
+[IO.File]::WriteAllText($invalidProbe, 'Invalid probe assembly for the launch failure control.')
+Copy-Item -LiteralPath (Join-Path (Split-Path $ProbeDll) 'Lokad.Qpdf.dll') -Destination $WorkRoot
+$aggregateRoot = Join-Path $WorkRoot 'aggregate launch failure'
+$output = & pwsh -NoProfile -File $aggregate -QpdfExe $OracleFixture -ProbeDll $invalidProbe -WorkRoot $aggregateRoot 2>&1 | Out-String
+$aggregateExit = $LASTEXITCODE
+$receipt = Join-Path $aggregateRoot 'results.json'
+$receiptBytes = [IO.File]::ReadAllText($receipt)
+$result = $receiptBytes | ConvertFrom-Json
+$failureLog = [IO.File]::ReadAllText((Join-Path $aggregateRoot 'reader-checks.log'))
+if ($aggregateExit -eq 0 -or $result.Status -cne 'failed' -or $result.Stages.bootstrap.Status -cne 'passed' -or
+    $result.Stages.probe.Status -cne 'passed' -or $result.Stages.'reader-checks'.Status -cne 'failed' -or
+    $result.Stages.'reader-checks'.Error -notmatch 'Managed probe worker exited' -or
+    $failureLog -notmatch 'Managed probe worker exited' -or (Test-Path (Join-Path $aggregateRoot 'content-controls'))) {
+    throw "Aggregate runner did not retain the probe launch failure: $output"
+}
+$output = & pwsh -NoProfile -File $aggregate -QpdfExe $OracleFixture -ProbeDll $invalidProbe -WorkRoot $aggregateRoot 2>&1 | Out-String
+if ($LASTEXITCODE -eq 0 -or $output -notmatch 'Reference workspace already exists' -or [IO.File]::ReadAllText($receipt) -cne $receiptBytes) {
+    throw 'Aggregate runner accepted or modified a reused workspace.'
+}
+Write-Output 'Reference workspace controls passed: probe launch failure retained in its stage and workspace reuse rejected.'
 
 $nativeRoot = Join-Path $WorkRoot "native paths $([char]0xC9)$([char]0x65E5)$([char]0x672C)"
 $nativeBin = Join-Path $nativeRoot 'executable files'
