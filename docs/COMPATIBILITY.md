@@ -179,6 +179,8 @@ decoded JSON payloads. Reference jobs fail when tools are missing.
 Run `tools/run-reference-checks.ps1 -QpdfExe $oracle` from PowerShell with the
 pinned executable. It builds QpdfProbe with a locked restore. Pass `-ProbeDll`
 to run the positive, differential and parser checks with an existing build.
+`tools/bootstrap-qpdf.ps1` checks that the supplied executable reports qpdf
+12.4.2 and records its SHA-256.
 
 Run the visual lane separately with a Release solution build, PowerShell on
 .NET 10 or later, the pinned qpdf executable and an identified `pdftoppm`.
@@ -194,5 +196,6 @@ The official Windows `qpdf-12.4.2-msvc64.zip` SHA-256 is
 `db87077e683630c1217e0e8f9a20a9749d952ab676e881c3689187763a5de25d`;
 its `bin/qpdf.exe` is
 `1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff`.
-Development scripts verify these identities and stop/await timed-out processes.
-Native qpdf, renderers, PdfPig and codecs never become core runtime dependencies.
+`tools/install-reference-qpdf.ps1` verifies both Windows hashes. The reference
+runner stops and awaits timed-out processes. Native qpdf, renderers, PdfPig and
+development codecs stay in the development tools and tests.

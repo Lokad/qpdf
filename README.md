@@ -143,10 +143,10 @@ dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 ```
 
 The package is written to `artifacts/nuget`. Ordinary builds and tests require no
-native qpdf or other external PDF tools. Contributor checks are in
-[AGENTS.md](https://github.com/Lokad/qpdf/blob/master/AGENTS.md#build-and-checks);
-[architecture](docs/ARCHITECTURE.md#development) describes development boundaries. Reference checks use
-`tools/bootstrap-qpdf.ps1`.
+native qpdf or other external PDF tools. See the contributor checks and the
+full reference and visual commands.
+[Build and checks](https://github.com/Lokad/qpdf/blob/master/AGENTS.md#build-and-checks) ·
+[Reference and visual checks](docs/COMPATIBILITY.md#how-compatibility-is-verified)
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md): dated measurements, methodology and allocation/admission tools.
