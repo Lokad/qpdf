@@ -12,6 +12,71 @@ internal static class PageInheritance
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
         => FindCore(engine, location, name.RawSpan, false, false, limits, governor, cancellationToken);
 
+    // Staged callers retain only visited ancestors. Later keys reuse that path
+    // without resolving their values before the caller actually needs them.
+    internal ref struct Lookup
+    {
+        private readonly DocumentEngine _engine;
+        private readonly PageLocation _location;
+        private readonly QpdfLimits _limits;
+        private readonly ResourceGovernor _governor;
+        private readonly CancellationToken _token;
+        private Ancestors _ancestors;
+        private PdfDictionary? _firstParent;
+        private List<PdfDictionary>? _parents;
+        private bool _started, _ended, _disposed;
+
+        internal Lookup(DocumentEngine engine, PageLocation location, QpdfLimits limits,
+            ResourceGovernor governor, CancellationToken token)
+        {
+            _engine = engine; _location = location; _limits = limits;
+            _governor = governor; _token = token;
+            _ancestors = new(engine, location, limits, governor, token);
+        }
+
+        internal QpdfObject? Find(ReadOnlySpan<byte> name)
+        {
+            if (_disposed) { throw new ObjectDisposedException(nameof(Lookup)); }
+            _token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            QpdfObject? value = FindValue(_engine, _location.Page, name, false, _limits, _governor, _token);
+            if (value is not null) { return value; }
+            if (_firstParent is not null)
+            {
+                value = FindValue(_engine, _firstParent, name, false, _limits, _governor, _token);
+                if (value is not null) { return value; }
+            }
+            if (_parents is not null)
+            {
+                foreach (PdfDictionary parent in _parents)
+                {
+                    value = FindValue(_engine, parent, name, false, _limits, _governor, _token);
+                    if (value is not null) { return value; }
+                }
+            }
+            if (!_started) { _ancestors.MoveNext(out _); _started = true; }
+            while (!_ended && _ancestors.MoveNext(out PdfDictionary parent))
+            {
+                // Match the ancestor cursor's allocation-free single-parent path.
+                if (_firstParent is null) { _firstParent = parent; }
+                else
+                {
+                    ParserMemoryScope memory = _ancestors.Memory;
+                    _parents ??= ParserContainers.CreateList<PdfDictionary>(memory);
+                    ParserContainers.AddItem(memory, _parents, parent, IntPtr.Size);
+                }
+                value = FindValue(_engine, parent, name, false, _limits, _governor, _token);
+                if (value is not null) { return value; }
+            }
+            _ended = true; return null;
+        }
+
+        public void Dispose()
+        {
+            _firstParent = null; _parents = null; _ancestors.Dispose(); _ancestors = default;
+            _disposed = true;
+        }
+    }
+
     [InlineArray(4)]
     internal struct InheritedValues
     {
@@ -66,16 +131,22 @@ internal static class PageInheritance
             bool leaf = true;
             while (ancestors.MoveNext(out PdfDictionary current))
             {
-                if ((!skipLeaf || !leaf) && PdfDictionaryLookup.TryGet(current, name, governor, cancellationToken, out QpdfObject value))
-                {
-                    QpdfObject resolved = Resolve(engine, value, limits, governor);
-                    if (resolved is not PdfNull && (!dictionaryOnly || resolved is PdfDictionary)) { return value; }
-                }
+                if ((!skipLeaf || !leaf)
+                    && FindValue(engine, current, name, dictionaryOnly, limits, governor, cancellationToken) is QpdfObject value)
+                { return value; }
                 leaf = false;
             }
             return null;
         }
         finally { ancestors.Dispose(); }
+    }
+
+    private static QpdfObject? FindValue(DocumentEngine engine, PdfDictionary dictionary, ReadOnlySpan<byte> name,
+        bool dictionaryOnly, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(dictionary, name, governor, token, out QpdfObject value)) { return null; }
+        QpdfObject resolved = Resolve(engine, value, limits, governor);
+        return resolved is not PdfNull && (!dictionaryOnly || resolved is PdfDictionary) ? value : null;
     }
 
     // Single-key inspection and multi-key copying share parent resolution,
@@ -100,6 +171,8 @@ internal static class PageInheritance
             _engine = engine; _location = location; _limits = limits;
             _governor = governor; _token = token; _current = location.Page;
         }
+
+        internal ParserMemoryScope Memory => _memory ??= ParserMemoryScope.Create(_governor);
 
         internal bool MoveNext(out PdfDictionary current)
         {

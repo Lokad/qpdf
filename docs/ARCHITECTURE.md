@@ -93,6 +93,9 @@ the graph detaches after serialization and sidecar copying, before publication.
 During page-source or placement preparation, inspection gathers inherited attributes
 once per page and applies effective non-null overrides, including through null leaf
 references.
+Placement bundles reuse their visited ancestry for staged box/resource/rotation
+lookups. Temporary traversal storage retires before content copying; geometry
+skips do not resolve unused resources.
 Combined attachment reports and extraction use one document. Targeted binary
 publication transfers admitted payload backing past reader cleanup through commit;
 combined binary payloads use the existing inspection buffer.

@@ -5477,7 +5477,8 @@
           "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
           "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
-          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement",
+          "PageInheritanceTests.DifferentAncestorDepthsNullsAndLeafOverridesKeepTheNearestRawValue"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -5504,7 +5505,8 @@
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults",
           "FormSourceContextTests.RewrittenSharedProgramsKeepOneIdentityAndTheirOriginalAliases",
           "OverlayClippingGenerationTests.GeneratedSourceArtworkIsClippedBeforeOptionalFlattening",
-          "OverlayClippingResourceTests.WrapperNamesCannotSupplyMissingSourceResources"
+          "OverlayClippingResourceTests.WrapperNamesCannotSupplyMissingSourceResources",
+          "OverlayInheritanceTests.GeometryIsValidatedBeforeUnusedResources"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
@@ -5520,7 +5522,10 @@
           "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
           "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
           "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
-          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage",
+          "PageInheritanceTests.StagedLookupReusesParentTraversalAndKeepsRawIdentities",
+          "PageInheritanceTests.AdmissionRefusalRefundsOnlyTheLookupOwner",
+          "PageInheritanceTests.CancellationAfterTheFirstStageRefundsTheCachedPath"
         ],
         "oracle": [
           "diff:overlay",
@@ -7601,7 +7606,9 @@
           "OverlayAnnotationClippingTests.SourceClipKeepsFullRectAndPrivateAppearances",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
           "OptionalContentStateTests.SourceStatesFollowSelectionPlacementAndSplitWiring",
-          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement"
+          "NamedDestinationTests.LaterDestinationsSurviveSelectionAndPlacement",
+          "PageInheritanceTests.DifferentAncestorDepthsNullsAndLeafOverridesKeepTheNearestRawValue",
+          "OverlayInheritanceTests.JobUnderlayPlacesTheInheritedSource"
         ],
         "negative": [
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
@@ -7637,7 +7644,10 @@
           "NamedDestinationTests.SharedMissesStayProportionalToTheGraphAndRepeatedQueriesReuseThem",
           "NamedDestinationTests.QueryCacheIsBoundedAndEvictionDoesNotChangeResults",
           "NamedDestinationTests.EitherTokenCancelsAfterTraversalStartsAndRefundsItsIndex",
-          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage"
+          "NamedDestinationTests.EveryAdmissionRefusalRefundsLookupAndTraversalStorage",
+          "PageInheritanceTests.StagedLookupReusesParentTraversalAndKeepsRawIdentities",
+          "PageInheritanceTests.AdmissionRefusalRefundsOnlyTheLookupOwner",
+          "PageInheritanceTests.CancellationAfterTheFirstStageRefundsTheCachedPath"
         ],
         "oracle": [
           "diff:overlay-ranges",

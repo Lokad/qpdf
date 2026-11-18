@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Reuse page ancestry within placement bundles while preserving geometry-first
+  validation, nearest inherited values and scoped traversal admission.
+
 - Apply AcroForm, structure and page-label removal during JSON creation/update,
   preserving widgets, independent aliases and unrelated catalog data.
 

@@ -441,51 +441,56 @@ internal static class Overlays
             trim = trimRaw;
         }
 
-        QpdfObject? crop = FindInherited(engine, location, "CropBox", limits, governor, cancellationToken);
-        QpdfObject? media = FindInherited(engine, location, "MediaBox", limits, governor, cancellationToken);
-        QpdfObject? boxObject = trim ?? crop ?? media;
-        if (boxObject is null)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has no bounding box; skipping it.");
-            return null;
-        }
-        double[]? box = ReadRectangle(boxObject, engine);
-        if (box is null)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page bounding box is invalid; skipping it.");
-            return null;
-        }
-        // The bundle's coarse admission covers this fixed scratch beside its
-        // rectangle. The deferred bundle clone is created later, after it retires.
-        Span<double> mediaBox = stackalloc double[4];
-        if (ReferenceEquals(boxObject, media)) { box.AsSpan().CopyTo(mediaBox); }
-        else if (!TryReadRectangle(media, engine, mediaBox))
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page media box is invalid; skipping it.");
-            return null;
-        }
-        if (!TryIntersectRectangle(box, mediaBox, out bool rebuildBox))
-        {
-            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has an empty media intersection; skipping it.");
-            return null;
-        }
-
-        QpdfObject? resources = FindInherited(engine, location, "Resources", limits, governor, cancellationToken);
-        QpdfObject? group = null;
-        if (location.Page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
-        {
-            group = groupRaw;
-        }
-
+        QpdfObject? boxObject, resources, group = null;
+        double[]? box;
+        bool rebuildBox;
         long rotate = 0L;
         bool hasRotate = false;
-        QpdfObject? rotateRaw = FindInherited(engine, location, "Rotate", limits, governor, cancellationToken);
-        if (rotateRaw is PdfReference rotateReference)
-        { PdfObjectLookup.TryResolve(rotateReference, engine, governor, cancellationToken, out rotateRaw); }
-        if (rotateRaw is PdfInteger rotateInteger)
+        using (PageInheritance.Lookup inheritance = new(engine, location, limits, governor, cancellationToken))
         {
-            rotate = rotateInteger.Value;
-            hasRotate = true;
+            QpdfObject? crop = inheritance.Find("CropBox"u8);
+            QpdfObject? media = inheritance.Find("MediaBox"u8);
+            boxObject = trim ?? crop ?? media;
+            if (boxObject is null)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has no bounding box; skipping it.");
+                return null;
+            }
+            box = ReadRectangle(boxObject, engine);
+            if (box is null)
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page bounding box is invalid; skipping it.");
+                return null;
+            }
+            // The bundle's coarse admission covers this fixed scratch beside its
+            // rectangle. The deferred bundle clone is created later, after it retires.
+            Span<double> mediaBox = stackalloc double[4];
+            if (ReferenceEquals(boxObject, media)) { box.AsSpan().CopyTo(mediaBox); }
+            else if (!TryReadRectangle(media, engine, mediaBox))
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page media box is invalid; skipping it.");
+                return null;
+            }
+            if (!TryIntersectRectangle(box, mediaBox, out rebuildBox))
+            {
+                diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Overlay page has an empty media intersection; skipping it.");
+                return null;
+            }
+
+            resources = inheritance.Find("Resources"u8);
+            if (location.Page.TryGet(PdfName.FromAscii("Group"), out QpdfObject? groupRaw) && groupRaw is not null && groupRaw is not PdfNull)
+            {
+                group = groupRaw;
+            }
+
+            QpdfObject? rotateRaw = inheritance.Find("Rotate"u8);
+            if (rotateRaw is PdfReference rotateReference)
+            { PdfObjectLookup.TryResolve(rotateReference, engine, governor, cancellationToken, out rotateRaw); }
+            if (rotateRaw is PdfInteger rotateInteger)
+            {
+                rotate = rotateInteger.Value;
+                hasRotate = true;
+            }
         }
 
         double userUnit = 1.0;
@@ -532,12 +537,6 @@ internal static class Overlays
 
         return new PageBundle(copiedResources, copiedGroup, copiedBox, box, content, rotate, userUnit, hasRotate || hasUnit, false);
     }
-
-    private static QpdfObject? FindInherited(
-        DocumentEngine engine, PageLocation location, string key, QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
-        => PageInheritance.Find(engine, location, PdfName.FromAscii(key), limits, governor, cancellationToken);
 
     private static byte[]? CollectSourceContents(
         PageLocation location, DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor,
