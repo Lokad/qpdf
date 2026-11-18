@@ -20,74 +20,8 @@ public sealed class JsonModesTests
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << >>" + pageExtra + " >>",
         };
-        foreach ((string dict, byte[]? _) in extras)
-        {
-            bodies.Add(dict);
-        }
-
-        List<byte[]?> payloads = new() { null, null, null };
-        foreach ((string _, byte[]? streamData) in extras)
-        {
-            payloads.Add(streamData);
-        }
-
-        List<byte[]> parts = new();
-        byte[] header = Encoding.ASCII.GetBytes("%PDF-1.4\n");
-        parts.Add(header);
-        List<long> offsets = new();
-        long position = header.Length;
-        for (int i = 0; i < bodies.Count; i++)
-        {
-            int number = i + 1;
-            byte[]? streamData = payloads[i];
-            byte[] open = Encoding.ASCII.GetBytes(number.ToString() + " 0 obj\n" + bodies[i] + "\n");
-            if (streamData is null)
-            {
-                byte[] close = Encoding.ASCII.GetBytes("endobj\n");
-                offsets.Add(position);
-                position += open.Length + close.Length;
-                parts.Add(open);
-                parts.Add(close);
-                continue;
-            }
-
-            byte[] streamOpen = Encoding.ASCII.GetBytes("stream\n");
-            byte[] streamClose = Encoding.ASCII.GetBytes("\nendstream\nendobj\n");
-            offsets.Add(position);
-            position += open.Length + streamOpen.Length + streamData.Length + streamClose.Length;
-            parts.Add(open);
-            parts.Add(streamOpen);
-            parts.Add(streamData);
-            parts.Add(streamClose);
-        }
-
-        int size = bodies.Count + 1;
-        StringBuilder xref = new();
-        xref.Append("xref\n0 " + size.ToString() + "\n");
-        xref.Append("0000000000 65535 f \n");
-        foreach (long offset in offsets)
-        {
-            xref.Append(offset.ToString("D10") + " 00000 n \n");
-        }
-
-        xref.Append("trailer\n<< /Size " + size.ToString() + " /Root 1 0 R >>\n");
-        xref.Append("startxref\n" + position.ToString() + "\n%%EOF\n");
-        parts.Add(Encoding.ASCII.GetBytes(xref.ToString()));
-        int total = 0;
-        foreach (byte[] part in parts)
-        {
-            total += part.Length;
-        }
-
-        byte[] output = new byte[total];
-        int cursor = 0;
-        foreach (byte[] part in parts)
-        {
-            Buffer.BlockCopy(part, 0, output, cursor, part.Length);
-            cursor += part.Length;
-        }
-
-        return output;
+        foreach ((string dict, byte[]? _) in extras) { bodies.Add(dict); }
+        return PdfTestDocument.AssembleBodies(bodies, number => number > 3 ? extras[number - 4].StreamData : null, "1.4", "");
     }
 
     private static byte[] StreamFixture()
