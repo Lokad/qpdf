@@ -20,7 +20,7 @@ internal static class InspectionExecution
     internal readonly record struct PageImage(PdfName Name, int Number, int Generation, long Width, long Height);
 
     internal static List<PageImage> ListPageImages(
-        DocumentEngine engine,
+        IIndirectResolver resolver,
         PageLocation location,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -31,13 +31,13 @@ internal static class InspectionExecution
     {
         memory.CheckOwner(governor);
         List<PageImage> images = ParserContainers.CreateList<PageImage>(memory);
-        PageImageBindings bindings = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken, imageCache);
+        PageImageBindings bindings = PageImageBindings.Create(resolver, location, limits, memory, governor, cancellationToken, imageCache);
         while (bindings.TryReadNext(out PageImageBindings.Binding image))
         {
             PdfReference reference = image.Reference;
             PdfStream stream = image.Stream;
-            long width = ImageDimension(stream.Dictionary, "Width", reference, engine, diagnostics, governor, cancellationToken);
-            long height = ImageDimension(stream.Dictionary, "Height", reference, engine, diagnostics, governor, cancellationToken);
+            long width = ImageDimension(stream.Dictionary, "Width", reference, resolver, diagnostics, governor, cancellationToken);
+            long height = ImageDimension(stream.Dictionary, "Height", reference, resolver, diagnostics, governor, cancellationToken);
             if (images.Count == images.Capacity) { governor.NoteOperation(); }
             ParserContainers.AddItem(memory, images, new PageImage(image.Name, reference.ObjectNumber, reference.Generation, width, height), 32L);
         }
@@ -49,7 +49,7 @@ internal static class InspectionExecution
         PdfDictionary image,
         string key,
         PdfReference reference,
-        DocumentEngine engine,
+        IIndirectResolver resolver,
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -64,7 +64,7 @@ internal static class InspectionExecution
             }
 
             if (raw is PdfReference indirect
-                && ((IIndirectResolver)engine).TryResolve(indirect, out QpdfObject? resolved)
+                && resolver.TryResolve(indirect, out QpdfObject? resolved)
                 && resolved is PdfInteger target)
             {
                 return target.Value;
@@ -391,6 +391,14 @@ internal static class InspectionExecution
             throw new QpdfParseException("The output file is only used for stream data.", 0L, null);
         }
 
+        ShowObjectValue(target, document.Engine, null, limits, governor, diagnostics);
+        return null;
+    }
+
+    private static void ShowObjectValue(QpdfObject? target, IIndirectResolver resolver,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics)
+    {
         if (target is null || target is PdfNull)
         {
             diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "null");
@@ -398,14 +406,12 @@ internal static class InspectionExecution
         else if (target is PdfStream stream)
         {
             diagnostics.Add(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, "Object is stream.  Dictionary:");
-            CanonicalDisplay.AddDiagnostic(stream.Dictionary, limits, governor, document.Engine, diagnostics);
+            CanonicalDisplay.AddDiagnostic(stream.Dictionary, limits, governor, resolver, originalIds, diagnostics);
         }
         else
         {
-            CanonicalDisplay.AddDiagnostic(target, limits, governor, document.Engine, diagnostics);
+            CanonicalDisplay.AddDiagnostic(target, limits, governor, resolver, originalIds, diagnostics);
         }
-
-        return null;
     }
 
     internal static void ShowXref(QpdfDocument document, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
@@ -442,30 +448,38 @@ internal static class InspectionExecution
     }
 
     internal static void ShowPages(QpdfDocument document, JobPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
+        => ShowPages(document.Engine, document.PageReferences, null, plan, limits, governor, diagnostics, cancellationToken);
+
+    private static void ShowPages(IIndirectResolver resolver, IReadOnlyList<PageLocation> pages,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, JobPlan plan, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
-        using PageImageBindings.Cache? imageCache = plan.WithImages && document.PageCount > 1
+        using PageImageBindings.Cache? imageCache = plan.WithImages && pages.Count > 1
             ? PageImageBindings.Cache.Create(governor, diagnostics) : null;
         int index = 1;
-        foreach (Reading.PageLocation location in document.PageReferences)
+        foreach (PageLocation location in pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (location.Source is null)
+            if (location.Source is PdfReference page)
             {
-                throw new QpdfException("Page dictionary is not an indirect object.");
+                (int number, int generation) = OriginalObjectIds.DisplayPair(page.ObjectNumber, page.Generation, originalIds);
+                diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["page ", index, ": ", number, " ", generation, " R"]);
             }
-
-            diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["page ", index, ": ", location.Source.ObjectNumber, " ", location.Source.Generation, " R"]);
+            else if (originalIds is not null)
+            { diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["page ", index, ": direct"]); }
+            else { throw new QpdfException("Page dictionary is not an indirect object."); }
             if (plan.WithImages)
             {
                 using ParserMemoryScope imageMemory = ParserMemoryScope.Create(governor);
-                List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken, imageMemory, imageCache);
+                List<PageImage> images = ListPageImages(resolver, location, limits, governor, diagnostics, cancellationToken, imageMemory, imageCache);
                 if (images.Count > 0)
                 {
                     diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  images:");
                     foreach (PageImage image in images)
                     {
-                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    /", DiagnosticPart.Name(image.Name), ": ", image.Number, " ", image.Generation, " R, ", image.Width, " x ", image.Height]);
+                        (int number, int generation) = OriginalObjectIds.DisplayPair(image.Number, image.Generation, originalIds);
+                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    /", DiagnosticPart.Name(image.Name), ": ", number, " ", generation, " R, ", image.Width, " x ", image.Height]);
                     }
                 }
             }
@@ -473,7 +487,12 @@ internal static class InspectionExecution
             diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  content:");
             if (location.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject? contents) && contents is not null)
             {
-                if (contents is PdfReference root && document.Engine.ResolveArrayOrNull(root) is QpdfObject indirect) { contents = indirect; }
+                if (contents is PdfReference root)
+                {
+                    QpdfObject? indirect = resolver is DocumentEngine engine ? engine.ResolveArrayOrNull(root)
+                        : resolver.TryResolve(root, out QpdfObject? found) ? found : null;
+                    if (indirect is PdfArray or PdfNull) { contents = indirect; }
+                }
                 PdfArray? array = contents as PdfArray;
                 int count = array?.Count ?? 1;
                 for (int i = 0; i < count; i++)
@@ -481,7 +500,8 @@ internal static class InspectionExecution
                     cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
                     if ((array is null ? contents : array[i]) is PdfReference content)
                     {
-                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", content.ObjectNumber, " ", content.Generation, " R"]);
+                        (int number, int generation) = OriginalObjectIds.DisplayPair(content.ObjectNumber, content.Generation, originalIds);
+                        diagnostics.AddParts(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, ["    ", number, " ", generation, " R"]);
                     }
                 }
             }
@@ -499,6 +519,11 @@ internal static class InspectionExecution
             // Native reports declared counts separately from quiet traversal.
             // Partial counting validates declarations before accepting ranges.
             diagnostics.ReportPageCountMismatch = false;
+            if (plan.Import is ImportedCheckInput imported)
+            {
+                await RunImportedCheckAsync(host, plan, imported, password, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+                return CompleteWithPresentation(governor);
+            }
             if (plan.PayloadOutput is QpdfPath target && target == plan.Input)
             { throw new QpdfParseException("The output file must differ from the input file.", 0L, null); }
             if (plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
@@ -637,6 +662,63 @@ internal static class InspectionExecution
     {
         governor.ChargeOutputBytes(payload.Length);
         output.Write(payload.Span);
+    }
+
+    private static async ValueTask RunImportedCheckAsync(IQpdfHost host, CheckPlan plan,
+        ImportedCheckInput imported, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
+    {
+        await using IQpdfInput? input = imported.Update
+            ? await GovernedHost.OpenInputAsync(host, plan.Input, governor, token).ConfigureAwait(false) : null;
+        (DocumentEngine? Engine, QpdfDocument.VersionParts Header, EncryptionInspection Security) source = input is null
+            ? default : await QpdfDocument.ReadAuthenticatedPatchSourceAsync(input, password, limits, governor,
+                diagnostics, plan.Recovery, token).ConfigureAwait(false);
+        using DocumentEngine? engine = source.Engine;
+        using ParserMemoryScope graph = ParserMemoryScope.Create(governor);
+        using System.Text.Json.JsonDocument json = await Json.JsonImport.ReadJsonAsync(host, imported.Json,
+            limits, governor, graph, token).ConfigureAwait(false);
+        Json.ImportedModel model = engine is null
+            ? await Json.JsonImport.BuildCreateModelAsync(host, json, true, limits, governor, graph, token).ConfigureAwait(false)
+            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true,
+                limits, governor, graph, token).ConfigureAwait(false);
+        Json.JsonImport.CheckObjectCount(model, limits);
+        if (PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject declaration)
+            && declaration is not PdfNull) { throw new QpdfCryptoException("/Encrypt"); }
+
+        using ParserMemoryScope inspection = ParserMemoryScope.Create(governor);
+        Content.PoolResolver resolver = Content.PoolResolver.Create(inspection, model.Objects);
+        if (!PdfDictionaryLookup.TryGet(model.Trailer, "Root"u8, governor, token, out QpdfObject root)
+            || Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
+        { throw new QpdfParseException("Imported trailer /Root must resolve to a dictionary.", 0L, null); }
+        Json.JsonImport.ValidateCatalogVersion(catalog, resolver, governor, token);
+        List<PageLocation> pages = PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token);
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
+            model.OriginalPairs, null, inspection, governor, token);
+        if (DocumentCheck.CheckImported(resolver, model.Trailer, pages, model.Objects, originalIds,
+            limits, governor, diagnostics, token))
+        {
+            if (plan.ShowNpages)
+            {
+                PdfDictionary pagesRoot = PageTree.ReadRoot(resolver, catalog, governor, token);
+                AddPageCountDiagnostic(PageTree.ReadCount(resolver, pagesRoot, governor, token)?.Value ?? pages.Count,
+                    plan.Input, diagnostics);
+            }
+            if (plan.ShowEncryption) { ShowEncryption(source.Security, diagnostics); }
+            if (plan.ObjectSelector is string selector)
+            {
+                (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(selector, 0);
+                if (trailer || number > 0)
+                {
+                    QpdfObject? target = trailer ? model.Trailer : null;
+                    if (!trailer && model.OriginalPairs is not null && model.OriginalPairs.TryGetValue((number, generation), out int bound))
+                    { target = model.Objects.GetValueOrDefault(bound); }
+                    if (target is PdfStream && (plan.RawStreamData || plan.FilteredStreamData))
+                    { throw new QpdfException("Binary stream output cannot follow informational output in this inspection."); }
+                    ShowObjectValue(target, resolver, originalIds, limits, governor, diagnostics);
+                }
+            }
+            if (plan.ShowPages) { ShowPages(resolver, pages, originalIds, plan, limits, governor, diagnostics, token); }
+        }
     }
 
     internal static void ShowEncryption(EncryptionInspection inspection, DiagnosticBag diagnostics)

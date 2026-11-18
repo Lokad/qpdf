@@ -159,7 +159,8 @@ internal static partial class JsonImport
     internal static async ValueTask<ImportedModel> BuildUpdateModelAsync(
         IQpdfHost host,
         JsonDocument document,
-        QpdfDocument pdf,
+        DocumentEngine engine,
+        QpdfDocument.VersionParts header,
         bool preserveEncryption,
         bool preserveObjectStreams,
         bool retainOriginalPairs,
@@ -178,9 +179,9 @@ internal static partial class JsonImport
             throw new ArgumentNullException(nameof(document));
         }
 
-        if (pdf is null)
+        if (engine is null)
         {
-            throw new ArgumentNullException(nameof(pdf));
+            throw new ArgumentNullException(nameof(engine));
         }
 
         if (limits is null)
@@ -196,7 +197,6 @@ internal static partial class JsonImport
         limits.Validate();
         JsonElement qpdf = ReadEnvelope(document, memory, governor, cancellationToken);
         Metadata metadata = ReadMetadata(qpdf[0], false, governor);
-        DocumentEngine engine = pdf.Engine;
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
         PageTreePreparation.Prepared? prepared = metadata.CalledAllPages || metadata.PushedInherited
             ? PageTreePreparation.Prepare(engine, metadata.PushedInherited, limits, memory, bindingMemory, governor, cancellationToken) : null;
@@ -266,7 +266,6 @@ internal static partial class JsonImport
             merged[number] = Writing.ObjectRemap.RemapImported(value, bindings, memory, governor, cancellationToken);
         }
 
-        QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
         ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
         { OriginalPairs = retainOriginalPairs ? bindings : null };
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
@@ -1013,7 +1012,7 @@ internal static partial class JsonImport
         graph.Memory.TransferTo(memory, graph.Bytes);
     }
 
-    private static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,
+    internal static void ValidateCatalogVersion(PdfDictionary root, Syntax.IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token)
     {
         if (PageTree.ReadType(resolver, root, governor, token) is PdfName name

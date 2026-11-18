@@ -2630,7 +2630,10 @@
           "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral",
           "OutlineHintOwnershipTests.LinearizedOutlineClosureStaysDirectWhileOtherObjectsPack",
           "OutlineHintOwnershipTests.LargeOutlineClosureStaysContiguousWhileOtherObjectsPack",
-          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace"
+          "Ascii85FramingTests.PacketLengthAndDecodingAgreeOnEndMarkerWhitespace",
+          "ImportedCheckTests.CreationChecksReachableStreamsAndListsExactOriginalPairs",
+          "ImportedCheckTests.CheckUsesThePatchedStreamBeforeFollowUpInspection",
+          "ImportedCheckTests.PatchCanRepairThePageTreeBeforeTraversal"
         ],
         "negative": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2644,7 +2647,8 @@
           "CheckTransformationTests.MissingOverlayFailsBeforeCheckingOrListing",
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
           "OutlineHintOwnershipTests.FrozenIndependentControlsDistinguishMissingAndLegitimatelyOmittedHints",
-          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
+          "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent",
+          "ImportedCheckTests.OutputAndPhysicalListingRejectBeforeOpeningInput"
         ],
         "interaction": [
           "CheckTests.ArgvCheckRejectsCombinedAndTrailingForms",
@@ -2667,7 +2671,8 @@
           "CheckTransformationTests.OverlayUpdatesAFormInADirectTrailerCatalog",
           "CheckTransformationTests.LayerInspectionWithoutCheckReturnsTheTransformedStream",
           "EmptyDecodeParmsTests.ImageJsonAndCheckingShareDefaultParameters",
-          "InlinePacketBoundaryTests.CheckingFramesWhitespaceBeforeTheAscii85EndDelimiter"
+          "InlinePacketBoundaryTests.CheckingFramesWhitespaceBeforeTheAscii85EndDelimiter",
+          "ImportedCheckTests.ProtectedInputAuthenticatesBeforeThePatch"
         ],
         "resource": [
           "CheckTests.CheckFailsOnExhaustedInputBudget",
@@ -2687,7 +2692,8 @@
           "CheckTransformationTests.CancellationDuringOverlayReadClosesBothInputs",
           "CheckTransformationTests.OverlayHandleLimitStopsInspectionAndClosesPrimary",
           "OutlineHintOwnershipTests.OutlinePreparationRetiresOnEveryAdmissionAndPublicationFailure",
-          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
+          "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance",
+          "ImportedCheckTests.LimitsAndCancellationCloseEveryInputWithoutPublication"
         ],
         "oracle": [
           "diff:linearized",
@@ -2697,7 +2703,8 @@
           "diff:check-inspection",
           "diff:binary-inspection",
           "diff:check-transformations",
-          "diff:outline-hint"
+          "diff:outline-hint",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -4323,7 +4330,8 @@
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
           "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles",
           "JsonPagePreparationTests.CreationValidatesButIgnoresPreparationActions",
-          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream",
+          "ImportedCheckTests.CreationChecksReachableStreamsAndListsExactOriginalPairs"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4338,7 +4346,8 @@
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
           "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication",
-          "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget"
+          "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget",
+          "ImportedCheckTests.OutputAndPhysicalListingRejectBeforeOpeningInput"
         ],
         "interaction": [
           "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
@@ -4380,7 +4389,8 @@
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets",
           "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget",
-          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput"
+          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput",
+          "ImportedCheckTests.LimitsAndCancellationCloseEveryInputWithoutPublication"
         ],
         "oracle": [
           "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
@@ -4389,7 +4399,8 @@
           "diff:security-identity-crypt",
           "diff:json-layout",
           "tools/ReferenceDirectOutlines.ps1",
-          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },
@@ -7932,7 +7943,9 @@
           "JsonPagePreparationTests.PushingUsesNearestNonNullContainersAndKeepsLocalOverrides",
           "JsonPagePreparationTests.IndirectKidsKeepTheirIdentityWhenDirectChildrenArePromoted",
           "JsonPagePreparationTests.TrailerPairsReserveIdsWhileFreeXrefSlotsDoNot",
-          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream"
+          "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream",
+          "ImportedCheckTests.CheckUsesThePatchedStreamBeforeFollowUpInspection",
+          "ImportedCheckTests.PatchCanRepairThePageTreeBeforeTraversal"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7981,7 +7994,8 @@
           "JsonPagePreparationTests.PreparedAndOriginalEdgesRetainTheirGenerationSemantics",
           "JsonPagePreparationTests.NewPageDoesNotReviveAnOriginalMissingEdgeWithTheSamePair",
           "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput",
-          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
+          "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout",
+          "ImportedCheckTests.ProtectedInputAuthenticatesBeforeThePatch"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -7999,7 +8013,8 @@
           "JsonPagePreparationTests.PreparationRetainsTheSharedNestingAndCancellationBounds",
           "JsonPagePreparationTests.PreparationAndPublicationFailuresRetainTheActualTargetAndRefundAdmission",
           "JsonPageContainerPreparationTests.EmptyDagPreparationStopsAfterFiniteDistinctContainerWorkAndRefunds",
-          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput"
+          "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput",
+          "ImportedCheckTests.LimitsAndCancellationCloseEveryInputWithoutPublication"
         ],
         "oracle": [
           "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
@@ -8008,7 +8023,8 @@
           "diff:security-identity-crypt",
           "diff:json-layout",
           "tools/ReferenceDirectOutlines.ps1",
-          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
+          "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }
     },

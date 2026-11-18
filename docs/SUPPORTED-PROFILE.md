@@ -309,6 +309,15 @@ preserves opaque streams with an explicit warning or skipped check.
 Checking covers structure, streams, content, forms and linearization, with explicit
 skipped stages. It does not establish rendering or conformance. Object, xref, page,
 image, attachment and outline listings use the shared resolver.
+Argv and job JSON can combine `--check` with `--json-input` or
+`--update-from-json` for output-free checking. Updates authenticate the source
+before binding the patch. Checking uses the resulting page tree, reachable
+streams, page content and forms. Physical header, xref-offset and linearization
+checks are reported as skipped. A successful check can report page counts,
+source encryption, objects and pages with images using the bound generations.
+Check failures stop follow-up listings. Explicit output paths, page edits,
+attachment inspection and physical-layout listings are unavailable in this mode.
+
 Filtered stream inspection accepts normalization for returned bytes or an explicit
 host output target. Raw extraction retains its encoded bytes.
 Image filter/parameter descriptors retain stored aliases, live references and

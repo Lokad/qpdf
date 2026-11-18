@@ -18,6 +18,11 @@ internal static class CanonicalDisplay
         ResourceGovernor governor,
         IIndirectResolver? resolver,
         DiagnosticBag diagnostics)
+        => AddDiagnostic(value, limits, governor, resolver, null, diagnostics);
+
+    internal static void AddDiagnostic(QpdfObject value, QpdfLimits limits, ResourceGovernor governor,
+        IIndirectResolver? resolver, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
+        DiagnosticBag diagnostics)
     {
         if (value is null)
         {
@@ -38,7 +43,7 @@ internal static class CanonicalDisplay
         GovernedText text;
         using (DisplayBuffer builder = DisplayBuffer.Create(governor, true))
         {
-            AppendValue(value, builder, 0, limits, governor, resolver);
+            AppendValue(value, builder, 0, limits, governor, resolver, originalIds);
             text = builder.Finish();
         }
         using (text) { diagnostics.AddOwned(QpdfDiagnosticCode.ObjectListing, QpdfDiagnosticSeverity.Info, text); }
@@ -50,7 +55,8 @@ internal static class CanonicalDisplay
         int depth,
         QpdfLimits limits,
         ResourceGovernor governor,
-        IIndirectResolver? resolver)
+        IIndirectResolver? resolver,
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds)
     {
         if (value is null)
         {
@@ -109,7 +115,7 @@ internal static class CanonicalDisplay
                     builder.Append(' ');
                 }
 
-                AppendValue(array[i], builder, depth + 1, limits, governor, resolver);
+                AppendValue(array[i], builder, depth + 1, limits, governor, resolver, originalIds);
             }
 
             builder.Append(" ]");
@@ -154,7 +160,7 @@ internal static class CanonicalDisplay
                     builder.Append(' ');
                     AppendName(entry.Key, builder, governor);
                     builder.Append(' ');
-                    AppendValue(member, builder, depth + 1, limits, governor, resolver);
+                    AppendValue(member, builder, depth + 1, limits, governor, resolver, originalIds);
                 }
                 builder.Append(" >>");
             }
@@ -164,9 +170,10 @@ internal static class CanonicalDisplay
 
         if (value is PdfReference reference)
         {
-            builder.AppendInteger(reference.ObjectNumber);
+            (int number, int generation) = OriginalObjectIds.DisplayPair(reference.ObjectNumber, reference.Generation, originalIds);
+            builder.AppendInteger(number);
             builder.Append(' ');
-            builder.AppendInteger(reference.Generation);
+            builder.AppendInteger(generation);
             builder.Append(" R");
             return;
         }

@@ -65,9 +65,7 @@ internal static class DocumentCheck
         AddItem(outcomeMemory, governor, outcomes, CheckOutcome.Literal(governor, "trailer", QpdfCheckStatus.Passed,
             engine.Security is null ? "Catalog root is reachable and input is unencrypted."
                 : "Catalog root is reachable after password authentication."), IntPtr.Size);
-        AddItem(outcomeMemory, governor, outcomes, document.PageCount == 0
-            ? CheckOutcome.Literal(governor, "page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
-            : CheckOutcome.Create(governor, "page-tree", QpdfCheckStatus.Passed, [document.PageCount, " pages traversed."]), IntPtr.Size);
+        AddItem(outcomeMemory, governor, outcomes, PageTreeOutcome(document.PageCount, governor), IntPtr.Size);
 
         using ParserMemoryScope streamMemory = ParserMemoryScope.Create(governor);
         List<(int Number, PdfStream Stream)> streams = ParserContainers.CreateList<(int, PdfStream)>(streamMemory);
@@ -83,26 +81,83 @@ internal static class DocumentCheck
             HashSet<int> reachable = GraphReachability.Find(engine, engine.Trailer, memory, governor);
             streams.RemoveAll(stream => !reachable.Contains(stream.Number));
         }
-        using (DecodedStreamCache decoded = DecodedStreamCache.Create(governor, limits, cancellationToken))
-        {
-            AddItem(outcomeMemory, governor, outcomes, CheckStreams(engine, options.DecodeLevel, limits, governor, diagnostics, streams, decoded, cancellationToken), IntPtr.Size);
-            AddItem(outcomeMemory, governor, outcomes, CheckPageContent(document, options, limits, governor, diagnostics, decoded, cancellationToken), IntPtr.Size);
-        }
-        AddItem(outcomeMemory, governor, outcomes, CheckFormTree(document, governor, diagnostics, cancellationToken), IntPtr.Size);
+        AddGraphChecks(engine, engine.Trailer, document.PageReferences, streams, options, limits, outcomeMemory,
+            outcomes, governor, diagnostics, cancellationToken);
         QpdfCheckOutcome linearization = LinearizationCheck.Check(engine, document.PageCount, limits, governor, cancellationToken);
         AddItem(outcomeMemory, governor, outcomes, linearization, IntPtr.Size);
         if (linearization.Status == QpdfCheckStatus.Skipped)
         { diagnostics.AddParts(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Warning, ["Skipped check 'linearization': ", linearization.Detail]); }
+        ReportFailures(outcomes, governor, diagnostics);
+        outcomeMemory.RetainGraph();
+        return outcomes;
+    }
+
+    internal static bool CheckImported(IIndirectResolver resolver, PdfDictionary trailer, IReadOnlyList<PageLocation> pages,
+        IReadOnlyDictionary<int, QpdfObject> objects, IReadOnlyDictionary<int, (int Number, int Generation)>? original,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
+        diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info,
+            "Skipped physical header, cross-reference offsets and linearization checks for the bound JSON graph.");
+        List<QpdfCheckOutcome> outcomes = ParserContainers.CreateList<QpdfCheckOutcome>(memory);
+        AddItem(memory, governor, outcomes, PageTreeOutcome(pages.Count, governor), IntPtr.Size);
+        List<(int Number, PdfStream Stream)> streams = ParserContainers.CreateList<(int, PdfStream)>(memory);
+        using (ParserMemoryScope reachability = ParserMemoryScope.Create(governor))
+        {
+            HashSet<int> reachable = GraphReachability.Find(resolver, trailer, reachability, governor);
+            List<int> numbers = ParserContainers.CreateList<int>(reachability);
+            foreach (int number in reachable)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (objects.TryGetValue(number, out QpdfObject? value) && value is PdfStream)
+                { ParserContainers.AddItem(reachability, numbers, number, sizeof(int)); }
+            }
+            GovernedCollections.SortNumbers(reachability, governor, numbers);
+            foreach (int number in numbers)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                int source = original is not null && original.TryGetValue(number, out var pair) ? pair.Number : number;
+                AddItem(memory, governor, streams, (source, (PdfStream)objects[number]), 16L);
+            }
+        }
+        memory.Reserve(32L);
+        AddGraphChecks(resolver, trailer, pages, streams, new QpdfCheckOptions(), limits, memory, outcomes,
+            governor, diagnostics, token);
+        return ReportFailures(outcomes, governor, diagnostics);
+    }
+
+    private static QpdfCheckOutcome PageTreeOutcome(int pageCount, ResourceGovernor governor)
+        => pageCount == 0
+            ? CheckOutcome.Literal(governor, "page-tree", QpdfCheckStatus.Failed, "File does not contain any pages.")
+            : CheckOutcome.Create(governor, "page-tree", QpdfCheckStatus.Passed, [pageCount, " pages traversed."]);
+
+    private static void AddGraphChecks(IIndirectResolver resolver, PdfDictionary trailer, IReadOnlyList<PageLocation> pages,
+        List<(int Number, PdfStream Stream)> streams, QpdfCheckOptions options, QpdfLimits limits, ParserMemoryScope memory,
+        List<QpdfCheckOutcome> outcomes, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        using (DecodedStreamCache decoded = DecodedStreamCache.Create(governor, limits, token))
+        {
+            AddItem(memory, governor, outcomes, CheckStreams(resolver, options.DecodeLevel, limits, governor,
+                diagnostics, streams, decoded, token), IntPtr.Size);
+            AddItem(memory, governor, outcomes, CheckPageContent(resolver, pages, options, limits, governor,
+                diagnostics, decoded, token), IntPtr.Size);
+        }
+        AddItem(memory, governor, outcomes, CheckFormTree(resolver, trailer, pages, governor, diagnostics, token), IntPtr.Size);
+    }
+
+    private static bool ReportFailures(List<QpdfCheckOutcome> outcomes, ResourceGovernor governor, DiagnosticBag diagnostics)
+    {
+        bool passed = true;
         foreach (QpdfCheckOutcome outcome in outcomes)
         {
+            governor.CheckCancellation();
             if (outcome.Status == QpdfCheckStatus.Failed)
             {
+                passed = false;
                 diagnostics.AddParts(QpdfDiagnosticCode.CheckFailed, QpdfDiagnosticSeverity.Error, ["Check '", outcome.Name, "' failed: ", outcome.Detail]);
             }
         }
-
-        outcomeMemory.RetainGraph();
-        return outcomes;
+        return passed;
     }
 
     private static void AddItem<T>(ParserMemoryScope memory, ResourceGovernor governor, List<T> items, T value, long itemBytes)
@@ -214,7 +269,7 @@ internal static class DocumentCheck
     }
 
     private static QpdfCheckOutcome CheckStreams(
-        DocumentEngine engine,
+        IIndirectResolver resolver,
         QpdfStreamDecodeLevel level,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -229,7 +284,6 @@ internal static class DocumentCheck
             return CheckOutcome.Literal(governor, "streams", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
         }
 
-        IIndirectResolver resolver = (IIndirectResolver)engine;
         int decoded = 0;
         int unfiltered = 0;
         int aboveLevel = 0;
@@ -384,8 +438,9 @@ internal static class DocumentCheck
         return false;
     }
 
-    private static QpdfCheckOutcome CheckPageContent(
-        QpdfDocument document,
+    internal static QpdfCheckOutcome CheckPageContent(
+        IIndirectResolver resolver,
+        IReadOnlyList<PageLocation> pages,
         QpdfCheckOptions options,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -399,15 +454,12 @@ internal static class DocumentCheck
             return CheckOutcome.Literal(governor, "page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
         }
 
-        DocumentEngine engine = document.Engine;
-        IIndirectResolver resolver = (IIndirectResolver)engine;
         int examined = 0;
         int skipped = 0;
         int aboveLevel = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
         int failureCount = 0;
         int pageNumber = 0;
-        IReadOnlyList<PageLocation> pages = document.PageReferences;
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
             PageLocation location = pages[pageIndex];
@@ -432,7 +484,7 @@ internal static class DocumentCheck
                 continue;
             }
 
-            QpdfObject? resources = PageInheritance.Find(engine, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
+            QpdfObject? resources = PageInheritance.Find(resolver, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
             if (streams.Count == 0) { continue; }
             using AnalysisChunks? chunks = streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
             cache.BeginPage();
@@ -562,16 +614,16 @@ internal static class DocumentCheck
     /// evidence pins a warning for them, and damaged trees stay lenient
     /// elsewhere.
     /// </summary>
-    private static QpdfCheckOutcome CheckFormTree(
-        QpdfDocument document,
+    internal static QpdfCheckOutcome CheckFormTree(
+        IIndirectResolver resolver,
+        PdfDictionary trailer,
+        IReadOnlyList<PageLocation> pages,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        DocumentEngine engine = document.Engine;
-        IIndirectResolver resolver = (IIndirectResolver)engine;
         using FormCheckState state = FormCheckState.Create(governor);
-        if (!TryGetCheckForm(engine, resolver, governor, cancellationToken, out PdfDictionary? form) || form is null)
+        if (!TryGetCheckForm(trailer, resolver, governor, cancellationToken, out PdfDictionary? form) || form is null)
         {
             state.Dispose();
             return CheckOutcome.Literal(governor, "forms", QpdfCheckStatus.Passed, "No interactive form.");
@@ -602,7 +654,7 @@ internal static class DocumentCheck
                 }
             }
 
-            CollectUnreachedWidgets(document, resolver, governor, diagnostics, state, cancellationToken);
+            CollectUnreachedWidgets(pages, resolver, governor, diagnostics, state, cancellationToken);
         }
         catch (QpdfLimitException ex)
         {
@@ -731,14 +783,13 @@ internal static class DocumentCheck
     }
 
     private static void CollectUnreachedWidgets(
-        QpdfDocument document,
+        IReadOnlyList<PageLocation> pages,
         IIndirectResolver resolver,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         FormCheckState state,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<PageLocation> pages = document.PageReferences;
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
         {
             PageLocation location = pages[pageIndex];
@@ -794,10 +845,10 @@ internal static class DocumentCheck
         diagnostics.AddParts(QpdfDiagnosticCode.FormStructureWarning, QpdfDiagnosticSeverity.Warning, parts);
     }
 
-    private static bool TryGetCheckForm(DocumentEngine engine, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken, out PdfDictionary? form)
+    private static bool TryGetCheckForm(PdfDictionary trailer, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken cancellationToken, out PdfDictionary? form)
     {
         form = null;
-        if (!PdfDictionaryLookup.TryGet(engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject root) || root is null || root is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, cancellationToken, out QpdfObject root) || root is null || root is PdfNull)
         {
             return false;
         }

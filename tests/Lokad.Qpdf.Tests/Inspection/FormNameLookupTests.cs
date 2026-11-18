@@ -15,8 +15,6 @@ public sealed class FormNameLookupTests
     private delegate bool Predicate(PdfDictionary dictionary, ResourceGovernor governor, CancellationToken token);
     private delegate bool WidgetPredicate(PdfDictionary dictionary, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token);
-    private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
-        DiagnosticBag diagnostics, CancellationToken token);
 
     private static Predicate Bind(string name)
     {
@@ -30,9 +28,6 @@ public sealed class FormNameLookupTests
     private static readonly WidgetPredicate Widget = (typeof(DocumentCheck).GetMethod("IsCheckWidget",
         BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing widget classifier."))
         .CreateDelegate<WidgetPredicate>();
-    private static readonly FormCheck RunForms = (typeof(DocumentCheck).GetMethod("CheckFormTree",
-        BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing form checker."))
-        .CreateDelegate<FormCheck>();
 
     private sealed class CancelingResolver(CancellationTokenSource cancellation) : IIndirectResolver
     {
@@ -223,7 +218,9 @@ Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
             QpdfRecoveryMode.Strict, CancellationToken.None);
         try
         {
-            QpdfCheckOutcome result = RunForms(document, governor, diagnostics, CancellationToken.None); Assert.Equal(QpdfCheckStatus.Passed, result.Status);
+            QpdfCheckOutcome result = DocumentCheck.CheckFormTree(document.Engine, document.Engine.Trailer,
+                document.PageReferences, governor, diagnostics, CancellationToken.None);
+            Assert.Equal(QpdfCheckStatus.Passed, result.Status);
             Assert.StartsWith("2 field nodes traversed, 1 widgets reached.", result.Detail, StringComparison.Ordinal);
             QpdfDiagnostic[] findings = diagnostics.Entries.Where(item => item.Code == QpdfDiagnosticCode.FormStructureWarning).ToArray();
             Assert.Equal(warning ? 1 : 0, findings.Length);

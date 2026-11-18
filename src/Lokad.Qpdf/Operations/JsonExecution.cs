@@ -321,7 +321,7 @@ internal static class JsonExecution
         }
         else
         {
-            model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document, writer.Encryption.PreservesInput,
+            model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document.Engine, document.HeaderVersionParts, writer.Encryption.PreservesInput,
                 writer.ObjectStreams == "preserve", retainOriginalPairs, limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         }
 

@@ -78,6 +78,9 @@ tree's actual identity determines its packing exclusion.
 Command JSON import applies the shared stream preparation policy to bound
 objects after protected output normalizes Crypt stages. Physical writers then
 apply encryption to the final encoded streams.
+Output-free JSON checking authenticates a patch source before binding, then
+uses the shared page-tree, stream, content and form stages on the bound graph.
+Follow-up listings project the original object pairs from that graph.
 
 ## Component map
 

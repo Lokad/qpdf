@@ -1,5 +1,4 @@
 using Lokad.Qpdf.Tests.Foundation;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -12,12 +11,10 @@ namespace Lokad.Qpdf.Tests.Inspection;
 public sealed partial class FormTraversalOwnershipTests
 {
 
-    private delegate QpdfCheckOutcome FormCheck(QpdfDocument document, ResourceGovernor governor,
-        DiagnosticBag diagnostics, CancellationToken cancellationToken);
-
-    private static readonly FormCheck RunForms = (typeof(DocumentCheck).GetMethod("CheckFormTree",
-        BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing form checker."))
-        .CreateDelegate<FormCheck>();
+    private static QpdfCheckOutcome RunForms(QpdfDocument document, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
+        => DocumentCheck.CheckFormTree(document.Engine, document.Engine.Trailer, document.PageReferences,
+            governor, diagnostics, token);
 
     private sealed class Prepared : IDisposable
     {

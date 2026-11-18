@@ -8,11 +8,24 @@ namespace Lokad.Qpdf;
 
 public sealed partial class QpdfDocument
 {
-    private static void AuthenticateEncrypted(DocumentEngine engine, QpdfPassword? password, ResourceGovernor governor)
+    private static EncryptionInspection AuthenticateEncrypted(DocumentEngine engine, QpdfPassword? password, ResourceGovernor governor)
     {
         EncryptionInspection inspection = InspectSecurity(engine, password, governor);
         if (inspection.Parameters is not null && inspection.Authentication == PasswordAuthentication.None)
         { throw new QpdfSecurityException(password is null ? QpdfSecurityFailure.PasswordRequired : QpdfSecurityFailure.InvalidPassword); }
+        return inspection;
+    }
+
+    // A JSON patch supplies the effective catalog and page tree. Keep the input
+    // lease with the caller while reusing the physical reader and authentication.
+    internal static async ValueTask<(DocumentEngine Engine, VersionParts Header, EncryptionInspection Security)> ReadAuthenticatedPatchSourceAsync(
+        IQpdfInput input, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        QpdfRecoveryMode recovery, CancellationToken token)
+    {
+        (DocumentEngine engine, VersionParts header) = await ReadInputEngine(input, limits, governor, diagnostics,
+            recovery, token, false, false, InputReadMode.Complete).ConfigureAwait(false);
+        try { return (engine, header, AuthenticateEncrypted(engine, password, governor)); }
+        catch { engine.Dispose(); throw; }
     }
 
     internal static async ValueTask<EncryptionInspection> InspectSecurityAsync(IQpdfHost host, QpdfPath path,
