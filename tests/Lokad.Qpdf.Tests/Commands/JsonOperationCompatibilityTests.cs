@@ -1,8 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Tests.Inspection;
+using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -80,12 +82,9 @@ public sealed class JsonOperationCompatibilityTests
 
     [Theory]
     [InlineData("create", "argv")]
-    [InlineData("create", "job")]
     [InlineData("create", "mixed")]
-    [InlineData("update", "argv")]
     [InlineData("update", "job")]
-    [InlineData("update", "mixed")]
-    public async Task PreserveSupportedImportWriterAndReportingSettings(string mode, string route)
+    public async Task CompatibleImportSettingsCoexist(string mode, string route)
     {
         using InMemoryQpdfHost storage = CreateHost();
         ObservingHost host = new(storage);
@@ -103,6 +102,105 @@ public sealed class JsonOperationCompatibilityTests
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(1));
         Assert.True(catalog.TryGet(new PdfName("AcroForm"u8.ToArray()), out _));
         Assert.True(catalog.TryGet(new PdfName("StructTreeRoot"u8.ToArray()), out _));
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("update")]
+    public async Task MinimumVersionActsWithoutAnOverridingForce(string mode)
+    {
+        using InMemoryQpdfHost storage = CreateHost();
+        QpdfExecutionResult result = await Execute(new(storage), storage, mode, "argv",
+            new() { ["minVersion"] = "1.6" }, ["--min-version=1.6"]);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        Assert.StartsWith("%PDF-1.6", Encoding.ASCII.GetString(output), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("create", "job")]
+    [InlineData("update", "argv")]
+    public async Task StaticIdentifiersReachTheImportWriter(string mode, string route)
+    {
+        using InMemoryQpdfHost storage = CreateHost();
+        QpdfExecutionResult result = await Execute(new(storage), storage, mode, route,
+            new() { ["staticId"] = true }, ["--static-id"]);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        (string first, string second) = WriterControlsTests.IdsOf(output);
+        Assert.Equal("31415926535897932384626433832795", first);
+        Assert.Equal(first, second);
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("update")]
+    public async Task NewlineSettingChangesTheActualStreamBoundary(string mode)
+    {
+        foreach (bool enabled in new[] { false, true })
+        {
+            using InMemoryQpdfHost storage = CreateHost();
+            JsonObject graph = Assert.IsType<JsonObject>(JsonNode.Parse(Graph));
+            JsonObject objects = Assert.IsType<JsonObject>(Assert.IsType<JsonArray>(graph["qpdf"])[1]);
+            JsonObject page = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(objects["obj:3 0 R"])["value"]);
+            page["/Contents"] = "4 0 R";
+            objects["obj:4 0 R"] = new JsonObject { ["stream"] = new JsonObject { ["dict"] = new JsonObject(), ["data"] = "cSBR" } };
+            storage.AddInput(QpdfPath.From("graph"), Encoding.UTF8.GetBytes(graph.ToJsonString()), QpdfInputOwnership.Transfer);
+            storage.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+                (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R /Resources << >> >>", null),
+                (4, "<< /Length 3 >>", "q Q"u8.ToArray())], 1), QpdfInputOwnership.Transfer);
+            QpdfExecutionResult result = await Execute(new(storage), storage, mode, "argv",
+                new() { ["newlineBeforeEndstream"] = enabled }, enabled ? ["--newline-before-endstream"] : []);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+            storage.AddInput(QpdfPath.From("read"), output, QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(storage, QpdfPath.From("read"), CancellationToken.None);
+            Assert.True(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw));
+            PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(raw)));
+            Assert.Equal("q Q"u8.ToArray(), StreamObservation.Decode(stream));
+            byte[] boundary = stream.Data.Concat(enabled ? new byte[] { 10 } : []).Concat("endstream"u8.ToArray()).ToArray();
+            Assert.True(output.AsSpan().IndexOf(boundary) >= 0);
+            byte[] extra = stream.Data.Concat(enabled ? new byte[] { 10, 10 } : new byte[] { 10 }).Concat("endstream"u8.ToArray()).ToArray();
+            Assert.True(output.AsSpan().IndexOf(extra) < 0);
+        }
+    }
+
+    [Fact]
+    public async Task MemoryReportingIsObservableForNestedJsonCreation()
+    {
+        using InMemoryQpdfHost storage = CreateHost();
+        QpdfExecutionResult result = await Execute(new(storage), storage, "create", "mixed",
+            new() { ["reportMemoryUsage"] = true }, []);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        QpdfDiagnostic report = Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.MemoryUsage);
+        Assert.Equal(QpdfDiagnosticSeverity.Info, report.Severity);
+        Assert.Contains("Peak memory usage:", report.Message, StringComparison.Ordinal);
+        Assert.True(result.Counters.PeakMemoryBytes > 0);
+    }
+
+    [Fact]
+    public async Task WarningSuppressionActsOnTheUpdatedPdfReader()
+    {
+        foreach (bool enabled in new[] { false, true })
+        {
+            using InMemoryQpdfHost storage = CreateHost();
+            storage.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
+                (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+                (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
+                (4, "<< /Title (first) /Title (last) >>", null)], 1, null, "1.4", "/Info 4 0 R"), QpdfInputOwnership.Transfer);
+            QpdfExecutionResult result = await Execute(new(storage), storage, "update", "argv",
+                new() { ["noWarn"] = enabled }, enabled ? ["--no-warn"] : []);
+            Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+            Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+            if (enabled) { Assert.DoesNotContain(result.Diagnostics, d => d.Severity == QpdfDiagnosticSeverity.Warning); }
+            else { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.DuplicateKey); }
+            Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+            Assert.True(output.AsSpan().StartsWith("%PDF-"u8));
+            Assert.Equal(0L, storage.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
+        }
     }
 
     [Theory]

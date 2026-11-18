@@ -4945,7 +4945,8 @@
           "ExtensionVersionTests.JsonImportAndUpdateApplyTheSameExtensionRules",
           "ImportedVersionTests.PlacementsIncludeEffectiveSourceVersionsBeforeMinimumAndForce",
           "ExtensionVersionTests.ImportsNegotiateExtensionsAtTheSelectedBase",
-          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced"
+          "ImportedVersionTests.BasicWriterProfileDeclares12UnlessExplicitlyForced",
+          "JsonOperationCompatibilityTests.MinimumVersionActsWithoutAnOverridingForce"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
@@ -4985,7 +4986,8 @@
           "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
-          "WriterControlsTests.DefaultStreamHasNoExtraNewline"
+          "WriterControlsTests.DefaultStreamHasNoExtraNewline",
+          "JsonOperationCompatibilityTests.NewlineSettingChangesTheActualStreamBoundary"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
@@ -5064,7 +5066,8 @@
           "InvocationTests.WarningFlagsRejectValues"
         ],
         "interaction": [
-          "InvocationTests.NoWarnSuppressesWarnings"
+          "InvocationTests.NoWarnSuppressesWarnings",
+          "JsonOperationCompatibilityTests.WarningSuppressionActsOnTheUpdatedPdfReader"
         ],
         "resource": [
           "InvocationTests.WarningFlagsYieldToExhaustedBudget"
@@ -6610,7 +6613,8 @@
           "TestingOptionsTests.MalformedTestingFlagsFail"
         ],
         "interaction": [
-          "TestingOptionsTests.JobMemoryKeyMatchesArgv"
+          "TestingOptionsTests.JobMemoryKeyMatchesArgv",
+          "JsonOperationCompatibilityTests.MemoryReportingIsObservableForNestedJsonCreation"
         ],
         "resource": [
           "TestingOptionsTests.MemoryReportYieldsToExhaustedBudget"
@@ -7294,7 +7298,8 @@
           "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
-          "WriterControlsTests.JobJsonWriterControlsParityHolds"
+          "WriterControlsTests.JobJsonWriterControlsParityHolds",
+          "JsonOperationCompatibilityTests.StaticIdentifiersReachTheImportWriter"
         ],
         "resource": [
           "WriterControlsTests.WriterControlsYieldToExhaustedBudget"
