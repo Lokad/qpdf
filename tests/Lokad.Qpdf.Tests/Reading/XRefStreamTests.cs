@@ -130,12 +130,28 @@ public sealed class XRefStreamTests
     }
 
     [Fact]
-    public async Task RejectsChainedPrevStreams()
+    public async Task RejectsStreamLedPrevCycle()
     {
-        (InMemoryQpdfHost host, byte[] _) = await LoadFixture("prev-chain.pdf");
+        byte[] source = await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "xstream-1page.pdf"));
+        ReadOnlySpan<byte> xref = "6 0 obj\n<< /Type /XRef "u8;
+        int offset = source.AsSpan().IndexOf(xref);
+        Assert.True(offset >= 0);
+        Assert.True(source.AsSpan().EndsWith(Encoding.ASCII.GetBytes($"startxref\n{offset}\n%%EOF\n")));
+        int insert = offset + xref.Length;
+        byte[] previous = Encoding.ASCII.GetBytes($"/Prev {offset} ");
+        byte[] cycle = new byte[source.Length + previous.Length];
+        source.AsSpan(0, insert).CopyTo(cycle);
+        previous.CopyTo(cycle, insert);
+        source.AsSpan(insert).CopyTo(cycle.AsSpan(insert + previous.Length));
+
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("inputs/stream-prev-cycle.pdf");
+        host.AddInput(input, cycle, QpdfInputOwnership.Transfer);
         QpdfParseException ex = await Assert.ThrowsAsync<QpdfParseException>(() => QpdfDocument.OpenAsync(
-            host, QpdfPath.From("inputs/prev-chain.pdf"), CancellationToken.None).AsTask());
-        Assert.Contains("/Prev", ex.Message, StringComparison.Ordinal);
+            host, input, CancellationToken.None).AsTask());
+        Assert.Contains("cycles via /Prev", ex.Message, StringComparison.Ordinal);
+        Assert.Equal((long)offset, ex.ByteOffset);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Fact]
