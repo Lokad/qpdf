@@ -16,6 +16,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'PackageArchive.ps1')
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $consumerSource = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer'
@@ -37,21 +38,16 @@ $expectedLibraryHashes = @{}
 
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
+    Assert-UniquePackageMembers $package
     if ($null -ne $package.GetEntry('.signature.p7s')) {
         throw 'The local artifact must be unsigned for direct SHA-512 lock binding.'
     }
-    $nuspec = $package.GetEntry('Lokad.qpdf.nuspec')
-    if ($null -eq $nuspec) { throw 'Missing Lokad.qpdf package manifest.' }
-    $reader = [System.IO.StreamReader]::new($nuspec.Open())
-    try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
+    $metadata = Read-PackageMetadata $package
     if ($metadata.id -cne 'Lokad.qpdf' -or
         $metadata.version -cne $lock.dependencies['net10.0']['Lokad.qpdf'].resolved) {
         throw 'Artifact identity/version must match the reviewed consumer lock.'
     }
-    if (@($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]')).Count -ne 0) {
-        throw 'The core package must have no runtime package dependencies.'
-    }
+    Assert-DependencyFreePackage $metadata
     foreach ($framework in $frameworks) {
         if ($metadata.version -cne $lock.dependencies[$framework]['Lokad.qpdf'].resolved) {
             throw 'Artifact identity/version must match the reviewed consumer lock.'

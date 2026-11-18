@@ -15,6 +15,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $packageHash = (Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256).Hash
+$originalSymbols = [IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')
+$symbolHash = (Get-FileHash -LiteralPath $originalSymbols -Algorithm SHA256).Hash
 $testRoot = Join-Path $repoRoot ('artifacts/consumer-tests/' + [guid]::NewGuid().ToString('N'))
 $consumerDirectory = Join-Path $testRoot 'tests/Lokad.Qpdf.PackageConsumer'
 $toolDirectory = Join-Path $testRoot 'tools'
@@ -31,6 +33,16 @@ $seedHash = (Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash
 $testLockPath = Join-Path $consumerDirectory 'packages.lock.json'
 $verifier = Join-Path $toolDirectory 'verify-package-consumer.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'verify-package-consumer.ps1') -Destination $verifier
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'PackageArchive.ps1') -Destination $toolDirectory
+
+function Copy-PackageCase([string] $name) {
+    $directory = Join-Path $testRoot $name
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
+    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
+    Copy-Item -LiteralPath $originalSymbols -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    return $artifact
+}
 
 function Assert-Rejection {
     param([string] $Name, [string] $ExpectedPattern, [string] $ToolPath, [string] $ArtifactPath)
@@ -64,12 +76,7 @@ Assert-Rejection 'missing-framework-lock' 'Expected the reviewed net10.0/net11.0
 
 # A valid package boundary must not conceal the previous release's false description.
 foreach ($field in @('description', 'releaseNotes')) {
-    $directory = Join-Path $testRoot "stale-$field"
-    New-Item -ItemType Directory -Path $directory | Out-Null
-    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
-    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
-    Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) `
-        -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    $artifact = Copy-PackageCase "stale-$field"
     $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
     try {
         $entry = $archive.GetEntry('Lokad.qpdf.nuspec')
@@ -89,12 +96,7 @@ foreach ($field in @('description', 'releaseNotes')) {
 # independently of the copied-lock controls above, against both manifest guards.
 [System.IO.File]::WriteAllText($testLockPath, $seedText)
 foreach ($layout in @('grouped', 'ungrouped')) {
-    $directory = Join-Path $testRoot $layout
-    New-Item -ItemType Directory -Path $directory | Out-Null
-    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
-    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
-    Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) `
-        -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    $artifact = Copy-PackageCase $layout
     $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
     try {
         $entry = $archive.GetEntry('Lokad.qpdf.nuspec')
@@ -124,12 +126,8 @@ foreach ($layout in @('grouped', 'ungrouped')) {
 
 foreach ($framework in @('net10.0', 'net11.0')) {
     foreach ($kind in @('library', 'symbols')) {
-        $directory = Join-Path $testRoot "missing-$framework-$kind"
-        New-Item -ItemType Directory -Path $directory | Out-Null
-        $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
-        Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
+        $artifact = Copy-PackageCase "missing-$framework-$kind"
         $symbols = [IO.Path]::ChangeExtension($artifact, '.snupkg')
-        Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) -Destination $symbols
         $changed = if ($kind -eq 'library') { $artifact } else { $symbols }
         $extension = if ($kind -eq 'library') { 'dll' } else { 'pdb' }
         $archive = [IO.Compression.ZipFile]::Open($changed, [IO.Compression.ZipArchiveMode]::Update)
@@ -142,6 +140,52 @@ foreach ($framework in @('net10.0', 'net11.0')) {
         }
     }
 }
+
+$packageVerifier = Join-Path $PSScriptRoot 'verify-package.ps1'
+foreach ($case in @(
+    @{ Name='duplicate-library-member'; Member='lib/net10.0/Lokad.Qpdf.dll'; Symbols=$false },
+    @{ Name='case-alias-library-member'; Member='readme.md'; Symbols=$false },
+    @{ Name='duplicate-symbol-member'; Member='lib/net10.0/Lokad.Qpdf.pdb'; Symbols=$true }
+)) {
+    $artifact = Copy-PackageCase $case.Name
+    $changed = if ($case.Symbols) { [IO.Path]::ChangeExtension($artifact, '.snupkg') } else { $artifact }
+    $archive = [IO.Compression.ZipFile]::Open($changed, [IO.Compression.ZipArchiveMode]::Update)
+    try { $null = $archive.CreateEntry($case.Member) } finally { $archive.Dispose() }
+    Assert-Rejection $case.Name 'Duplicate package member' $packageVerifier $artifact
+    if (!$case.Symbols) { Assert-Rejection "$($case.Name)-consumer" 'Duplicate package member' $verifier $artifact }
+}
+
+foreach ($kind in 'invalid', 'wrong-framework') {
+    $name = "$kind-portable-symbols"
+    $artifact = Copy-PackageCase $name
+    $archive = [IO.Compression.ZipFile]::Open([IO.Path]::ChangeExtension($artifact, '.snupkg'), [IO.Compression.ZipArchiveMode]::Update)
+    try {
+        $member = 'lib/net10.0/Lokad.Qpdf.pdb'
+        $archive.GetEntry($member).Delete()
+        $stream = $archive.CreateEntry($member).Open()
+        try {
+            if ($kind -eq 'wrong-framework') {
+                $other = $archive.GetEntry('lib/net11.0/Lokad.Qpdf.pdb').Open()
+                try { $other.CopyTo($stream) } finally { $other.Dispose() }
+            } else { $stream.Write([Text.Encoding]::UTF8.GetBytes('ordinary text')) }
+        } finally { $stream.Dispose() }
+    } finally { $archive.Dispose() }
+    $pattern = if ($kind -eq 'wrong-framework') { 'Portable symbol identity differs' } else { 'Cannot read portable symbols' }
+    Assert-Rejection $name $pattern $packageVerifier $artifact
+}
+
+$artifact = Copy-PackageCase 'wrong-symbol-package-version'
+$archive = [IO.Compression.ZipFile]::Open([IO.Path]::ChangeExtension($artifact, '.snupkg'), [IO.Compression.ZipArchiveMode]::Update)
+try {
+    $entry = $archive.GetEntry('Lokad.qpdf.nuspec')
+    $reader = [IO.StreamReader]::new($entry.Open())
+    try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+    $manifest.SelectSingleNode('//*[local-name()="metadata"]/*[local-name()="version"]').InnerText = '0.0.1'
+    $entry.Delete()
+    $stream = $archive.CreateEntry('Lokad.qpdf.nuspec').Open()
+    try { $manifest.Save($stream) } finally { $stream.Dispose() }
+} finally { $archive.Dispose() }
+Assert-Rejection 'wrong-symbol-package-version' 'Symbol package identity/version must match' $packageVerifier $artifact
 
 foreach ($case in @(
     @{ Name='packaged-link'; Readme='[license](LICENSE.txt)'; Reject=$false },
@@ -160,12 +204,7 @@ foreach ($case in @(
     @{ Name='missing-inline-link'; Readme='[docs](docs/missing.md)'; Reject=$true },
     @{ Name='missing-reference-link'; Readme="[docs][text]`n[text]: docs/missing.md"; Reject=$true }
 )) {
-    $directory = Join-Path $testRoot $case.Name
-    New-Item -ItemType Directory -Path $directory | Out-Null
-    $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
-    Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
-    Copy-Item -LiteralPath ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) `
-        -Destination ([IO.Path]::ChangeExtension($artifact, '.snupkg'))
+    $artifact = Copy-PackageCase $case.Name
     $archive = [IO.Compression.ZipFile]::Open($artifact, [IO.Compression.ZipArchiveMode]::Update)
     try {
         $member = if ($case.Member) { $case.Member } else { 'README.md' }
@@ -192,6 +231,9 @@ if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash)
 }
 if ((Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256).Hash -cne $packageHash) {
     throw 'Negative verification changed the supplied package.'
+}
+if ((Get-FileHash -LiteralPath $originalSymbols -Algorithm SHA256).Hash -cne $symbolHash) {
+    throw 'Negative verification changed the supplied symbols.'
 }
 Write-Output "Consumer verification negative cases passed; evidence: $testRoot"
 # Expected child failures leave LASTEXITCODE nonzero in a calling pwsh step.

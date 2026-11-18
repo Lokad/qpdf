@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'PackageArchive.ps1')
 
 function Get-MarkdownProse([string] $text) {
     $visible = [Text.StringBuilder]::new()
@@ -86,49 +87,87 @@ function Assert-PackageMarkdownLinks($archive, [string[]] $names) {
     }
 }
 
+function Read-PackageMemberStream([IO.Compression.ZipArchiveEntry] $member) {
+    $source = $member.Open()
+    try {
+        $buffer = [IO.MemoryStream]::new()
+        try {
+            $source.CopyTo($buffer)
+            $buffer.Position = 0
+            return ,$buffer
+        } catch { $buffer.Dispose(); throw }
+    } finally { $source.Dispose() }
+}
+
+function Assert-PortableSymbolPair([IO.Compression.ZipArchiveEntry] $library,
+    [IO.Compression.ZipArchiveEntry] $symbols, [string] $framework) {
+    $assembly = Read-PackageMemberStream $library
+    try {
+        $pe = [System.Reflection.PortableExecutable.PEReader]::new($assembly)
+        try {
+            $codeView = @($pe.ReadDebugDirectory() | Where-Object IsPortableCodeView)
+            if ($codeView.Count -ne 1) { throw "Expected one portable CodeView record for $framework." }
+            $expected = $pe.ReadCodeViewDebugDirectoryData($codeView[0])
+        } finally { $pe.Dispose() }
+    } finally { $assembly.Dispose() }
+
+    $pdb = Read-PackageMemberStream $symbols
+    try {
+        $provider = [System.Reflection.Metadata.MetadataReaderProvider]::FromPortablePdbStream($pdb)
+        try { $actual = [System.Reflection.Metadata.BlobContentId]::new($provider.GetMetadataReader().DebugMetadataHeader.Id) }
+        finally { $provider.Dispose() }
+    } catch { throw "Cannot read portable symbols for $framework. $($_.Exception.Message)" }
+    finally { $pdb.Dispose() }
+
+    if ($actual.Guid -ne $expected.Guid -or $actual.Stamp -ne $codeView[0].Stamp) {
+        throw "Portable symbol identity differs for $framework."
+    }
+}
+
+function Assert-SymbolPackage([IO.Compression.ZipArchive] $package, [string] $symbolPath, [Xml.XmlElement] $metadata) {
+    $symbols = [IO.Compression.ZipFile]::OpenRead($symbolPath)
+    try {
+        Assert-UniquePackageMembers $symbols
+        $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|lib/net(?:10|11)\.0/Lokad\.Qpdf\.pdb)$'
+        foreach ($entry in $symbols.Entries) {
+            if ($entry.FullName -cnotmatch $allowed) { throw "Unexpected symbol package member: $($entry.FullName)" }
+        }
+        $symbolMetadata = Read-PackageMetadata $symbols
+        if ($symbolMetadata.id -cne $metadata.id -or $symbolMetadata.version -cne $metadata.version) {
+            throw 'Symbol package identity/version must match the library package.'
+        }
+        foreach ($framework in @('net10.0', 'net11.0')) {
+            $member = $symbols.GetEntry("lib/$framework/Lokad.Qpdf.pdb")
+            if ($null -eq $member) { throw "Missing portable symbols for $framework." }
+            Assert-PortableSymbolPair ($package.GetEntry("lib/$framework/Lokad.Qpdf.dll")) $member $framework
+        }
+    } finally { $symbols.Dispose() }
+}
+
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
+    Assert-UniquePackageMembers $package
     $names = @($package.Entries | ForEach-Object { $_.FullName })
     $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|README\.md|LICENSE\.txt|CHANGELOG\.md|icon\.png|docs/(?:ARCHITECTURE|BENCHMARKS|COMPATIBILITY|MEMORY|SUPPORTED-PROFILE)\.md|tests/Compatibility/options\.json|lib/net(?:10|11)\.0/Lokad\.Qpdf\.(dll|xml))$'
     foreach ($name in $names) {
-        if ($name -notmatch $allowed) { throw "Unexpected package member: $name" }
+        if ($name -cnotmatch $allowed) { throw "Unexpected package member: $name" }
     }
     foreach ($required in @('README.md', 'LICENSE.txt', 'CHANGELOG.md', 'icon.png', 'docs/ARCHITECTURE.md', 'docs/BENCHMARKS.md', 'docs/COMPATIBILITY.md', 'docs/MEMORY.md', 'docs/SUPPORTED-PROFILE.md', 'tests/Compatibility/options.json', 'lib/net10.0/Lokad.Qpdf.dll', 'lib/net10.0/Lokad.Qpdf.xml', 'lib/net11.0/Lokad.Qpdf.dll', 'lib/net11.0/Lokad.Qpdf.xml')) {
-        if ($required -notin $names) { throw "Missing package member: $required" }
+        if ($required -cnotin $names) { throw "Missing package member: $required" }
     }
 
     Assert-PackageMarkdownLinks $package $names
 
-    $nuspec = $package.GetEntry('Lokad.qpdf.nuspec')
-    if ($null -eq $nuspec) { throw 'Missing package manifest.' }
-    $reader = [System.IO.StreamReader]::new($nuspec.Open())
-    try { [xml] $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    $metadata = $manifest.SelectSingleNode('/*[local-name()="package"]/*[local-name()="metadata"]')
+    $metadata = Read-PackageMetadata $package
     if ($metadata.id -cne 'Lokad.qpdf') { throw 'Incorrect package ID.' }
     if ($metadata.description -notmatch 'R2.R6' -or $metadata.releaseNotes -notmatch 'AES-256 R6' -or
         ($metadata.description + ' ' + $metadata.releaseNotes) -match 'non-cryptographic|Password encryption remains unsupported') {
         throw 'Package metadata must describe supported password security.'
     }
-    $dependencies = @($metadata.SelectNodes('*[local-name()="dependencies"]//*[local-name()="dependency"]'))
-    if ($dependencies.Count -ne 0) {
-        throw 'The core package must have no runtime package dependencies.'
-    }
+    Assert-DependencyFreePackage $metadata
+    Assert-SymbolPackage $package ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) $metadata
 }
 finally { $package.Dispose() }
 
-$symbolPath = [System.IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')
-$symbols = [System.IO.Compression.ZipFile]::OpenRead($symbolPath)
-try {
-    $requiredPdbs = @('lib/net10.0/Lokad.Qpdf.pdb', 'lib/net11.0/Lokad.Qpdf.pdb')
-    foreach ($entry in $symbols.Entries) {
-        $requiredPdbs = @($requiredPdbs | Where-Object { $_ -cne $entry.FullName })
-        if ($entry.FullName -notmatch '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|lib/net(?:10|11)\.0/Lokad\.Qpdf\.pdb)$') {
-            throw "Unexpected symbol package member: $($entry.FullName)"
-        }
-    }
-    if ($requiredPdbs.Count -ne 0) { throw ('Missing portable symbols: ' + ($requiredPdbs -join ', ')) }
-}
-finally { $symbols.Dispose() }
-
-Write-Output 'Package and symbols contain only approved files, Markdown links resolve, and the core package has no runtime package dependencies.'
+Write-Output 'Package members are approved and unique, portable symbols match both assemblies, Markdown links resolve, and the core package has no runtime package dependencies.'

@@ -30,9 +30,10 @@ pwsh -File tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qp
 The consumer verifier copies the reviewed lock into an isolated run, binds only
 the local package hash to the supplied artifact, and restores in locked mode
 with a fresh cache/feed. External hashes and the tracked lock remain unchanged.
-Both package guards reject grouped and ungrouped dependencies. Negative checks
-mutate copied locks and package manifests and require rejection before restore.
-The package guard checks file and heading links in packaged Markdown.
+Both package guards reject duplicate members and grouped or ungrouped
+dependencies. The package guard checks the DLLs against their portable PDBs,
+the companion manifest identity, and file and heading links in packaged Markdown.
+Negative controls mutate copied locks, libraries and symbol packages.
 External documentation URLs are not fetched. Copied-package controls cover
 relative links, inline and reference-style destinations, and missing headings.
 
