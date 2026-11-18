@@ -691,7 +691,7 @@ public sealed class JsonImportTests
     }
 
     [Fact]
-    public async Task UpdatePushedAttributesFail()
+    public async Task UpdateAcceptsDeclaredPushedAttributes()
     {
         InMemoryQpdfHost exportHost = HostWith("inputs/a.pdf", PlainFixture());
         string json = await ExportAsync(exportHost, "--json", "--json-key=qpdf");
@@ -706,7 +706,9 @@ public sealed class JsonImportTests
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
         host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await UpdateAsync(host, "--update-from-json=inputs/u.json");
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] output));
+        Assert.True(output.AsSpan().StartsWith("%PDF-"u8));
     }
     [Fact]
     public async Task JobUpdateRoundTrip()

@@ -114,9 +114,10 @@ internal static partial class JsonImport
 
         limits.Validate();
         JsonElement qpdf = ReadEnvelope(document, memory, governor, cancellationToken);
-        PdfVersion header = ReadHeaderVersion(qpdf[0], governor);
+        Metadata metadata = ReadMetadata(qpdf[0], true, governor);
+        PdfVersion header = metadata.Version ?? throw new InvalidOperationException("Missing validated PDF version.");
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
-        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, bindingMemory, governor, cancellationToken);
+        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], null, null, bindingMemory, governor, cancellationToken);
         Dictionary<int, QpdfObject> objects = new(bindings.Count);
         PdfDictionary? trailer = null;
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
@@ -187,10 +188,13 @@ internal static partial class JsonImport
 
         limits.Validate();
         JsonElement qpdf = ReadEnvelope(document, memory, governor, cancellationToken);
-        PdfVersion? updateVersion = ReadUpdateMeta(qpdf[0], governor);
+        Metadata metadata = ReadMetadata(qpdf[0], false, governor);
         DocumentEngine engine = pdf.Engine;
         using ParserMemoryScope bindingMemory = ParserMemoryScope.Create(governor);
-        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], engine.XRefEntries, bindingMemory, governor, cancellationToken);
+        PageTreePreparation.Prepared? prepared = metadata.CalledAllPages || metadata.PushedInherited
+            ? PageTreePreparation.Prepare(engine, metadata.PushedInherited, limits, memory, bindingMemory, governor, cancellationToken) : null;
+        Dictionary<(int Number, int Generation), int> bindings = ReadObjectBindings(qpdf[1], engine.XRefEntries,
+            prepared?.AddedReferences, bindingMemory, governor, cancellationToken);
         memory.Reserve(checked(128L + 64L * bindings.Count));
         Dictionary<int, QpdfObject> merged = new(bindings.Count);
         HashSet<int>? compressed = preserveObjectStreams ? ParserContainers.CreateSet<int>(memory) : null;
@@ -206,12 +210,24 @@ internal static partial class JsonImport
             int number = bindings[(entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second)];
             if (entry.Value.Kind == XrefEntryKind.Compressed && compressed is not null)
             { ParserContainers.AddSetItem(memory, compressed, number, sizeof(int)); }
-            merged[number] = Writing.ObjectRemap.NormalizeSource(engine.Load(entry.Key), engine.XRefEntries, bindings,
-                memory, governor, cancellationToken);
+            QpdfObject value = prepared is not null && prepared.Objects.TryGetValue(entry.Key, out QpdfObject? replacement)
+                ? replacement : engine.Load(entry.Key);
+            merged[number] = Writing.ObjectRemap.NormalizeSource(value, engine.XRefEntries, bindings,
+                prepared?.AddedReferences, memory, governor, cancellationToken);
         }
 
-        PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(engine.Trailer, engine.XRefEntries, bindings,
-            memory, governor, cancellationToken);
+        if (prepared is not null)
+        {
+            foreach (PdfReference reference in prepared.AddedReferences)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                int number = bindings[(reference.ObjectNumber, reference.Generation)];
+                merged[number] = Writing.ObjectRemap.NormalizeSource(prepared.Objects[reference.ObjectNumber], engine.XRefEntries,
+                    bindings, prepared.AddedReferences, memory, governor, cancellationToken);
+            }
+        }
+        PdfDictionary trailer = (PdfDictionary)Writing.ObjectRemap.NormalizeSource(prepared?.Trailer ?? engine.Trailer,
+            engine.XRefEntries, bindings, prepared?.AddedReferences, memory, governor, cancellationToken);
         PdfDictionary originalTrailer = trailer;
         QpdfObject originalEncryption = PdfNull.Instance;
         if (engine.Security is not null && PdfDictionaryLookup.TryGet(trailer, "Encrypt"u8, governor, cancellationToken, out QpdfObject declaration))
@@ -243,7 +259,7 @@ internal static partial class JsonImport
         }
 
         QpdfDocument.VersionParts header = pdf.HeaderVersionParts;
-        ImportedModel result = new(updateVersion ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed);
+        ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed);
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
             preserveEncryption, governor, cancellationToken);
     }
@@ -280,129 +296,6 @@ internal static partial class JsonImport
         memory.CheckOwner(governor);
         JsonImportMemory.AdmitModel(memory, qpdf, governor, cancellationToken);
         return qpdf;
-    }
-
-    private static PdfVersion? ReadUpdateMeta(JsonElement meta, ResourceGovernor governor)
-    {
-        PdfVersion? version = null;
-        bool sawJsonVersion = false;
-        foreach (JsonProperty property in meta.EnumerateObject())
-        {
-            governor.CheckCancellation();
-            string propertyName = ReadPropertyName(property);
-            if (propertyName == "jsonversion")
-            {
-                sawJsonVersion = true;
-                if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int number) || number != 2)
-                {
-                    throw new QpdfParseException("qpdf JSON version must be numeric value 2.", 0L, null);
-                }
-
-                continue;
-            }
-
-            if (propertyName == "pdfversion")
-            {
-                if (property.Value.ValueKind != JsonValueKind.String || ReadString(property.Value) is not string text)
-                {
-                    throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
-                }
-
-                version = ParsePdfVersion(text, governor);
-                continue;
-            }
-
-            if (propertyName == "pushedinheritedpageresources")
-            {
-                if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
-                {
-                    throw new QpdfParseException("qpdf JSON pushedinheritedpageresources must be a boolean.", 0L, null);
-                }
-
-                if (property.Value.ValueKind == JsonValueKind.True)
-                {
-                    throw new QpdfParseException("qpdf JSON pushedinheritedpageresources is outside the narrow profile.", 0L, null);
-                }
-
-                continue;
-            }
-
-            if (propertyName == "calledgetallpages")
-            {
-                if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
-                {
-                    throw new QpdfParseException("qpdf JSON calledgetallpages must be a boolean.", 0L, null);
-                }
-
-                continue;
-            }
-        }
-
-        if (!sawJsonVersion)
-        {
-            throw new QpdfParseException("qpdf JSON jsonversion was not seen.", 0L, null);
-        }
-
-        return version;
-    }
-
-    private static PdfVersion ReadHeaderVersion(JsonElement meta, ResourceGovernor governor)
-    {
-        if (meta.ValueKind != JsonValueKind.Object)
-        {
-            throw new QpdfParseException("qpdf JSON qpdf[0] must be a dictionary.", 0L, null);
-        }
-
-        bool sawJsonVersion = false;
-        PdfVersion? header = null;
-        foreach (JsonProperty property in meta.EnumerateObject())
-        {
-            governor.CheckCancellation();
-            string propertyName = ReadPropertyName(property);
-            if (propertyName == "jsonversion")
-            {
-                sawJsonVersion = true;
-                if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int version) || version != 2)
-                {
-                    throw new QpdfParseException("qpdf JSON version must be numeric value 2.", 0L, null);
-                }
-
-                continue;
-            }
-
-            if (propertyName == "pdfversion")
-            {
-                if (property.Value.ValueKind != JsonValueKind.String || ReadString(property.Value) is not string text)
-                {
-                    throw new QpdfParseException("qpdf JSON pdfversion must be a string.", 0L, null);
-                }
-
-                header = ParsePdfVersion(text, governor);
-                continue;
-            }
-
-            if (propertyName == "pushedinheritedpageresources" || propertyName == "calledgetallpages")
-            {
-                if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
-                {
-                    throw new QpdfParseException("qpdf JSON " + propertyName + " must be a boolean.", 0L, null);
-                }
-
-                continue;
-            }
-        }
-
-        if (!sawJsonVersion)
-        {
-            throw new QpdfParseException("qpdf JSON jsonversion was not seen.", 0L, null);
-        }
-
-        if (header is null)
-        {
-            throw new QpdfParseException("qpdf JSON pdfversion was not seen.", 0L, null);
-        }
-
-        return header;
     }
 
     internal static PdfVersion ParsePdfVersion(string text, ResourceGovernor governor)

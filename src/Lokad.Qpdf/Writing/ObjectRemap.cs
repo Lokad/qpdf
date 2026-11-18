@@ -24,9 +24,15 @@ internal static class ObjectRemap
 
     internal static QpdfObject NormalizeSource(QpdfObject value, IReadOnlyDictionary<int, XrefEntry> entries,
         Dictionary<(int Number, int Generation), int> bindings, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        => NormalizeSource(value, entries, bindings, null, memory, governor, token);
+
+    internal static QpdfObject NormalizeSource(QpdfObject value, IReadOnlyDictionary<int, XrefEntry> entries,
+        Dictionary<(int Number, int Generation), int> bindings, IReadOnlySet<PdfReference>? addedReferences,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor);
-        return RemapIds(value, new NumberMap(null, null, null) { SourceEntries = entries, Pairs = bindings, DiscardUnmapped = true },
+        return RemapIds(value, new NumberMap(null, null, null)
+            { SourceEntries = entries, Pairs = bindings, AddedReferences = addedReferences, DiscardUnmapped = true },
             memory, governor, token, 0L);
     }
 
@@ -84,13 +90,17 @@ internal static class ObjectRemap
         internal IReadOnlySet<int>? PageNumbers { get; init; }
         internal IReadOnlyDictionary<int, XrefEntry>? SourceEntries { get; init; }
         internal Dictionary<(int Number, int Generation), int>? Pairs { get; init; }
+        internal IReadOnlySet<PdfReference>? AddedReferences { get; init; }
         internal bool TryGetValue(PdfReference reference, out int mapped)
         {
             int number = reference.ObjectNumber;
             if (SourceEntries is not null)
             {
                 mapped = number;
-                if (!SourceEntries.TryGetValue(number, out XrefEntry entry) || !entry.MatchesGeneration(reference.Generation)) { return false; }
+                // New preparation edges authenticate by reference identity;
+                // equal original pairs must still satisfy their source xref.
+                if ((!SourceEntries.TryGetValue(number, out XrefEntry entry) || !entry.MatchesGeneration(reference.Generation))
+                    && AddedReferences?.Contains(reference) != true) { return false; }
                 return Pairs is null || Pairs.TryGetValue((number, reference.Generation), out mapped);
             }
             if (Pairs is not null) { return Pairs.TryGetValue((number, reference.Generation), out mapped); }

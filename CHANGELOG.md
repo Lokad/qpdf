@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Prepare declared page identities and inherited attributes before JSON updates,
+  including direct/repeated pages and updates from assembled exports.
+
 - Reuse page ancestry within placement bundles while preserving geometry-first
   validation, nearest inherited values and scoped traversal admission.
 

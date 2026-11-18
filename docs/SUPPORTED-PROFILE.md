@@ -364,8 +364,12 @@ Global nesting, parser-error and damaged-container settings also work with JSON
 creation/update. Nesting bounds imported PDF values and the update's PDF input;
 repair settings govern the PDF reader, while JSON-authored values remain strict.
 Explicit host ceilings stay binding.
-Updates require stable source page identities: traversal-introduced page identities
-are not reconstructed, and exports declaring pushed inherited resources reject.
+Updates prepare the page traversal and inherited attributes declared by v2 metadata
+before binding patches. Direct children gain identities, repeated pages gain
+independent headers, and pushed attributes follow the original tree's nearest
+non-null values. Original stale/free/missing edges stay null even if preparation
+allocates their pair. Creation validates these flags but ignores their actions.
+The reader's existing structural and recovery policies still apply.
 Import/update can use object-stream disable/preserve/generate modes and two-pass
 linearization, including with supported output encryption. Preservation retains
 matching source members; creation has no original packing to preserve. Argv/job

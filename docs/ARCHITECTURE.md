@@ -58,7 +58,10 @@ reachability, encryption numbering, ordering and object-stream grouping.
 Catalog contents, version requirements and original-ID inversion have separate
 internal owners; source copying supplies their data without duplicating policy.
 JSON import binds full object number/generation pairs before lowering to the
-writer's numbered model. The shared remapper validates original source edges
+writer's numbered model. Declared page traversal and inherited-attribute pushing
+first create immutable overlays of the original tree. Generated edges retain
+their provenance so their new pairs cannot revive invalid original edges.
+The shared remapper validates original source edges
 against live xrefs and binds JSON edges against source/declared pairs, borrowing
 stream payloads while their backing owner lives. Its binding index is temporary.
 Original object-stream membership enters the normalized ID space during binding,

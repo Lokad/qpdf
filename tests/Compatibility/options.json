@@ -4235,7 +4235,8 @@
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
-          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles",
+          "JsonPagePreparationTests.CreationValidatesButIgnoresPreparationActions"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4248,7 +4249,8 @@
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
-          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
+          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication"
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
@@ -7680,7 +7682,6 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Update preparation does not reconstruct page identities introduced by calledgetallpages; pushedinheritedpageresources:true is rejected, including assembled exports. Source page identities must remain stable.",
         "Ordinary stream compression remains unavailable with JSON creation/update."
       ],
       "evidence": {
@@ -7705,20 +7706,26 @@
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
           "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies",
-          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles"
+          "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles",
+          "JsonImportTests.UpdateAcceptsDeclaredPushedAttributes",
+          "JsonPagePreparationTests.DeclaredTraversalBindsEditsToTheVisiblePage",
+          "JsonPagePreparationTests.PushingBindsInheritedResourcesBeforeApplyingPatches",
+          "JsonPagePreparationTests.PushingUsesNearestNonNullContainersAndKeepsLocalOverrides",
+          "JsonPagePreparationTests.IndirectKidsKeepTheirIdentityWhenDirectChildrenArePromoted",
+          "JsonPagePreparationTests.TrailerPairsReserveIdsWhileFreeXrefSlotsDoNot"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
           "JsonPairRoundTripTests.MismatchedStreamWithoutDataRejectsAndPreservesPriorTarget",
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
-          "JsonImportTests.UpdatePushedAttributesFail",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
           "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
-          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
+          "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
@@ -7746,7 +7753,11 @@
           "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
           "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
           "JsonCatalogRemovalTests.SharedWritersRetainTheRemainingFieldGraph",
-          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling"
+          "JsonCatalogRemovalTests.RemovedRegistrationsDoNotBypassSignatureDisabling",
+          "JsonPagePreparationTests.TruePreparationCannotBeUndoneByALaterFalse",
+          "JsonPagePreparationTests.PreparedAndOriginalEdgesRetainTheirGenerationSemantics",
+          "JsonPagePreparationTests.NewPageDoesNotReviveAnOriginalMissingEdgeWithTheSamePair",
+          "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -7759,7 +7770,10 @@
           "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets",
           "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
-          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
+          "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget",
+          "JsonPagePreparationTests.PreparationBorrowsOriginalValuesAndOwnsItsFreshHeaders",
+          "JsonPagePreparationTests.PreparationRetainsTheSharedNestingAndCancellationBounds",
+          "JsonPagePreparationTests.PreparationAndPublicationFailuresRetainTheActualTargetAndRefundAdmission"
         ],
         "oracle": [
           "diff:json-update",

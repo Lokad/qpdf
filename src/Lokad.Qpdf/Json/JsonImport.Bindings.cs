@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
@@ -11,7 +12,8 @@ internal static partial class JsonImport
     // Source edges additionally validate against the original xref so new JSON
     // declarations cannot revive missing, free or stale source references.
     private static Dictionary<(int Number, int Generation), int> ReadObjectBindings(JsonElement objects,
-        IReadOnlyDictionary<int, XrefEntry>? source, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        IReadOnlyDictionary<int, XrefEntry>? source, IEnumerable<PdfReference>? addedReferences,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor);
         Dictionary<(int Number, int Generation), int> bindings = ParserContainers.CreateDictionary<(int, int), int>(memory);
@@ -23,6 +25,11 @@ internal static partial class JsonImport
                 if (entry.Value.Kind == XrefEntryKind.Free) { continue; }
                 Add((entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second));
             }
+        }
+        if (addedReferences is not null)
+        {
+            foreach (PdfReference reference in addedReferences)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); Add((reference.ObjectNumber, reference.Generation)); }
         }
         foreach (JsonProperty property in objects.EnumerateObject())
         {
