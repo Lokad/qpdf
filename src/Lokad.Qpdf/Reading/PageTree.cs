@@ -15,23 +15,66 @@ internal static class PageTree
         QpdfLimits limits,
         ParserMemoryScope pageStorage,
         CancellationToken cancellationToken)
+        => ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, null, cancellationToken);
+
+    internal static List<PageLocation> Rewrite(
+        Dictionary<int, QpdfObject> pool, int catalogNumber, IIndirectResolver resolver,
+        Func<PdfDictionary, PdfDictionary> rewritePage, Func<QpdfObject, PdfReference> addObject,
+        DiagnosticBag diagnostics, ResourceGovernor governor,
+        QpdfLimits limits, ParserMemoryScope pageStorage, ParserMemoryScope valueStorage, CancellationToken token)
+    {
+        valueStorage.CheckOwner(governor);
+        using OwnedAllocationBatch changes = OwnedAllocationBatch.Create(governor, token);
+        using ParserMemoryScope editMemory = ParserMemoryScope.Create(governor);
+        editMemory.Reserve(48L);
+        LeafEdit edit = new(pool, rewritePage, addObject, changes);
+        PdfDictionary root = (PdfDictionary)pool[catalogNumber];
+        List<PageLocation> pages = ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, edit, token);
+        if (edit.Catalog is PdfDictionary catalog) { pool[catalogNumber] = catalog; }
+        changes.Memory.TransferTo(valueStorage, changes.Bytes);
+        return pages;
+    }
+
+    private sealed record LeafEdit(
+        Dictionary<int, QpdfObject> Pool, Func<PdfDictionary, PdfDictionary> Rewrite,
+        Func<QpdfObject, PdfReference> AddObject, OwnedAllocationBatch Changes)
+    {
+        internal PdfDictionary? Catalog { get; set; }
+    }
+
+    private static List<PageLocation> ReadCore(IIndirectResolver resolver, QpdfObject root, DiagnosticBag diagnostics,
+        ResourceGovernor governor, QpdfLimits limits, ParserMemoryScope pageStorage, LeafEdit? edit,
+        CancellationToken cancellationToken)
     {
         pageStorage.CheckOwner(governor);
-        PdfDictionary pages = ReadRoot(resolver, root, governor, cancellationToken);
+        PdfDictionary pages = ReadRoot(resolver, root, governor, cancellationToken, out PdfDictionary catalog, out QpdfObject pagesEdge);
         List<PageLocation> collector = ParserContainers.CreateList<PageLocation>(pageStorage);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> path = ParserContainers.CreateSet<int>(traversal);
         Dictionary<PdfDictionary, int>? emptySubtrees = null;
-        WalkPages(resolver, diagnostics, governor, limits, pages, null, path, collector, pageStorage, traversal, ref emptySubtrees, 0, cancellationToken);
+        PdfDictionary original = pages;
+        WalkPages(resolver, diagnostics, governor, limits, ref pages, null, path, collector, pageStorage, traversal,
+            ref emptySubtrees, 0, edit, cancellationToken);
+        if (edit is not null && !ReferenceEquals(original, pages))
+        {
+            if (pagesEdge is PdfReference reference) { edit.Pool[reference.ObjectNumber] = pages; }
+            else if (ReferenceEquals(original, catalog)) { edit.Catalog = pages; }
+            else { edit.Catalog = PdfDictionaryRebuild.ReplaceEntry(edit.Changes, catalog, "Pages"u8, pages); }
+        }
         return collector;
     }
 
     internal static PdfDictionary ReadRoot(IIndirectResolver resolver, QpdfObject rootRaw, ResourceGovernor governor, CancellationToken token)
+        => ReadRoot(resolver, rootRaw, governor, token, out _, out _);
+
+    private static PdfDictionary ReadRoot(IIndirectResolver resolver, QpdfObject rootRaw, ResourceGovernor governor,
+        CancellationToken token, out PdfDictionary root, out QpdfObject pagesRaw)
     {
-        PdfDictionary root = ResolveDictionary(resolver, rootRaw, "catalog", governor, token);
+        root = ResolveDictionary(resolver, rootRaw, "catalog", governor, token);
         PdfName? rootType = ReadType(resolver, root, governor, token);
         if (rootType is not null && rootType.RawSpan.SequenceEqual("Pages"u8))
         {
+            pagesRaw = rootRaw;
             return root;
         }
         if (rootType is not null && !rootType.RawSpan.IsEmpty && !rootType.RawSpan.SequenceEqual("Catalog"u8))
@@ -40,7 +83,7 @@ internal static class PageTree
             { throw new QpdfParseException("Catalog has unexpected /Type (name exceeds 64 bytes).", null, null); }
             throw new QpdfParseException($"Catalog has unexpected /Type /{rootType.DisplayText}.", null, null);
         }
-        if (!PdfDictionaryLookup.TryGet(root, "Pages"u8, governor, token, out QpdfObject pagesRaw))
+        if (!PdfDictionaryLookup.TryGet(root, "Pages"u8, governor, token, out pagesRaw))
         { throw new QpdfParseException("Catalog must declare /Pages.", null, null); }
         return ResolveDictionary(resolver, pagesRaw, "page tree", governor, token);
     }
@@ -101,7 +144,7 @@ internal static class PageTree
         DiagnosticBag diagnostics,
         ResourceGovernor governor,
         QpdfLimits limits,
-        PdfDictionary node,
+        ref PdfDictionary node,
         PdfReference? incoming,
         HashSet<int> path,
         List<PageLocation> collector,
@@ -109,6 +152,7 @@ internal static class PageTree
         ParserMemoryScope traversal,
         ref Dictionary<PdfDictionary, int>? emptySubtrees,
         int depth,
+        LeafEdit? edit,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -130,6 +174,7 @@ internal static class PageTree
         PdfName? type = ReadType(resolver, node, governor, cancellationToken);
         if (type is not null && type.RawSpan.SequenceEqual("Page"u8))
         {
+            if (edit is not null) { node = edit.Rewrite(node); }
             ParserContainers.AddItem(pageStorage, collector, new PageLocation(incoming, node), 2L * IntPtr.Size);
             return 0;
         }
@@ -153,6 +198,7 @@ internal static class PageTree
 
         long before = collector.Count;
         int height = 0;
+        QpdfObject[]? rewritten = null;
         for (int i = 0; i < kids.Count; i++)
         {
             QpdfObject kid = kids[i];
@@ -168,7 +214,10 @@ internal static class PageTree
                     throw new QpdfParseException($"Page kid does not resolve to a dictionary.", null, reference.ObjectNumber);
                 }
 
-                int childHeight = WalkPages(resolver, diagnostics, governor, limits, child, reference, path, collector, pageStorage, traversal, ref emptySubtrees, depth + 1, cancellationToken);
+                PdfDictionary originalChild = child;
+                int childHeight = WalkPages(resolver, diagnostics, governor, limits, ref child, reference, path, collector,
+                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, cancellationToken);
+                if (edit is not null && !ReferenceEquals(child, originalChild)) { edit.Pool[reference.ObjectNumber] = child; }
                 height = Math.Max(height, childHeight + 1);
                 path.Remove(reference.ObjectNumber);
                 continue;
@@ -176,7 +225,25 @@ internal static class PageTree
 
             if (kid is PdfDictionary direct)
             {
-                int childHeight = WalkPages(resolver, diagnostics, governor, limits, direct, null, path, collector, pageStorage, traversal, ref emptySubtrees, depth + 1, cancellationToken);
+                int pageIndex = collector.Count;
+                PdfDictionary edited = direct;
+                int childHeight = WalkPages(resolver, diagnostics, governor, limits, ref edited, null, path, collector,
+                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, cancellationToken);
+                if (edit is not null && !ReferenceEquals(direct, edited))
+                {
+                    rewritten ??= CopyKids(kids, edit.Changes, governor, cancellationToken);
+                    rewritten[i] = edited;
+                    if (ReadType(resolver, edited, governor, cancellationToken) is PdfName editedType
+                        && editedType.RawSpan.SequenceEqual("Page"u8))
+                    {
+                        // The edited page owns its new program through a live
+                        // indirect identity. The original direct value can
+                        // still be reached through an independent Kids alias.
+                        PdfReference promoted = edit.AddObject(edited);
+                        collector[pageIndex] = new PageLocation(promoted, edited);
+                        rewritten[i] = promoted;
+                    }
+                }
                 height = Math.Max(height, childHeight + 1);
                 continue;
             }
@@ -205,6 +272,26 @@ internal static class PageTree
             ParserContainers.EnsureEntryCapacity(traversal, emptySubtrees, sizeof(int));
             emptySubtrees.Add(node, height);
         }
+        if (rewritten is not null && edit is not null)
+        {
+            // Replace the active Kids edge. Private references can still see
+            // the original array, including any unchanged direct children.
+            node = PdfDictionaryRebuild.ReplaceEntry(edit.Changes, node, "Kids"u8, PdfArray.FromOwnedItems(rewritten));
+        }
         return height;
+    }
+
+    private static QpdfObject[] CopyKids(PdfArray kids, OwnedAllocationBatch changes,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        long size = 56L + IntPtr.Size * (long)kids.Count;
+        changes.Memory.Reserve(size); changes.Add(size);
+        QpdfObject[] copy = new QpdfObject[kids.Count];
+        for (int index = 0; index < copy.Length; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            copy[index] = kids[index];
+        }
+        return copy;
     }
 }

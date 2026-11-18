@@ -6,6 +6,32 @@ namespace Lokad.Qpdf.Objects;
 /// <summary>Shared reference traversal with admitted temporary containers.</summary>
 internal static class GraphReachability
 {
+    internal static void RetireSuperseded(Dictionary<int, QpdfObject> objects, HashSet<int>? compressed,
+        HashSet<int> before, QpdfObject root, IIndirectResolver resolver, ParserMemoryScope walk,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        List<QpdfObject> roots = ParserContainers.CreateList<QpdfObject>(walk);
+        ParserContainers.AddItem(walk, roots, root);
+        // Unrelated declarations survive JSON publication, including their
+        // private references into the formerly reachable part of the graph.
+        foreach ((int number, QpdfObject value) in objects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!before.Contains(number)) { ParserContainers.AddItem(walk, roots, value); }
+        }
+        walk.Reserve(checked(56L + IntPtr.Size * (long)roots.Count));
+        QpdfObject[] items = new QpdfObject[roots.Count];
+        for (int index = 0; index < items.Length; index++)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[index] = roots[index]; }
+        HashSet<int> after = Find(resolver, PdfArray.FromOwnedItems(items), walk, governor);
+        foreach (int number in before)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (after.Contains(number)) { continue; }
+            objects.Remove(number); compressed?.Remove(number);
+        }
+    }
+
     internal static HashSet<int> Find(IIndirectResolver resolver, QpdfObject root,
         ParserMemoryScope memory, ResourceGovernor governor)
     {

@@ -2886,6 +2886,8 @@ Invoke-ReferenceJsonResources
 Invoke-ReferenceJsonPublication
 . (Join-Path $repoRoot 'tools/ReferenceJsonImportCompression.ps1')
 Invoke-ReferenceJsonImportCompression
+. (Join-Path $repoRoot 'tools/ReferenceJsonImportContent.ps1')
+Invoke-ReferenceJsonImportContent
 . (Join-Path $repoRoot 'tools/ReferenceJsonQdf.ps1')
 Invoke-ReferenceJsonQdf
 . (Join-Path $repoRoot 'tools/ReferenceJsonCheck.ps1')

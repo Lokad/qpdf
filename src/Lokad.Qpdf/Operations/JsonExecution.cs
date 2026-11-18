@@ -17,11 +17,12 @@ namespace Lokad.Qpdf.Operations;
 internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
     string ObjectStreams, bool Linearize, QpdfOutputEncryption Encryption,
-    DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent)
+    DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
+    bool CoalesceContents)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, encryption, new(false, false),
-            null, QdfOptions.Disabled, false);
+            null, QdfOptions.Disabled, false, false);
 }
 
 internal static class JsonExecution
@@ -356,7 +357,7 @@ internal static class JsonExecution
         RequireEncryptionVersion(security, ref version, ref extensionLevel, writer.ForceVersion, governor);
         using ParserMemoryScope? normalizationMemory = writer.NormalizeContent ? ParserMemoryScope.Create(governor) : null;
         Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, memory,
-            normalizationMemory, out IReadOnlyList<PageLocation>? pages, token);
+            normalizationMemory, writer.CoalesceContents, out IReadOnlyList<PageLocation>? pages, token);
         string mode = ResolveObjectStreamMode(writer.ObjectStreams);
         if (writer.ForceVersion is not null && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0) { mode = "disable"; }
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory);

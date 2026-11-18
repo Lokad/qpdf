@@ -35,36 +35,13 @@ internal static class ImportedPublication
         }
         if (ReferenceEquals(trailer, model.Trailer)) { return model; }
 
-        RetireSuperseded(model, trailer, resolver, governor, token);
+        using (ParserMemoryScope walk = ParserMemoryScope.Create(governor))
+        {
+            HashSet<int> before = GraphReachability.Find(resolver, model.Trailer, walk, governor);
+            GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, walk, governor, token);
+        }
         graph.Memory.Reserve(48L); graph.Add(48L);
         ImportedModel result = model with { Trailer = trailer };
         graph.Memory.TransferTo(memory, graph.Bytes); return result;
-    }
-
-    private static void RetireSuperseded(ImportedModel model, PdfDictionary trailer, IIndirectResolver resolver,
-        ResourceGovernor governor, CancellationToken token)
-    {
-        using ParserMemoryScope walk = ParserMemoryScope.Create(governor);
-        HashSet<int> before = GraphReachability.Find(resolver, model.Trailer, walk, governor);
-        List<QpdfObject> roots = ParserContainers.CreateList<QpdfObject>(walk);
-        ParserContainers.AddItem(walk, roots, trailer);
-        // JSON already preserves unrelated unreferenced declarations. Their private
-        // edges are independent roots too; removing catalog roles must not break them.
-        foreach ((int number, QpdfObject value) in model.Objects)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (!before.Contains(number)) { ParserContainers.AddItem(walk, roots, value); }
-        }
-        walk.Reserve(checked(56L + IntPtr.Size * (long)roots.Count));
-        QpdfObject[] items = new QpdfObject[roots.Count];
-        for (int index = 0; index < items.Length; index++)
-        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[index] = roots[index]; }
-        HashSet<int> after = GraphReachability.Find(resolver, PdfArray.FromOwnedItems(items), walk, governor);
-        foreach (int number in before)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (after.Contains(number)) { continue; }
-            model.Objects.Remove(number); model.CompressedObjects?.Remove(number);
-        }
     }
 }

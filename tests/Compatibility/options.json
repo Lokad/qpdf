@@ -2783,12 +2783,15 @@
           "ContentTransformsTests.CoalesceJoinsStreams",
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
           "ContentTransformsTests.CoalesceKeepsOpaqueStreams",
-          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
+          "JsonImportContentTests.CreationJoinsVisiblePagesWhileKeepingThePrivateArrayAndDirectKid",
+          "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
         ],
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
           "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
-          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference",
+          "JsonImportContentTests.UnsupportedStreamKeepsTheWholeArrayOpaque"
         ],
         "interaction": [
           "ContentTransformsTests.JobContentFlagsRoundTrip",
@@ -2805,11 +2808,13 @@
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
           "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules",
-          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
+          "JsonImportContentTests.DecodeRefusalLeavesThePriorTargetAndOpensNoTransaction"
         ],
         "oracle": [
           "diff:coalesce-payloads",
-          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
+          "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceJsonImportContent"
         ]
       }
     },
@@ -4331,7 +4336,8 @@
           "JsonCatalogRemovalTests.ImportsRemoveOnlyTheRequestedCatalogRoles",
           "JsonPagePreparationTests.CreationValidatesButIgnoresPreparationActions",
           "JsonQdfTests.ImportedQdfRetainsOriginalPairsAndRepairsAnEditedStream",
-          "ImportedCheckTests.CreationChecksReachableStreamsAndListsExactOriginalPairs"
+          "ImportedCheckTests.CreationChecksReachableStreamsAndListsExactOriginalPairs",
+          "JsonImportContentTests.CreationJoinsVisiblePagesWhileKeepingThePrivateArrayAndDirectKid"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4347,7 +4353,8 @@
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph",
           "JsonPagePreparationTests.BothPoliciesValidatePreparationFlagTypesBeforePublication",
           "JsonQdfTests.ImportedQdfRejectsAnAliasedPrimaryOrPatchTarget",
-          "ImportedCheckTests.OutputAndPhysicalListingRejectBeforeOpeningInput"
+          "ImportedCheckTests.OutputAndPhysicalListingRejectBeforeOpeningInput",
+          "JsonImportContentTests.UnsupportedStreamKeepsTheWholeArrayOpaque"
         ],
         "interaction": [
           "JsonImportCompressionTests.CreateUsesEffectiveCompressionSetters",
@@ -4390,7 +4397,8 @@
           "JsonCatalogRemovalTests.RemovalCannotHideTheOriginalObjectTableLimit",
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget",
           "JsonQdfTests.QdfPreparationRefundsAdmissionAndPreservesNamedPriorOutput",
-          "ImportedCheckTests.LimitsAndCancellationCloseEveryInputWithoutPublication"
+          "ImportedCheckTests.LimitsAndCancellationCloseEveryInputWithoutPublication",
+          "JsonImportContentTests.DecodeRefusalLeavesThePriorTargetAndOpensNoTransaction"
         ],
         "oracle": [
           "tools/ReferenceJsonImportCompression.ps1: Invoke-ReferenceJsonImportCompression",
@@ -4400,7 +4408,8 @@
           "diff:json-layout",
           "tools/ReferenceDirectOutlines.ps1",
           "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf",
-          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck",
+          "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceJsonImportContent"
         ]
       }
     },
@@ -7995,7 +8004,8 @@
           "JsonPagePreparationTests.NewPageDoesNotReviveAnOriginalMissingEdgeWithTheSamePair",
           "JsonPagePreparationTests.AssembledExportsUpdateTheirOriginalInputIncludingProtectedOutput",
           "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout",
-          "ImportedCheckTests.ProtectedInputAuthenticatesBeforeThePatch"
+          "ImportedCheckTests.ProtectedInputAuthenticatesBeforeThePatch",
+          "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -8024,7 +8034,8 @@
           "diff:json-layout",
           "tools/ReferenceDirectOutlines.ps1",
           "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf",
-          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck",
+          "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceJsonImportContent"
         ]
       }
     },

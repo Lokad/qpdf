@@ -68,6 +68,9 @@ binding. Original source edges must match live xrefs. JSON edges may refer to
 live or declared pairs. Sidecars can share admitted bytes by logical path while
 retaining separate headers. Output packing carries original object-stream
 membership through renumbering.
+Command imports use the shared coalescer during bound page-tree traversal.
+Joining changes the active contents link while reachability retains private
+aliases and retires replaced-only objects.
 
 PDF publication unregisters signature fields and removes their active
 attributes. Former widgets become static stamps using their stored appearances.

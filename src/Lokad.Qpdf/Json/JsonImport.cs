@@ -814,6 +814,7 @@ internal static partial class JsonImport
         DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         ParserMemoryScope? normalizationMemory,
+        bool coalesceContents,
         out IReadOnlyList<PageLocation>? normalizationPages,
         CancellationToken cancellationToken)
     {
@@ -950,6 +951,12 @@ internal static partial class JsonImport
             infoNew = renumber[-2];
         }
 
+        List<PageLocation> pages = coalesceContents
+            ? CoalescePages(mapped, resolver, infoNew, limits, governor, diagnostics, memory,
+                normalizationMemory ?? pageMemory, cancellationToken)
+            : PageTree.Read(resolver, mapped[1], diagnostics, governor, limits,
+                normalizationMemory ?? pageMemory, cancellationToken);
+
         // Publication orders the numbered model once, along with ordinary and
         // split output. Keep the catalog first for role-specific preparation.
         List<Writing.NumberedObject> numbered = new(mapped.Count) { new(1, mapped[1]) };
@@ -959,13 +966,44 @@ internal static partial class JsonImport
             if (number != 1) { numbered.Add(new Writing.NumberedObject(number, value)); }
         }
 
-        List<PageLocation> pages = PageTree.Read(resolver, mapped[1], diagnostics, governor, limits,
-            normalizationMemory ?? pageMemory, cancellationToken);
         PdfDictionary catalog = (PdfDictionary)mapped[1];
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
         normalizationPages = normalizationMemory is null ? null : pages;
         return new RenumberedModel(numbered, infoNew, metadata, pages.Count, mapped, renumber);
+    }
+
+    private static List<PageLocation> CoalescePages(Dictionary<int, QpdfObject> objects, IIndirectResolver resolver,
+        int? info, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory,
+        ParserMemoryScope pageMemory, CancellationToken token)
+    {
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        phase.Reserve(160L);
+        PdfArray roots = PdfArray.FromOwnedItems([new PdfReference(1, 0), info is int number ? new PdfReference(number, 0) : PdfNull.Instance]);
+        HashSet<int> before = GraphReachability.Find(resolver, roots, phase, governor);
+        Dictionary<PdfArray, PdfReference> arrays = ParserContainers.CreateDictionary<PdfArray, PdfReference>(phase, ReferenceEqualityComparer.Instance);
+        int lastId = 0;
+        foreach (int id in objects.Keys)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); lastId = Math.Max(lastId, id); }
+        phase.Reserve(256L);
+        Func<PdfStream, PdfReference?> addStream = AddObject;
+        List<PageLocation> pages = PageTree.Rewrite(objects, 1, resolver,
+            page => Content.ContentTransforms.CoalescePage(page, resolver, addStream, arrays, false, null,
+                true, phase, limits, governor, diagnostics, token),
+            AddObject, diagnostics, governor, limits, pageMemory, memory, token);
+        if (arrays.Count != 0)
+        { GraphReachability.RetireSuperseded(objects, null, before, roots, resolver, phase, governor, token); }
+        return pages;
+
+        PdfReference AddObject(QpdfObject value)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size);
+            memory.Reserve(32L);
+            lastId = checked(lastId + 1);
+            objects.Add(lastId, value);
+            return new PdfReference(lastId, 0);
+        }
     }
 
     internal static void CheckObjectCount(ImportedModel model, QpdfLimits limits)

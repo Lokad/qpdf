@@ -416,6 +416,11 @@ document policies. AcroForm removal retains widgets; structure removal omits
 StructTreeRoot and MarkInfo together. Fresh catalog/Info roles preserve private
 aliases; superseded metadata retires unless independently rooted. Unrelated
 unreferenced JSON declarations retain their existing preservation policy.
+Command imports and updates can coalesce page contents after binding. The
+shared coalescer joins the decoded chunks in order before stream encoding.
+Private references keep the original array and streams. An edited direct
+page gains an indirect identity. When a chunk cannot be decoded, the page
+keeps its array and the operation reports a warning.
 Argv and job JSON imports use ordinary stream compression and decoding settings.
 Streams that exceed the filter limit remain opaque and report a warning.
 Stream preparation precedes encryption. Typed imports preserve encoded payloads.

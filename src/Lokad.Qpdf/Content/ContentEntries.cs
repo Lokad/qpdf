@@ -35,8 +35,13 @@ internal sealed class ContentEntries : IDisposable
     // their own identities. Nested arrays and reference cycles are damaged input.
     internal static ContentEntries? TryRead(QpdfObject contents, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token)
+        => TryRead(contents, resolver, governor, token, out _);
+
+    internal static ContentEntries? TryRead(QpdfObject contents, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token, out PdfArray? array)
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        array = null;
         QpdfObject target = contents;
         if (contents is PdfReference root)
         {
@@ -48,7 +53,7 @@ internal sealed class ContentEntries : IDisposable
         ContentEntries entries = Create(governor, token);
         try
         {
-            PdfArray? array = target as PdfArray;
+            array = target as PdfArray;
             int count = array?.Count ?? 1;
             if (count > 0)
             {

@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Filters;
@@ -12,8 +11,6 @@ namespace Lokad.Qpdf.Tests.Content;
 [Collection(nameof(NameTableCollection))]
 public sealed class ContentBufferGraphTests
 {
-    private delegate PdfStream? JoinCall(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request, QpdfLimits limits, ResourceGovernor governor, CancellationToken token);
-    private static readonly JoinCall Join = (typeof(ContentTransforms).GetMethod("BuildCoalescedContent", BindingFlags.Static | BindingFlags.NonPublic) ?? throw new InvalidOperationException()).CreateDelegate<JoinCall>();
     private static PoolResolver Resolver() => new(new Dictionary<int, QpdfObject>());
     private static PdfStream Stream(string filter, byte[] data)
         => new(filter == "" ? DecoderOwnershipFixtures.Dictionary() : DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii(filter)), ("Length", new PdfInteger("999", 999L))),
@@ -33,7 +30,8 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
         using ContentEntries entries = Entries(construction, Stream("", []), Stream("ASCIIHexDecode", "q\n"u8.ToArray()), Stream("", []), Stream("FlateDecode", "Q"u8.ToArray()));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
-        PdfStream output = Assert.IsType<PdfStream>(Join(entries, Resolver(), new(true, false, compress, 9, false, 0L), QpdfLimits.Default, governor, CancellationToken.None));
+        PdfStream output = Assert.IsType<PdfStream>(ContentTransforms.BuildCoalescedContent(entries, Resolver(), compress,
+            9, false, QpdfLimits.Default, governor, CancellationToken.None));
         ReadOnlyMemory<byte> actual = output.RawMemory;
         if (compress)
         {
@@ -53,9 +51,26 @@ public sealed class ContentBufferGraphTests
         using ContentEntries entries = Entries(construction, Stream("FlateDecode", "q"u8.ToArray()), damaged);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope prior = ParserMemoryScope.Create(governor); prior.Reserve(23L); long live = governor.Snapshot().LiveMemoryBytes;
-        Assert.Null(Join(entries, Resolver(), new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, CancellationToken.None));
+        Assert.Null(ContentTransforms.BuildCoalescedContent(entries, Resolver(), false, null, false,
+            QpdfLimits.Default, governor, CancellationToken.None));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
         Assert.Equal("q Q"u8.ToArray(), damaged.Data);
+    }
+
+    [Fact]
+    public void ImportedContentsDecodeIdentityCryptWithoutChangingTheSourceHeader()
+    {
+        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        PdfStream identity = new(DecoderOwnershipFixtures.Dictionary(("Filter", PdfName.FromAscii("Crypt"))), "q"u8.ToArray());
+        using ContentEntries entries = Entries(construction, identity, Stream("", "Q"u8.ToArray()));
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfStream joined = Assert.IsType<PdfStream>(ContentTransforms.BuildCoalescedContent(entries, Resolver(), false, null,
+            true, QpdfLimits.Default, governor, CancellationToken.None));
+        Assert.Equal("q\nQ"u8.ToArray(), joined.Data);
+        Assert.Equal(0, joined.Dictionary.Count);
+        Assert.True(identity.Dictionary.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        Assert.Equal(PdfName.FromAscii("Crypt"), filter);
+        Assert.Equal("q"u8.ToArray(), identity.Data);
     }
 
     [Theory]
@@ -99,7 +114,8 @@ public sealed class ContentBufferGraphTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1L }, CancellationToken.None);
         Assert.Throws<OperationCanceledException>(() => normalize ? ContentTransforms.BuildNormalizedContent(original, null, false,
             Resolver(), QpdfLimits.Default, governor, new(construction), cancellation.Token, out _)
-            : Join(entries, Resolver(), new(true, false, false, null, false, 0L), QpdfLimits.Default, governor, cancellation.Token));
+            : ContentTransforms.BuildCoalescedContent(entries, Resolver(), false, null, false,
+                QpdfLimits.Default, governor, cancellation.Token));
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 

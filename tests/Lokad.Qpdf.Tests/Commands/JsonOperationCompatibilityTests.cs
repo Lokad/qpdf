@@ -32,7 +32,7 @@ public sealed class JsonOperationCompatibilityTests
     {
         (string Key, object Value, string[] Arguments)[] requests = [
             ("qdf", true, ["--qdf"]), ("linearize", true, ["--linearize"]),
-            ("coalesceContents", true, ["--coalesce-contents"]), ("normalizeContent", "y", ["--normalize-content=y"]),
+            ("normalizeContent", "y", ["--normalize-content=y"]),
             ("externalizeInlineImages", true, ["--externalize-inline-images"]), ("iiMinBytes", "17", ["--ii-min-bytes=17"]),
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),

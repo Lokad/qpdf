@@ -3,6 +3,7 @@ using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
@@ -145,10 +146,14 @@ internal static class ContentTransforms
             normalized = new(ReferenceEqualityComparer.Instance);
         }
         Dictionary<PdfArray, PdfReference>? coalesced = null;
+        PoolResolver? coalescingResolver = null;
+        Func<PdfStream, PdfReference?>? addCoalesced = null;
         if (request.Coalesce)
         {
-            phase.Reserve(96L);
+            phase.Reserve(160L);
             coalesced = new(ReferenceEqualityComparer.Instance);
+            coalescingResolver = copier.CreateResolver(phase);
+            addCoalesced = copier.AddIndirectObject;
         }
         foreach (int pageId in pageIds)
         {
@@ -160,9 +165,15 @@ internal static class ContentTransforms
             }
 
             PdfDictionary page = (PdfDictionary)raw;
-            if (coalesced is not null)
+            if (coalesced is not null && coalescingResolver is not null && addCoalesced is not null)
             {
-                page = CoalescePage(copier, pageId, page, request, coalesced, phase, limits, governor, diagnostics, cancellationToken);
+                PdfDictionary replacement = CoalescePage(page, coalescingResolver, addCoalesced, coalesced, request.Compress,
+                    request.Level, false, phase, limits, governor, diagnostics, cancellationToken);
+                if (!ReferenceEquals(page, replacement))
+                {
+                    copier.ReplaceCopiedObject(pageId, replacement);
+                    page = replacement;
+                }
             }
 
             if (normalized is not null)
@@ -229,38 +240,33 @@ internal static class ContentTransforms
         graph.Retain(); return result;
     }
 
-    private static PdfDictionary CoalescePage(
-        GraphCopier copier,
-        int pageId,
+    internal static PdfDictionary CoalescePage(
         PdfDictionary page,
-        ContentTransformRequest request,
+        IIndirectResolver resolver,
+        Func<PdfStream, PdfReference?> addStream,
         Dictionary<PdfArray, PdfReference> coalescedArrays,
+        bool compress,
+        int? compressionLevel,
+        bool normalizeIdentityCrypt,
         ParserMemoryScope phase,
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
-        using ContentEntries? entries = ReadPageContents(copier, page, governor, diagnostics, cancellationToken);
-        if (entries is null || entries.Count <= 1)
+        if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents)
+            || contents is not (PdfArray or PdfReference or PdfStream)) { return page; }
+        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, cancellationToken, out PdfArray? original);
+        if (entries is null)
         {
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped content operation on unreadable page contents.");
             return page;
         }
-
-        using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
-        PoolResolver resolver = copier.CreateResolver(resolverMemory);
-        PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents);
-        QpdfObject? target = contents;
-        if (target is PdfReference originalReference)
-        { PdfObjectLookup.TryResolve(originalReference, resolver, governor, cancellationToken, out target); }
-        PdfArray? original = target as PdfArray;
+        if (entries.Count <= 1) { return page; }
         if (original is not null && coalescedArrays.TryGetValue(original, out PdfReference? existing))
-        {
-            PdfDictionary shared = ReplaceEntry(page, "Contents"u8, existing, governor, cancellationToken);
-            copier.ReplaceCopiedObject(pageId, shared);
-            return shared;
-        }
-        PdfStream? coalesced = BuildCoalescedContent(entries, resolver, request, limits, governor, cancellationToken);
+        { return ReplaceEntry(page, "Contents"u8, existing, governor, cancellationToken); }
+        PdfStream? coalesced = BuildCoalescedContent(entries, resolver, compress, compressionLevel, normalizeIdentityCrypt,
+            limits, governor, cancellationToken);
         if (coalesced is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning,
@@ -271,33 +277,42 @@ internal static class ContentTransforms
         // The old Contents reference can identify an array shared with other
         // page or catalog values. Replace this page's edge, leaving those
         // identities intact until final output reachability is known.
-        PdfReference? link = copier.AddIndirectObject(coalesced);
+        PdfReference? link = addStream(coalesced);
         if (link is null) { return page; }
         if (original is not null)
         {
             ParserContainers.EnsureEntryCapacity(phase, coalescedArrays, IntPtr.Size);
             coalescedArrays.Add(original, link);
         }
-        PdfDictionary replaced = ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
-        copier.ReplaceCopiedObject(pageId, replaced);
-        return replaced;
+        return ReplaceEntry(page, "Contents"u8, link, governor, cancellationToken);
     }
 
-    private static PdfStream? BuildCoalescedContent(ContentEntries entries, PoolResolver resolver, ContentTransformRequest request,
-        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    internal static PdfStream? BuildCoalescedContent(ContentEntries entries, IIndirectResolver resolver, bool compress,
+        int? compressionLevel, bool normalizeIdentityCrypt, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int index = 0; index < entries.Count; index++)
         {
             PdfStream part = entries.Get(index).Stream;
+            using OwnedAllocationBatch? cryptHeader = normalizeIdentityCrypt && StreamCryptFilter.MayContain(part, governor)
+                ? OwnedAllocationBatch.Create(governor, token) : null;
+            if (cryptHeader is not null)
+            {
+                PdfDictionary normalized = StreamCryptFilter.RemoveIdentity(part, resolver, cryptHeader);
+                if (!ReferenceEquals(normalized, part.Dictionary))
+                {
+                    cryptHeader.Memory.Reserve(32L); cryptHeader.Add(32L);
+                    part = part.WithDictionary(normalized);
+                }
+            }
             if (!chunks.TryAdd(part, resolver, limits))
             { FilterChain.RequireEmbeddedData(part, resolver, governor, token); return null; }
         }
         using JoinedContent joined = chunks.Join();
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        bool compress = request.Compress && joined.RawBytes.Length > 0;
+        compress = compress && joined.RawBytes.Length > 0;
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, request.Level, limits, governor, graph.Memory, token) : joined.TakeBytes(graph.Memory);
+        byte[] data = compress ? FlateFilter.Encode(joined.RawBytes, compressionLevel, limits, governor, graph.Memory, token) : joined.TakeBytes(graph.Memory);
         joined.Dispose(); AddContentBuffer(graph, data);
         PdfNameTable<QpdfObject> header = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
         if (compress)

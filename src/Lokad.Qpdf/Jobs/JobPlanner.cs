@@ -800,7 +800,7 @@ internal static partial class JobPlanner
                 }
 
                 if (checkImported && (jsonInput && seenUpdateFromJson || empty || output is not null
-                    || hasPages || seenCollate || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
+                    || hasPages || seenCollate || coalesceContents || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
                     || wantAttachments || checkLinearization || showLinearization || showXref))
                 {
                     throw new QpdfParseException("JSON graph checking requires one import and cannot be combined with output, page transforms, attachments or physical layout inspection.", 0L, null);
@@ -990,7 +990,7 @@ internal static partial class JobPlanner
 
             if (importJson && (testJsonSchema || preserveUnreferenced
                 || labels.Count > 0
-                || coalesceContents || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
+                || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no") || linearizePass1 is not null
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
                 || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
@@ -1028,6 +1028,7 @@ internal static partial class JobPlanner
                 return new JsonImportPlan(importInput, patch, SelectionPlan.CheckedPath(output), recovery) with
                 {
                     CompressionState = compressionSettings.State,
+                    CoalesceContents = coalesceContents,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     MaxStreamFilters = maxStreamFilters,
