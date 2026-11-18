@@ -41,6 +41,8 @@ limits and reports warnings on the document/result (check diagnostics).
 | Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
 | Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding requires a host codec; CMYK/YCCK also requires its explicit four-component capability. Zopfli is unavailable. |
 
+Bounded xref repair can rebuild a table with a zero-entry subsection.
+
 Empty `DecodeParms` arrays select the filters' defaults.
 ASCII85 inline-image framing accepts PDF whitespace inside the `~>` end marker,
 matching stream decoding while leaving subsequent content outside the packet.
@@ -245,6 +247,11 @@ extraction/layout, general authoring and PDF/A/X/UA conformance are outside scop
 
 ## Selection semantics
 
+`SelectPageAsync` accepts `QpdfRecoveryMode.BoundedRepair` for explicit page and
+first/last preview selections and reports repair in `PdfPageSelectionResult.Warnings`.
+The full overload accepts rotations, input credentials and the output protection
+policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
+
 - Select ordered 1-based pages, duplicates, FirstAndLast windows or Normalized
   sets; merge, collate, rotate, label and split. Typed explicit page lists must be
   nonempty; supported ranges can select no pages. Endpoint-free `:odd`/`:even`
@@ -428,6 +435,9 @@ Attachment JSON lists stream entries under every `/EF` name, sorted by raw name
 bytes. Filename preference uses UF/F/Unix/DOS/Mac. Null values, non-stream values
 and optional entries with unreadable syntax are omitted.
 List/extract/add/remove/copy share typed, argv and job implementations.
+The full typed overloads accept `QpdfRecoveryMode` for primary, copy-source and
+encryption-template inputs. Typed listing with explicit recovery returns immutable
+metadata, warnings and closed-handle counters in `QpdfAttachmentListResult`.
 Command listing, reports and extraction share one authenticated document.
 Targeted extraction uses the same inspection validation and reports as returned
 payloads; JSON inspection/import/update cannot be combined with it. Input cleanup

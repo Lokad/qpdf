@@ -18,7 +18,7 @@ not establish implemented behavior. Development changes are in the
 | Encryption predicates | `is-encrypted` uses 0/2 for encrypted/plain input; `requires-password` uses 0/2/3 for credentials needed/plain input/credentials matched. Completed query codes are independent of warning presentation. Unsupported handlers fail explicitly. |
 | Crypto implementation | Standalone `--show-crypto` reports `managed`. Names describe the implementation in this build; native qpdf can list different providers. |
 | Encryption reporting | `show-encryption` reports non-secret declared settings and password-match status. Wrong credentials permit reporting but skip combined content inspections. Reports omit passwords/keys and include per-filter cipher names only for V4/V5 handlers; explicit output paths are rejected. |
-| Encrypted JSON | Authenticated JSON exports decrypted values and selected stream payloads. The encryption section keeps password/key fields null. Typed and command updates authenticate the original PDF and apply plaintext object patches using an explicit preserve/remove/create/template output policy. Typed and command creation protects plaintext JSON through a fresh AES-256 or authenticated template policy. Preservation validates a repeated handler against the authenticated PDF. Creation from a JSON `/Encrypt` declaration requires an explicit remove/create/template policy; JSON alone cannot authenticate a key. |
+| Encrypted JSON | Authenticated exports use plaintext values and selected stream payloads. Password and key fields are null. Import and update use the [JSON protection policies](SUPPORTED-PROFILE.md#authenticated-json-updates-and-creation). |
 | JPEG | Decoding/recompression needs a caller-supplied codec. Gray/RGB is supported. CMYK/YCCK decoding requires an explicit host capability and yields raw PDF CMYK samples, preserving the PDF color space and Decode array. Four-component recompression remains ineligible. |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
@@ -26,15 +26,9 @@ not establish implemented behavior. Development changes are in the
 | Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container and nesting ceilings also apply to JSON imports, where native can ignore them. Memory admission bounds an estimated working set, not CLR heap or process RSS. See [ownership](MEMORY.md). |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
 
-The inventory has 140 flags in 157 context entries. It separates implemented
-behavior from planned requirements, deferred legacy-output options and explicit
-exclusions. Security rejection tests establish current refusal only; they do not
-establish password-security support. `cryptoSyntax` identifies security option
-names used for parser diagnostics;
-it does not indicate support or rejection. Completion requires positive behavior,
-resource/failure controls and native evidence, independently of that syntax marker.
-Incomplete entries retain concrete gaps; exclusions have
-reasons. Companion fix-qdf/zlib-flate operations are additional contracts.
+The inventory covers 140 flags in 157 context entries, plus the fix-qdf and zlib-flate
+companions. Entries record status, executable evidence, remaining gaps and
+exclusion reasons. `cryptoSyntax` identifies option names for parser diagnostics.
 
 ## Entry-point defaults
 
@@ -52,12 +46,11 @@ document disposal; exact-reference lookup uses the document's opening token and 
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
 
-Argv setters apply at their position. Job keys use native sorted-key setter order,
-including nested files; duplicate JSON properties keep their last value. Semantic
-validation uses effective values; malformed string encoding still rejects even
-in a superseded value. Compression
-and decode setters follow that order; QDF fills unset defaults. Managed extensions
-include separate job-file/JSON/split values and bare compression. Unknown options,
+Argv setters apply in argument order. Job keys apply in sorted order within each
+file, and duplicate JSON properties keep their last value. Semantic validation
+uses effective values. Malformed string encoding fails even in a superseded
+value. Compression and decode setters follow that order. QDF fills unset defaults.
+Managed extensions include separate job-file/JSON/split values and bare compression. Unknown options,
 invalid combinations and excluded crypto fail explicitly.
 
 Repeated scalar/bare argv setters are accepted, including warning, recovery,
@@ -66,37 +59,10 @@ Nonempty input/output declarations, pages/replace declarations and repeated `--e
 main-context parser ceilings also remain exclusive. Stream-filter setters and
 `--global` blocks keep setter order. Block-local duplicate rules remain explicit.
 
-Single-input typed extraction and first/last previews can supply
-`QpdfRecoveryMode.BoundedRepair` to `SelectPageAsync`; existing overloads stay
-strict. The reader uses the same bounded syntax/xref repair as commands, including
-rebuilding a table with a zero-entry subsection. `PdfPageSelectionResult.Warnings`
-reports recovery. Streams remain opaque, and source bytes, passwords, limits and
-transactional publication keep their existing contracts. The full recovery overload
-also accepts rotations, an input password and an output-encryption policy.
-
-Typed merging/splitting selects the same policy through
-`PdfPageMergeOptions.RecoveryMode`. It defaults to Strict and applies to every
-source and encryption template. Repeated paths share one opened document;
-credential consistency, source mappings, warnings and output protection retain
-their existing contracts. Undefined recovery values reject before host access.
-
-Document opening accepts an explicit recovery policy with credentials/limits;
-typed checking and JSON inspection use their options' `RecoveryMode`. Returned
-document warnings, check diagnostics and JSON warnings report repair. Typed JSON
-can return its report without publishing it; file sidecars still require an
-explicit prefix. See the [inspection profile](SUPPORTED-PROFILE.md#inspection-profile).
-
-```csharp
-PdfPageSelectionResult preview = await Qpdf.SelectPageAsync(
-    host, input, output, PdfPageSelectionOptions.FirstAndLast(2),
-    QpdfRecoveryMode.BoundedRepair, cancellationToken);
-```
-
-Typed attachment list/extract/add/remove/copy have full overloads accepting
-`QpdfRecoveryMode`. The policy applies to primary, copy-source and encryption-template
-readers; existing overloads remain strict. Explicit listing returns
-`QpdfAttachmentListResult` with immutable metadata, warnings and closed-handle counters.
-Typed extraction closes its input before publication, retaining payload backing through commit.
+See the supported profile for typed recovery options and warnings in
+[document opening](SUPPORTED-PROFILE.md#entry-paths), [page selection](SUPPORTED-PROFILE.md#selection-semantics),
+[inspection](SUPPORTED-PROFILE.md#inspection-profile) and
+[attachments](SUPPORTED-PROFILE.md#attachments-profile).
 
 ## Known differences from native qpdf
 
@@ -121,7 +87,7 @@ are generally not compatibility guarantees.
 | Placement forms | Retain primary calculation order; imported fields do not add CO entries. Source resources/default appearance programs bind independently of target resources. |
 | Labels | Interpreted malformed trees fail. Unchanged whole-file trees stay raw. Prefix-only styles ignore inactive counters; equal resolved styles/raw prefixes can compact. Label removal applies to split outputs; native split can retain primary-document labels despite `--remove-page-labels`. |
 | Attachments | Preserve raw keys/filespec graphs; listing is a projection. Request matching uses decoded ordinal text, emitted keys sort by encoded bytes. Full-collection operations reject duplicate logical keys; selective extraction keeps first-match lookup. Typed and argv/job extraction authenticate R2–R6 inputs and publish plaintext payloads, including to explicit host output paths. Dates are omitted unless supplied; CreationDate/ModDate inspect independently. |
-| PDF JSON | V2 uses binary `b:` strings whenever Unicode would change bytes. V1 object keys use full `n g R` references. Object tables classify live pairs using source xrefs; native can materialize dead trailer pairs as explicit null objects. Page assembly preserves source labels and the selected sources' version floor, matching PDF selection; direct native JSON can retain primary label positions and version instead. Import/update matches full number/generation pairs and validates page structure; object streams and linearization share the physical writers, while other layout/content/stream/metadata transforms remain excluded. Dangling references become null; newly declared pairs do not revive stale source edges. Distinct declared generations retain independent values, while native JSON publication can alias generations sharing an object number. |
+| PDF JSON | Object tables classify live pairs using source xrefs. Native can materialize dead trailer pairs as explicit null objects and alias declared generations that share an object number. Managed page-source export preserves the assembled labels and source version floor. Native JSON can retain primary label positions and version. See the [JSON profile](SUPPORTED-PROFILE.md#inspection-profile) for import layout, document removals and stream policies. |
 | Resource pruning | Conservatively retain effective Type 3 and soft-mask dependencies that native can discard. Independent private/metadata consumers keep their original resource graph. |
 | Inline images | Externalized Indexed color-space aliases become full XObject names; palette/sample treatment is unchanged. |
 | Parser | Integer scalars cover signed 64-bit values. Strict input rejects bare-reference object bodies; repair replaces them with null. Configured nesting/container exhaustion remains a resource failure and cannot silently discard retained metadata. |
@@ -205,23 +171,19 @@ and the [changelog](../CHANGELOG.md) for migration history.
 
 ## How compatibility is verified
 
-Ordinary tests are offline and require no native PDF engine. They cover behavior,
-failure categories, cancellation/refusal, graph identity, escaped lifetimes and
-output faults. Locked Release/package/isolated-consumer gates protect the public
-surface and dependency boundary. Explicit reference jobs add native differential,
-parser and finite raster controls; syntax alone is not a semantic oracle, and
-lossy JPEGs need appropriate comparisons. No timing gate or general rendering
-equivalence is claimed. The security matrix compares R2–R6 query exits and
-classic, object-stream, QDF, linearized and decrypted outputs through argv and
-job JSON. It also compares fresh AES-256, independent templates, raw/UTF-8/
-PDFDocEncoding passwords, host password files and non-secret reports. Native
-checks authenticate both roles and verify policy. Encrypted inline/sidecar JSON
-exports cross into native and managed update/creation with changed values and
-explicit preserve/remove/new/template policies; decrypted
-controls compare page/metadata payloads and independent-reader page counts.
-Source cases use distinct encrypted text and credentials, compare independent
-ordered page text, and reject wrong secondary passwords before managed publication.
+CI runs offline behavior tests, locked builds and isolated package consumers.
+The reference job compares native and managed semantics with an independent
+reader, including ordered page content, parser recovery, password policies and
+decoded JSON payloads. Its entry point is `tools/run-reference-checks.ps1`.
 Reference jobs fail when tools are missing.
+
+Run the visual lane separately with a Release solution build, PowerShell on
+.NET 10 or later, the pinned qpdf executable and an identified `pdftoppm`.
+Use a fresh workspace for the rendered comparisons and their negative controls.
+
+```powershell
+pwsh -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer -WorkRoot artifacts/visual-check
+```
 
 The pinned source commit is `4eba95899886e851cc41d76886483b347612f2a8`.
 Inventory hashes normalize CRLF to LF; reference metadata changes require review.
