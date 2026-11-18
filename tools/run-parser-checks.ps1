@@ -78,46 +78,14 @@ function Invoke-Managed {
 
 function Invoke-Oracle {
   param([string] $Tag, [string[]] $Arguments)
-  $start = [Diagnostics.ProcessStartInfo]::new($QpdfExe)
-  $start.UseShellExecute = $false
-  $start.CreateNoWindow = $true
-  $start.RedirectStandardOutput = $true
-  $start.RedirectStandardError = $true
-  foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
-  $process = [Diagnostics.Process]::new()
-  $process.StartInfo = $start
-  $stdout = [IO.MemoryStream]::new()
-  $stderr = [IO.MemoryStream]::new()
-  $started = $false
-  $outTask = $null
-  $errTask = $null
-  try {
-    $started = $process.Start()
-    if (-not $started) { throw 'Oracle process did not start.' }
-    $outTask = $process.StandardOutput.BaseStream.CopyToAsync($stdout)
-    $errTask = $process.StandardError.BaseStream.CopyToAsync($stderr)
-    if (-not $process.WaitForExit(30000)) { throw "Oracle process exceeded 30 seconds: PID $($process.Id). See $runRoot." }
-    $exitCode = $process.ExitCode
-  }
-  finally {
-    try {
-      if ($started) {
-        if (-not $process.HasExited) {
-          $process.Kill($true)
-          if (-not $process.WaitForExit(5000)) { throw 'Oracle process did not stop after termination.' }
-        }
-        foreach ($capture in @($outTask, $errTask)) {
-          if ($null -ne $capture -and -not $capture.Wait(5000)) { throw 'Oracle output capture did not finish.' }
-        }
-        $outBytes = $stdout.ToArray()
-        $errBytes = $stderr.ToArray()
-        [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stdout.bin"), $outBytes)
-        [IO.File]::WriteAllBytes((Join-Path $runRoot "$Tag-stderr.bin"), $errBytes)
-      }
-    } finally { $stdout.Dispose(); $stderr.Dispose(); $process.Dispose() }
-  }
+  $stdout = Join-Path $runRoot "$Tag-stdout.bin"
+  $stderr = Join-Path $runRoot "$Tag-stderr.bin"
+  $process = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList $Arguments -Wait -PassThru `
+    -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+  $outBytes = [IO.File]::ReadAllBytes($stdout)
+  $errBytes = [IO.File]::ReadAllBytes($stderr)
   return @{
-    Exit = $exitCode
+    Exit = $process.ExitCode
     Value = [Text.Encoding]::Latin1.GetString($outBytes).TrimEnd([char[]]@([char]13,[char]10))
     StdoutBase64 = [Convert]::ToBase64String($outBytes)
     StderrBase64 = [Convert]::ToBase64String($errBytes)
