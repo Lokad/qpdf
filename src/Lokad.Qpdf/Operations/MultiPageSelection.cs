@@ -677,8 +677,6 @@ internal static class MultiPageSelection
         if (primaryStructTree is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryStructTree.ObjectNumber, sizeof(int)); }
         if (primaryMarkInfo is PdfReference primaryMarkRef) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int)); }
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
-        ParserMemoryScope presentationMemory = preparation.Memory;
-        List<PreparedSplitPublication> prepared = preparation.Items;
         for (int g = 0; g < groups.Count; g++)
         {
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
@@ -885,17 +883,10 @@ internal static class MultiPageSelection
                 multiLevel, groupInfo, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, groupOriginalIds,
                 settings.Linearize, settings.LinearizePass1, path, limits, governor, cancellationToken,
                 groupSecurity, preparedModel.EncryptionObject, groupMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
-            try { ParserContainers.AddItem(presentationMemory, prepared, publication, IntPtr.Size); }
-            catch { publication.Dispose(); throw; }
+            preparation.Add(publication);
         }
 
-        long publicationCapacity = 0L;
-        foreach (PreparedSplitPublication publication in prepared)
-        {
-            governor.CheckCancellation();
-            publicationCapacity = Math.Max(publicationCapacity, publication.PublicationCapacity);
-        }
-        using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, prepared.Count != 0, publicationCapacity);
+        using PublicationReservation publicationAdmission = preparation.ReservePublication(governor);
         IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
         IReadOnlyList<int> splitCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
         List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
@@ -905,12 +896,7 @@ internal static class MultiPageSelection
             if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(GovernedText.StringBytes(name.Length)); }
         }
         IReadOnlyList<QpdfPath> splitPaths = ResultCollectionStorage.Copy(selectionMemory, outputPaths, IntPtr.Size, governor, cancellationToken);
-        governor.PrepareExecutionPresentation();
-        publicationAdmission.Begin();
-        foreach (PreparedSplitPublication publication in prepared)
-        {
-            await publication.PublishAsync(host, governor, cancellationToken).ConfigureAwait(false);
-        }
+        await preparation.PublishAsync(host, publicationAdmission, governor, cancellationToken).ConfigureAwait(false);
 
         return (new MultiPageSelectionOutcome(kids.Count, splitMapping, splitCounts, splitPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
     }

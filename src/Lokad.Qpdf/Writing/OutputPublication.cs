@@ -350,8 +350,8 @@ internal static class OutputPublication
         private PreparedSplitPublications(ParserMemoryScope memory, List<PreparedSplitPublication> items)
         { _memory = memory; _items = items; }
 
-        internal ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(PreparedSplitPublications));
-        internal List<PreparedSplitPublication> Items => _items ?? throw new ObjectDisposedException(nameof(PreparedSplitPublications));
+        private ParserMemoryScope Memory => _memory ?? throw new ObjectDisposedException(nameof(PreparedSplitPublications));
+        private List<PreparedSplitPublication> Items => _items ?? throw new ObjectDisposedException(nameof(PreparedSplitPublications));
 
         internal static PreparedSplitPublications Create(ResourceGovernor governor)
         {
@@ -363,6 +363,38 @@ internal static class OutputPublication
                 return new PreparedSplitPublications(memory, items);
             }
             catch { memory.Dispose(); throw; }
+        }
+
+        internal void Add(PreparedSplitPublication publication)
+        {
+            try { ParserContainers.AddItem(Memory, Items, publication, IntPtr.Size); }
+            catch { publication.Dispose(); throw; }
+        }
+
+        internal PublicationReservation ReservePublication(ResourceGovernor governor)
+        {
+            Memory.CheckOwner(governor);
+            List<PreparedSplitPublication> items = Items;
+            long capacity = 0L;
+            foreach (PreparedSplitPublication publication in items)
+            {
+                governor.CheckCancellation();
+                capacity = Math.Max(capacity, publication.PublicationCapacity);
+            }
+            return PublicationReservation.Create(governor, items.Count != 0, capacity);
+        }
+
+        internal async ValueTask PublishAsync(IQpdfHost host, PublicationReservation admission,
+            ResourceGovernor governor, CancellationToken token)
+        {
+            Memory.CheckOwner(governor);
+            List<PreparedSplitPublication> items = Items;
+            governor.PrepareExecutionPresentation();
+            admission.Begin();
+            foreach (PreparedSplitPublication publication in items)
+            {
+                await publication.PublishAsync(host, governor, token).ConfigureAwait(false);
+            }
         }
 
         public void Dispose()
