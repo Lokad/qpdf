@@ -86,7 +86,14 @@ public sealed class WriterControlsTests
         Assert.True(result.Status == QpdfExecutionStatus.Completed,
             string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message)));
         Assert.Equal(1, host.SourceOpens);
-        Assert.Equal(operation == "split" ? new[] { "output-1.pdf", "output-2.pdf" } : [], host.CheckedTargets);
+        string[] checkedTargets = operation switch
+        {
+            "split" => ["output-1.pdf", "output-2.pdf"],
+            "replace" => [],
+            "pass1" => ["output.pdf", "pass1.pdf"],
+            _ => ["output.pdf"],
+        };
+        Assert.Equal(checkedTargets, host.CheckedTargets);
         Assert.Equal(0L, inner.OpenLeaseCount);
         Assert.Equal(0L, result.Counters.OpenHandles);
         string[] paths = operation == "split" ? ["output-1.pdf", "output-2.pdf"]

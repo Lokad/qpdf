@@ -41,8 +41,10 @@ public sealed class SelectiveInputTests
         return result;
     }
 
-    internal sealed class Host(byte[] bytes, int chunk) : IQpdfHost
+    internal sealed class Host(byte[] bytes, int chunk, QpdfPath inputPath) : IQpdfHost
     {
+        internal Host(byte[] bytes, int chunk) : this(bytes, chunk, Input) { }
+
         private byte[] _nextInput = bytes;
         internal int Chunk { get; } = chunk;
         internal InMemoryQpdfHost Outputs { get; } = new();
@@ -56,7 +58,9 @@ public sealed class SelectiveInputTests
 
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
-            token.ThrowIfCancellationRequested(); Opened++; Leases++;
+            token.ThrowIfCancellationRequested();
+            if (path != inputPath) { throw new QpdfHostException(path, QpdfHostFailureReason.NotFound); }
+            Opened++; Leases++;
             return new(new Lease(this, _nextInput, path));
         }
 

@@ -587,7 +587,12 @@ public sealed class PublicationAdmissionTests
             Assert.Equal(mode != "inactive", host.Committed.Contains(capture));
             if (mode == "inactive")
             { Assert.True(storage.TryGetOutput(QpdfPath.From(capture), out byte[] prior)); Assert.Equal(PublicationTestJobs.Prior, prior); }
-            if (mode == "superseded") { Assert.DoesNotContain(source, host.Opened); }
+            if (mode == "superseded")
+            {
+                // The capture probe opens the key without reading it as a template.
+                Assert.Single(host.Opened, path => path == source);
+                Assert.DoesNotContain(source, host.ReadPaths);
+            }
             Assert.True(storage.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] output));
             storage.AddInput(QpdfPath.From("readback.pdf"), output, QpdfInputOwnership.Transfer);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(storage, QpdfPath.From("readback.pdf"),
@@ -604,6 +609,7 @@ public sealed class PublicationAdmissionTests
         internal int Creates;
         internal List<string> Committed { get; } = new();
         internal List<string> Opened { get; } = new();
+        internal HashSet<string> ReadPaths { get; } = new(StringComparer.Ordinal);
         internal string Boundary = "";
         internal CancellationTokenSource? Cancellation;
         internal bool HostCancellation;
@@ -642,7 +648,7 @@ public sealed class PublicationAdmissionTests
             public string Identity => input.Identity;
             public long Length => input.Length;
             public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
-            { host.Operations++; host.Check("read", Path, 0); return input.ReadAsync(offset, destination, token); }
+            { host.Operations++; host.ReadPaths.Add(Path.Value); host.Check("read", Path, 0); return input.ReadAsync(offset, destination, token); }
             public async ValueTask DisposeAsync()
             { QpdfPath path = Path; await input.DisposeAsync(); host.Check("input-close", path, 0); }
         }

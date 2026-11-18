@@ -72,6 +72,8 @@ internal static class HostLeaseAllocationChecks
         internal static void ReleasePressure() { _pressure = null; }
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+            if (path.Value != "input") { throw new QpdfHostException(path, QpdfHostFailureReason.NotFound); }
             if (pressure && !outputPressure) { Fill(); }
             InputOpened = true;
             return ValueTask.FromResult<IQpdfInput>(Input);

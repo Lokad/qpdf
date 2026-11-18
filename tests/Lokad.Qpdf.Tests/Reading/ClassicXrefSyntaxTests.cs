@@ -83,7 +83,7 @@ public sealed class ClassicXrefSyntaxTests
     {
         byte[] source = Fixture(subsectionEnd, entryEnd, padding, true, incremental, true, "");
         using InMemoryQpdfHost complete = new(); complete.AddInput(QpdfPath.From("input"), source, QpdfInputOwnership.Transfer);
-        SelectiveInputTests.Host selected = new(source, incremental ? int.MaxValue : 37);
+        SelectiveInputTests.Host selected = new(source, incremental ? int.MaxValue : 37, QpdfPath.From("input"));
         using InMemoryQpdfHost selectedOutput = selected.Outputs;
         foreach (bool job in new[] { false, true })
         {

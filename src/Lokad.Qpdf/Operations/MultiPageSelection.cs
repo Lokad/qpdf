@@ -47,6 +47,7 @@ internal static class MultiPageSelection
         if (preparedSource is not null
             && (sources.Count != 1 || preparedSource.Path.Value != sources[0].Input.Value))
         { throw new InvalidOperationException("A prepared document requires its single original source."); }
+        using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         // A pages block uses the multisource copier even with one source. Keep
         // that catalog/selection behavior, retrying its complete preparation on
         // the same lease if a bounded read cannot establish the original result.
@@ -102,7 +103,6 @@ internal static class MultiPageSelection
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
-        using PublicationInputAliases? splitInputs = splitPages.HasValue ? PublicationInputAliases.Begin(selectionMemory, governor, "Split") : null;
         using SelectionSecurity securityOwner = SelectionSecurity.Create(governor);
         PdfReference? outputParent = null;
         int primaryIdx = sources.Count;
@@ -166,7 +166,8 @@ internal static class MultiPageSelection
             // catalog-only and mostly unused inputs retire after their copies.
             await using QpdfDocument document = !catalogOnly && preparedSource is not null ? preparedSource
                 : await QpdfDocument.OpenInspectionCore(host, sourcePath, catalogOnly ? settings.PrimaryPassword : sources[s].Password,
-                    limits, governor, diagnostics, recovery, cancellationToken, !catalogOnly && sources.Count == 1).ConfigureAwait(false);
+                    limits, governor, diagnostics, recovery, cancellationToken, !catalogOnly && sources.Count == 1,
+                    replaceInput && !emptyPrimary && sourcePath == primaryInput).ConfigureAwait(false);
             try
             {
                 // The existing source transfer funds a single complete input
@@ -619,6 +620,8 @@ internal static class MultiPageSelection
         if (optionalContent is not null && settings.ForceVersion is null)
         { IncludeVersionRequirement(ref effective, ref extensionLevel, new QpdfDocument.VersionParts(1, 5), 0, governor); }
         if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(checked(24L * mapping.Count)); }
+        PublicationInputAliases inputs = PublicationInputAliases.Active(governor);
+        QpdfPath? capture = settings.Linearize ? settings.LinearizePass1 : null;
         if (!splitPages.HasValue)
         {
             PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = catalogLabels, Metadata = primaryMetadata, Names = multiAttached.NamesRef, PageMode = primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = primaryOutlines, AcroForm = multiAcroForm, Structure = primaryStructTree, MarkInfo = primaryMarkInfo, Extras = primaryExtras, OptionalContent = optionalContent }, effective, extensionLevel, pool, governor, cancellationToken);
@@ -637,17 +640,7 @@ internal static class MultiPageSelection
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
-        if (settings.Linearize && settings.LinearizePass1 is QpdfPath firstPass)
-        {
-            foreach (string name in names)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (name == firstPass.Value)
-                { throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null); }
-            }
-        }
-        if (splitInputs is null) { throw new InvalidOperationException("Missing split input tracking."); }
-        await splitInputs.ValidateTargetsAsync(host, names, governor, cancellationToken).ConfigureAwait(false);
+        await inputs.ValidateTargetsAsync(host, names, capture, "Split", cancellationToken).ConfigureAwait(false);
 
         List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value, selectionMemory, governor);
         HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(selectionMemory);
@@ -864,9 +857,11 @@ internal static class MultiPageSelection
             throw new ArgumentNullException(nameof(plan));
         }
 
+        using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         await using QpdfDocument document = plan.EmptyDocument
             ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
-            : await QpdfDocument.OpenInspectionCore(host, plan.Input, password, limits, governor, diagnostics, plan.Recovery, cancellationToken).ConfigureAwait(false);
+            : await QpdfDocument.OpenInspectionCore(host, plan.Input, password, limits, governor, diagnostics, plan.Recovery,
+                cancellationToken, true, plan.ReplaceInput).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         if ((long)total > limits.MaxContainerSize)
         {

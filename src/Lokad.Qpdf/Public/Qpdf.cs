@@ -806,6 +806,7 @@ public static partial class Qpdf
             ExpandedArguments? expanded = null;
             try
             {
+                using PublicationInputAliases? aliases = PublicationInputAliases.BeginIfNeeded(governor);
                 expanded = await ResponseFileExpander.ExpandAsync(host, invocation.Arguments, options.Limits, governor, cancellationToken).ConfigureAwait(false);
                 result = await RunExpandedInvocationAsync(host, expanded.Values, expanded.Inputs, options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
@@ -868,21 +869,22 @@ public static partial class Qpdf
         try
         {
             DiagnosticBag diagnostics = new(governor);
-            JobJsonLoader.LoadedJob loaded;
+            ExecutionOutcome result;
             try
             {
-                loaded = await JobJsonLoader.ParseAsync(host, jobJson, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+                using PublicationInputAliases? aliases = PublicationInputAliases.BeginIfNeeded(governor);
+                JobJsonLoader.LoadedJob loaded = await JobJsonLoader.ParseAsync(host, jobJson, options.Limits, governor, cancellationToken).ConfigureAwait(false);
+                result = await RunLoadedJobAsync(host, loaded, [], options, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             catch (QpdfException ex)
             {
-                ExecutionOutcome failure = ToFailedResult(ex);
-                return governor.FinishExecutionResult(failure);
+                result = ToFailedResult(ex);
             }
             catch (OperationCanceledException)
             {
-                return governor.FinishExecutionResult(ExecutionOutcome.Canceled([]));
+                result = ExecutionOutcome.Canceled([]);
             }
-            return governor.FinishExecutionResult(await RunLoadedJobAsync(host, loaded, [], options, governor, diagnostics, cancellationToken).ConfigureAwait(false));
+            return governor.FinishExecutionResult(result);
         }
         finally { governor.AbandonExecutionResult(); }
     }

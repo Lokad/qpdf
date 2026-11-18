@@ -25,7 +25,7 @@ internal static class JsonSplitPublication
     {
         using ParserMemoryScope split = ParserMemoryScope.Create(governor);
         List<string> names = GenerateSplitNames(outputPath.Value, pages.Count, groupSize, split, governor);
-        await inputs.ValidateTargetsAsync(host, names, governor, token).ConfigureAwait(false);
+        await inputs.ValidateTargetsAsync(host, names, null, "Split", token).ConfigureAwait(false);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         if (pages.Count != 0)
         {

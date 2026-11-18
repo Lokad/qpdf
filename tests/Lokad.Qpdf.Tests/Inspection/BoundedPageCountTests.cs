@@ -53,7 +53,7 @@ public sealed class BoundedPageCountTests
     public async Task UnsupportedCompactProfilesUseCompleteAcquisitionWithoutReopening(string shape, string route)
     {
         byte[] bytes = Document(524288, shape);
-        SelectiveInputTests.Host source = new(bytes, int.MaxValue) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host source = new(bytes, int.MaxValue, Input) { ReplaceFutureInput = true };
         if (route == "typed")
         { Assert.Equal(1, (await Qpdf.CountPagesAsync(source, Input, CancellationToken.None)).PageCount); }
         else
@@ -74,12 +74,12 @@ public sealed class BoundedPageCountTests
         await Qpdf.SelectPageAsync(setup, Input, output, new(1), null,
             QpdfOutputEncryption.CreateAes256(QpdfPassword.FromText("reader"), QpdfPassword.FromText("owner"), -4, true), CancellationToken.None);
         Assert.True(setup.TryGetOutput(output, out byte[] bytes)); Assert.True(bytes.Length > 131072);
-        SelectiveInputTests.Host source = new(bytes, int.MaxValue) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host source = new(bytes, int.MaxValue, Input) { ReplaceFutureInput = true };
         QpdfPageCountResult result = await Qpdf.CountPagesAsync(source, Input, QpdfPassword.FromText("reader"),
             QpdfRecoveryMode.Strict, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(1, result.PageCount); Assert.Equal(1, source.Opened); Assert.Equal(0, source.Leases);
         Assert.Contains(source.Reads, read => read.Offset == 0 && read.Count == bytes.Length);
-        SelectiveInputTests.Host limited = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host limited = new(bytes, int.MaxValue, Input);
         await Assert.ThrowsAsync<QpdfLimitException>(() => Qpdf.CountPagesAsync(limited, Input, QpdfPassword.FromText("reader"),
             QpdfRecoveryMode.Strict, QpdfLimits.Default with { MaxMemoryBytes = 131072 }, CancellationToken.None).AsTask());
         Assert.DoesNotContain(limited.Reads, read => read.Offset == 0 && read.Count == bytes.Length); Assert.Equal(0, limited.Leases);
@@ -94,7 +94,7 @@ public sealed class BoundedPageCountTests
     public async Task CountPreservesHardLimitsAndRejectsUnreliableProviderReads(string mode)
     {
         byte[] bytes = Document(524288, "normal");
-        SelectiveInputTests.Host source = new(bytes, int.MaxValue) { Failure = mode == "empty-read" ? "empty" : "" };
+        SelectiveInputTests.Host source = new(bytes, int.MaxValue, Input) { Failure = mode == "empty-read" ? "empty" : "" };
         QpdfLimits limits = mode switch
         {
             "input" => QpdfLimits.Default with { MaxInputBytes = bytes.Length - 1 },
@@ -131,7 +131,7 @@ public sealed class BoundedPageCountTests
     public async Task ValidCountsSkipUnrelatedPayloadUnderSmallerLocalAndSharedAllowances(string route, int bulk, int chunk, string shape)
     {
         byte[] bytes = Document(bulk, shape), hash = SHA256.HashData(bytes);
-        SelectiveInputTests.Host source = new(bytes, chunk) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host source = new(bytes, chunk, Input) { ReplaceFutureInput = true };
         using RecordingMemoryBudget root = new(131072);
         QpdfExecutionCounters counters;
         using (IMemoryScope owner = root.CreateScope())
@@ -166,10 +166,10 @@ public sealed class BoundedPageCountTests
     public async Task UnvalidatedPageTreesNeverReturnADeclaredCount(string shape)
     {
         byte[] bytes = Document(524288, shape);
-        SelectiveInputTests.Host typed = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host typed = new(bytes, int.MaxValue, Input);
         await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.CountPagesAsync(typed, Input, CancellationToken.None).AsTask());
         Assert.Equal(0, typed.Leases); Assert.Equal(0, typed.OutputAttempts);
-        SelectiveInputTests.Host argv = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host argv = new(bytes, int.MaxValue, Input);
         QpdfExecutionResult result = await CountCommand(argv, "argv", QpdfLimits.Default, false);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount); Assert.Equal(0, argv.Leases);
@@ -182,18 +182,18 @@ public sealed class BoundedPageCountTests
     public async Task UncertainDeclarationsRequireCompleteInputAndKeepExistingCommandPolicy(string shape, string route, int declaration)
     {
         byte[] bytes = Document(524288, shape);
-        SelectiveInputTests.Host source = new(bytes, int.MaxValue) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host source = new(bytes, int.MaxValue, Input) { ReplaceFutureInput = true };
         QpdfExecutionResult result = await CountCommand(source, route, QpdfLimits.Default, false);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount && d.Message == $"input.pdf: {declaration}");
         Assert.Contains(source.Reads, read => read.Offset == 0 && read.Count == bytes.Length);
         Assert.Equal(1, source.Opened); Assert.Equal(0, source.Leases);
-        SelectiveInputTests.Host limited = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host limited = new(bytes, int.MaxValue, Input);
         QpdfExecutionResult refusal = await CountCommand(limited, route, QpdfLimits.Default with { MaxMemoryBytes = 131072 }, false);
         Assert.Equal(QpdfExecutionStatus.Failed, refusal.Status);
         Assert.DoesNotContain(refusal.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
         Assert.DoesNotContain(limited.Reads, read => read.Offset == 0 && read.Count == bytes.Length);
-        QpdfPageCountResult typed = await Qpdf.CountPagesAsync(new SelectiveInputTests.Host(bytes, int.MaxValue), Input, CancellationToken.None);
+        QpdfPageCountResult typed = await Qpdf.CountPagesAsync(new SelectiveInputTests.Host(bytes, int.MaxValue, Input), Input, CancellationToken.None);
         Assert.Equal(1, typed.PageCount);
         if (shape != "missing-count") { Assert.Contains(typed.Warnings, d => d.Code == QpdfDiagnosticCode.PageCountMismatch); }
     }
@@ -202,14 +202,14 @@ public sealed class BoundedPageCountTests
     public async Task XrefRepairFallbackUsesTheSameLeaseAndTheRequestedPolicy()
     {
         byte[] bytes = Document(524288, "zero-entry");
-        SelectiveInputTests.Host strict = new(bytes, 37) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host strict = new(bytes, 37, Input) { ReplaceFutureInput = true };
         await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.CountPagesAsync(strict, Input, CancellationToken.None).AsTask());
         Assert.Equal(1, strict.Opened); Assert.Equal(0, strict.Leases);
-        SelectiveInputTests.Host repaired = new(bytes, 37) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host repaired = new(bytes, 37, Input) { ReplaceFutureInput = true };
         QpdfPageCountResult result = await Qpdf.CountPagesAsync(repaired, Input, null, QpdfRecoveryMode.BoundedRepair, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(1, result.PageCount); Assert.Contains(result.Warnings, d => d.Code == QpdfDiagnosticCode.RecoveryEngaged);
         Assert.True(repaired.ReadBytes >= bytes.Length); Assert.Equal(1, repaired.Opened); Assert.Equal(0, repaired.Leases);
-        SelectiveInputTests.Host command = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host command = new(bytes, int.MaxValue, Input);
         QpdfExecutionResult rejected = await CountCommand(command, "argv", QpdfLimits.Default, true);
         Assert.Equal(QpdfExecutionStatus.Failed, rejected.Status);
         Assert.DoesNotContain(rejected.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
@@ -234,12 +234,12 @@ public sealed class BoundedPageCountTests
             password = QpdfPassword.FromText(Encoding.UTF8.GetString(Convert.FromHexString(vector.GetProperty("userHex").GetString() ?? throw new InvalidOperationException())));
         }
         await using QpdfDocument document = await QpdfDocument.OpenAsync(baseline, Input, password, QpdfLimits.Default, CancellationToken.None);
-        SelectiveInputTests.Host source = new(bytes, 37);
+        SelectiveInputTests.Host source = new(bytes, 37, Input);
         QpdfPageCountResult result = await Qpdf.CountPagesAsync(source, Input, password, QpdfRecoveryMode.Strict, QpdfLimits.Default, CancellationToken.None);
         Assert.Equal(document.PageCount, result.PageCount); Assert.Equal(bytes.Length, source.ReadBytes); Assert.Equal(0, source.Leases);
         if (password is not null)
         {
-            SelectiveInputTests.Host wrong = new(bytes, int.MaxValue);
+            SelectiveInputTests.Host wrong = new(bytes, int.MaxValue, Input);
             await Assert.ThrowsAsync<QpdfSecurityException>(() => Qpdf.CountPagesAsync(wrong, Input, QpdfPassword.FromText("wrong"), QpdfRecoveryMode.Strict, QpdfLimits.Default, CancellationToken.None).AsTask());
             Assert.Equal(0, wrong.Leases);
         }
@@ -249,7 +249,7 @@ public sealed class BoundedPageCountTests
     public async Task MalformedHybridOffsetsRetainStrictRejection()
     {
         byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "xstm-classic.pdf"));
-        SelectiveInputTests.Host source = new(bytes, int.MaxValue);
+        SelectiveInputTests.Host source = new(bytes, int.MaxValue, Input);
         await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.CountPagesAsync(source, Input, CancellationToken.None).AsTask());
         Assert.Equal(0, source.Leases);
     }

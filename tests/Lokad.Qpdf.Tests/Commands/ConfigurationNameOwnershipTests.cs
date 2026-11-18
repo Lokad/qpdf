@@ -106,9 +106,9 @@ public sealed class ConfigurationNameOwnershipTests(ITestOutputHelper log)
         List<string> defects = [];
         foreach (Completed job in jobs)
         {
-            foreach (QpdfPath path in job.Host.OpenedPaths)
-            { if (path.Value is not ("input.pdf" or "args.txt" or "settings.json" or "child.json")) { defects.Add(job.Route + "|" + job.Outcome + "|input:" + path.Value); } }
             string pass = new string(job.Route == "argv-unicode" ? '\u00e9' : 'p', 1024) + ".pdf";
+            foreach (QpdfPath path in job.Host.OpenedPaths)
+            { if (path != OutputPath && path.Value != pass && path.Value is not ("input.pdf" or "args.txt" or "settings.json" or "child.json")) { defects.Add(job.Route + "|" + job.Outcome + "|input:" + path.Value); } }
             foreach (QpdfPath path in job.Host.CreatedPaths)
             { if (path != OutputPath && path.Value != pass) { defects.Add(job.Route + "|" + job.Outcome + "|output:" + path.Value); } }
 

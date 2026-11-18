@@ -180,7 +180,7 @@ public sealed class PasswordMergeTests
         byte[] bytes = Fixture("security-r4-ascii.pdf"); int footer = bytes.AsSpan().LastIndexOf("startxref"u8);
         byte[] padded = [.. bytes, .. new byte[9 * 1048576], .. bytes.AsSpan(footer).ToArray()];
         Array.Fill(padded, (byte)' ', bytes.Length, 9 * 1048576);
-        SelectiveInputTests.Host host = new(padded, 65536) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host host = new(padded, 65536, First) { ReplaceFutureInput = true };
         using (host.Outputs)
         {
             _ = await Qpdf.SelectPagesAsync(host, [new(First, new(1), Password("reader"))], Output, CancellationToken.None);

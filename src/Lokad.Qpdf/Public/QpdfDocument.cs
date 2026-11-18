@@ -314,12 +314,19 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         CancellationToken cancellationToken)
         => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken, true);
 
-    internal static async ValueTask<QpdfDocument> OpenInspectionCore(
+    internal static ValueTask<QpdfDocument> OpenInspectionCore(
         IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
         CancellationToken cancellationToken, bool borrowInputStreams)
+        => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken,
+            borrowInputStreams, false);
+
+    internal static async ValueTask<QpdfDocument> OpenInspectionCore(
+        IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken, bool borrowInputStreams, bool replacementSource)
     {
-        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken, replacementSource).ConfigureAwait(false);
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
             false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password).ConfigureAwait(false);
     }

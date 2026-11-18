@@ -5017,7 +5017,8 @@
           "LinearizedWriterTests.Pass1MalformedJobKeysFail",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication",
-          "PublicationAdmissionTests.FirstPassProtectsAuxiliaryInputsBeforePublication"
+          "PublicationAdmissionTests.FirstPassProtectsAuxiliaryInputsBeforePublication",
+          "NamedPublicationAliasTests.ProtectedStorageAliasesRefuseBeforeStaging"
         ],
         "interaction": [],
         "resource": [
@@ -6847,7 +6848,8 @@
           "SplitReplaceTests.ReplaceRejectsOutputAndSplitAndMultiInput",
           "SplitReplaceTests.JobReplaceRejectsMalformed",
           "JsonReplacementTests.ReplacementRejectsAuxiliaryInputCollisions",
-          "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate"
+          "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate",
+          "NamedPublicationAliasTests.ReplacementExemptsOnlyThePrimaryAcquisition"
         ],
         "interaction": [
           "SplitReplaceTests.JobReplaceRotatesInPlace",
@@ -7142,7 +7144,8 @@
         ],
         "interaction": [
           "AttachmentTests.JobShowExtracts",
-          "AttachmentTests.ShowOutputAliasingInputFails"
+          "AttachmentTests.ShowOutputAliasingInputFails",
+          "NamedPublicationAliasTests.TypedPublicationChecksTheAcquiredIdentity"
         ],
         "resource": [
           "AttachmentTreeResourceTests.OutputFailureAfterIndirectTraversalPreservesTheTarget",
@@ -7511,6 +7514,7 @@
           "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
           "SplitInputCollisionTests.EveryExpandedNameProtectsThePrimaryEvenWhenItsPagesAreOmitted",
           "SplitInputCollisionTests.LatePartCannotCommitToAClaimedStorageIdentity",
+          "NamedPublicationAliasTests.ProtectedStorageAliasesRefuseBeforeStaging",
           "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
           "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
@@ -7991,6 +7995,7 @@
           "JsonNumberTests.UnsupportedNumbersPreservePriorOutput",
           "JsonImportTests.UpdateMissingOutputFails",
           "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate",
+          "NamedPublicationAliasTests.ProtectedStorageAliasesRefuseBeforeStaging",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",

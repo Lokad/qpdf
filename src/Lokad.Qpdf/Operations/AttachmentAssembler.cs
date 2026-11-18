@@ -220,7 +220,9 @@ internal static class AttachmentAssembler
             using ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor);
             EmbeddedFileEntry[]? captured;
             bool reusable;
-            await using (QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, SelectionPlan.CheckedPath(copy.File), copy.Password,
+            QpdfPath sourcePath = SelectionPlan.CheckedPath(copy.File);
+            governor.PublicationInputs?.BorrowPath(sourcePath.Value);
+            await using (QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, sourcePath, copy.Password,
                 limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false))
             {
                 Content.CatalogCopy.IncludeSourceVersion(ref copyVersion, ref copyExtension, source, governor, cancellationToken);
@@ -411,6 +413,7 @@ internal static class AttachmentAssembler
     {
         ownership.CheckOwner(governor);
         QpdfPath path = SelectionPlan.CheckedPath(file);
+        governor.PublicationInputs?.BorrowPath(path.Value);
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
         try
         {

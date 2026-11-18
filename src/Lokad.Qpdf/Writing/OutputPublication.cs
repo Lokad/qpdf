@@ -282,6 +282,10 @@ internal static class OutputPublication
             throw new ArgumentNullException(nameof(model));
         }
 
+        QpdfPath? capture = linearize ? linearizePass1 : null;
+        governor.CheckHandleCapacity(capture.HasValue ? 2L : 1L);
+        await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, path, capture,
+            "PDF", cancellationToken).ConfigureAwait(false);
         if (linearize)
         {
             await PublishLinearizedAsync(host, version, model, objectStreamGroups, infoRef, originalId1, staticId, newlineBeforeEndstream, compressStreams, compressionLevel, linearizePass1, path, limits, governor, cancellationToken, security, encryptionObject, metadataObject).ConfigureAwait(false);

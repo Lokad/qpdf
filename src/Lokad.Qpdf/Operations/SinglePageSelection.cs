@@ -32,6 +32,7 @@ internal static class SinglePageSelection
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
+        using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         bool selectiveCandidate = settings.CanReadSelectedRanges(host);
         IQpdfInput? stableInput = null;
         try

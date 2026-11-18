@@ -331,7 +331,7 @@ public sealed class SelectPageTests
         (InMemoryQpdfHost host, byte[] _) = await LoadFixture("minimal-1page.pdf");
         QpdfPath input = QpdfPath.From("inputs/minimal-1page.pdf");
         await using QpdfDocument guard = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
-        await Assert.ThrowsAsync<QpdfHostException>(() => Qpdf.SelectPageAsync(
+        await Assert.ThrowsAsync<QpdfParseException>(() => Qpdf.SelectPageAsync(
             host,
             input,
             input,

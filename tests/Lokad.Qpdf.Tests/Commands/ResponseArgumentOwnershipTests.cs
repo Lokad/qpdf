@@ -40,7 +40,7 @@ public sealed class ResponseArgumentOwnershipTests(ITestOutputHelper log)
                 if (outcome == "open-fault") { throw new QpdfHostException(path, QpdfHostFailureReason.ReadFailed); }
                 if (outcome == "host-cancel") { throw new OperationCanceledException(new CancellationToken(true)); }
             }
-            else if (path != First) { InputName = path.Value; PdfOpens++; }
+            else if (path.Value == "input.pdf") { InputName = path.Value; PdfOpens++; }
             IQpdfInput input = await Inner.OpenInputAsync(path, token);
             return path == Next ? new Input(input, outcome) : input;
         }

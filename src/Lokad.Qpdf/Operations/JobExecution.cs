@@ -195,6 +195,12 @@ internal static class JobExecution
             presentation = ExecutionPresentation.Create(governor, diagnostics, plan.Verbose,
                 plan.ReportMemoryUsage, plan.Progress, plan.NoWarn, plan.WarningExitZero, cancellationToken);
             ValidatePublicationInputs(plan, configurationInputs, argumentInputs, governor, cancellationToken);
+            if (plan is not (WholeFilePlan or SelectionPlan or MergePlan or JsonImportPlan
+                or JsonPlan { Output: not null } or JsonPlan { Version: 2, StreamDataMode: "file" }
+                or ShowObjectPlan { Output: not null } or CheckPlan { PayloadOutput: not null }))
+            {
+                governor.PublicationInputs?.Dispose();
+            }
             ExecutionOutcome result = await RunPlanCoreAsync(host, plan, limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             ExecutionPresentation? active = presentation ?? governor.ExecutionPresentation;
             return result.Status == QpdfExecutionStatus.Completed || active is null ? result : active.Failure(result);

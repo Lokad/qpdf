@@ -518,11 +518,10 @@ Fix-QDF repairs consistent LF-framed, sequentially numbered input; ambiguous fra
 rejects. Zlib-flate stops at the first complete frame and rejects truncation/checksum errors.
 
 Linearization uses two passes and page/shared/outline hints. Checking validates
-physical layout and available hints. First-pass capture must differ from output
-targets, document/attachment inputs, the effective encryption template, every read
-password file and consumed job/response files. These checks precede PDF/password
-acquisition and output creation; configuration files must first be loaded.
-Split capture keeps the last group's pass. Linearization
+physical layout and available hints. First-pass capture must differ from all PDF
+targets and acquired inputs. Known logical input conflicts reject before document
+acquisition. Expanded split names and storage identities are checked before
+staging. Split capture keeps the last group's pass. Linearization
 disables QDF; empty split jobs create no output.
 The linearized writer keeps the outline closure outside object streams so its
 hints describe one contiguous physical group; other eligible objects still pack.
@@ -539,7 +538,15 @@ admission; there is no cumulative CPU fuel. Diagnostics have bounded actual stor
 and explicit overflow. Recoverable malformed optional graphs can drop; profile,
 resource, cancellation and host failures remain fatal.
 
-Single-target publication is transactional. Multiple targets commit sequentially;
-earlier successes survive later failure. A close fault cannot undo a commit.
+Named PDF outputs, capture files, JSON reports and sidecars, and extracted
+payloads must differ from acquired inputs and other targets. For existing
+readable targets, the engine probes host identities before staging without
+reading payload bytes. Write-only or absent targets can report `Unsupported`
+or `NotFound`. An explicit replacement may reuse the designated primary PDF
+acquisition. Other acquisitions remain protected, including configuration,
+password files, templates and sidecars.
+
+Single-target publication is transactional. Multiple targets commit sequentially.
+Earlier successes survive later failure. A close fault cannot undo a commit.
 Caller-owned results and pending I/O retain their required owners; see
 [memory and host ownership](MEMORY.md).

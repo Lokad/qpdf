@@ -6,11 +6,14 @@ namespace Lokad.Qpdf.Tests.Reading;
 
 public sealed class SourceGroupLeaseTests
 {
-    private sealed class Host(InMemoryQpdfHost original, InMemoryQpdfHost replacement) : IQpdfHost
+    private sealed class Host(InMemoryQpdfHost original, InMemoryQpdfHost replacement, QpdfPath source) : IQpdfHost
     {
         internal int Opens;
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
-            => (++Opens == 1 ? original : replacement).OpenInputAsync(path, token);
+        {
+            if (path != source) { return original.OpenInputAsync(path, token); }
+            return (++Opens == 1 ? original : replacement).OpenInputAsync(path, token);
+        }
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
         {
             Assert.Equal(0L, original.OpenLeaseCount); Assert.Equal(0L, replacement.OpenLeaseCount);
@@ -28,7 +31,7 @@ public sealed class SourceGroupLeaseTests
         QpdfPath input = QpdfPath.From("input"), output = QpdfPath.From("output");
         original.AddInput(input, SourceGroupIdentityTests.Fixture("A"), QpdfInputOwnership.Transfer);
         replacement.AddInput(input, SourceGroupIdentityTests.Fixture("B"), QpdfInputOwnership.Transfer);
-        Host host = new(original, replacement);
+        Host host = new(original, replacement, input);
         if (route == "typed")
         {
             PdfMultiPageSelectionResult result = await Qpdf.SelectPagesAsync(host,
@@ -64,7 +67,7 @@ public sealed class SourceGroupLeaseTests
         original.AddInput(input, SourceGroupIdentityTests.Fixture("A"), QpdfInputOwnership.Transfer);
         await using (IQpdfOutputTransaction seed = await original.CreateOutputAsync(output, CancellationToken.None))
         { await seed.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await seed.CommitAsync(CancellationToken.None); }
-        Host host = new(original, replacement);
+        Host host = new(original, replacement, input);
         if (route == "typed")
         {
             await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Qpdf.SelectPagesAsync(host,

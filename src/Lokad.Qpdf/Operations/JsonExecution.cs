@@ -193,7 +193,8 @@ internal static class JsonExecution
         HashSet<(bool Trailer, int Number, int Generation)>? wanted = inspection.Objects;
         using ParserMemoryScope? targetMemory = outputPath.HasValue || (inspection.Version == 2 && inspection.StreamData == "file")
             ? ParserMemoryScope.Create(governor) : null;
-        using PublicationInputAliases? targetAliases = targetMemory is null ? null : PublicationInputAliases.Begin(targetMemory, governor, "JSON");
+        using PublicationInputAliases? ownedAliases = targetMemory is null ? null : PublicationInputAliases.BeginIfNeeded(governor);
+        PublicationInputAliases? targetAliases = targetMemory is null ? null : PublicationInputAliases.Active(governor);
         if (targetAliases is not null)
         {
             targetAliases.RememberPath(inputPath.Value);
@@ -273,7 +274,7 @@ internal static class JsonExecution
                 ParserContainers.AddItem(targetMemory, names, sidecar.Name, IntPtr.Size);
                 anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
             }
-            await targetAliases.ValidateTargetsAsync(host, names, governor, cancellationToken).ConfigureAwait(false);
+            await targetAliases.ValidateTargetsAsync(host, names, null, "JSON", cancellationToken).ConfigureAwait(false);
         }
         governor.ChargeOutputBytes(anticipatedBytes);
         using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, outputPath.HasValue || sidecars.Count != 0);
@@ -317,9 +318,10 @@ internal static class JsonExecution
         }
 
         using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
-        using PublicationInputAliases? splitInputs = splitMemory is null ? null : PublicationInputAliases.Begin(splitMemory, governor, "Split");
+        using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         await using QpdfDocument? document = sourcePdf is QpdfPath input
-            ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
+            ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery,
+                cancellationToken, false, replaceInput).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
         (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
@@ -350,14 +352,15 @@ internal static class JsonExecution
             diagnostics, cancellationToken);
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
             model.OriginalPairs, prepared.Graph.Mapping, importMemory, governor, cancellationToken);
-        if ((replaceInput || splitInputs is not null) && document is not null)
+        if ((replaceInput || writer.SplitPages.HasValue) && document is not null)
         { await document.ReleaseCompleteInputAsync().ConfigureAwait(false); }
         if (writer.SplitPages is int groupSize)
         {
-            if (splitInputs is null || prepared.Pages is null)
+            if (prepared.Pages is null)
             { throw new InvalidOperationException("Missing bound JSON split preparation."); }
             await JsonSplitPublication.PublishAsync(host, outputPath, groupSize, writer, prepared.Version, prepared.Graph,
-                prepared.Pages, prepared.Labels, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security, splitInputs,
+                prepared.Pages, prepared.Labels, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security,
+                PublicationInputAliases.Active(governor),
                 limits, governor, cancellationToken).ConfigureAwait(false);
         }
         else

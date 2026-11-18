@@ -58,7 +58,7 @@ public sealed class XrefTokenCancellationTests
         byte[] content = new byte[32768]; content.AsSpan().Fill((byte)' ');
         byte[] input = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 32768 >>", content), 1);
         using CancellationTokenSource cancellation = new();
-        SelectiveInputTests.Host host = new(input, 37) { Cancel = cancellation };
+        SelectiveInputTests.Host host = new(input, 37, QpdfPath.From("input")) { Cancel = cancellation };
         using var outputs = host.Outputs;
         QpdfPath target = QpdfPath.From("output");
         await using (IQpdfOutputTransaction prior = await outputs.CreateOutputAsync(target, CancellationToken.None))

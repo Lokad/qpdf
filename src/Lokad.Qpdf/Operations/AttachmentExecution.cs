@@ -120,6 +120,7 @@ internal static class AttachmentExecution
             throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
         }
 
+        using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         await using QpdfDocument document = emptyDocument
             ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, true).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
@@ -134,6 +135,8 @@ internal static class AttachmentExecution
         // then finish input cleanup before any output can be published.
         document.Engine.TransferExclusiveValuesTo(attachmentMemory);
         await document.DisposeAsync().ConfigureAwait(false);
+        await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, outputPath,
+            null, "Binary", cancellationToken).ConfigureAwait(false);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);

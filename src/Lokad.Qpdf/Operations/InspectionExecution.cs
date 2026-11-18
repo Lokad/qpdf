@@ -124,6 +124,7 @@ internal static class InspectionExecution
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
+        using PublicationInputAliases? ownedAliases = showObject.Output.HasValue ? PublicationInputAliases.BeginIfNeeded(governor) : null;
         await using QpdfDocument document = showObject.EmptyDocument
             ? await QpdfDocument.OpenEmptyDocument(showObject.Input, limits, governor, diagnostics, showObject.Recovery, cancellationToken, true).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, showObject.Input, password, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
@@ -379,6 +380,8 @@ internal static class InspectionExecution
             }
 
             if (!output.HasValue) { return payload; }
+            await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, output.Value,
+                null, "Binary", cancellationToken).ConfigureAwait(false);
             await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output.Value, governor, cancellationToken).ConfigureAwait(false);
             TransactionSink sink = new(transaction, governor);
             await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
@@ -526,6 +529,7 @@ internal static class InspectionExecution
             }
             if (plan.PayloadOutput is QpdfPath target && target == plan.Input)
             { throw new QpdfParseException("The output file must differ from the input file.", 0L, null); }
+            using PublicationInputAliases? ownedAliases = plan.PayloadOutput.HasValue ? PublicationInputAliases.BeginIfNeeded(governor) : null;
             if (plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
@@ -620,6 +624,8 @@ internal static class InspectionExecution
                     if (reports[index].Severity == QpdfDiagnosticSeverity.Error) { return CompleteWithPresentation(governor); }
                 }
                 ReadOnlyMemory<byte> payload = directPayload ?? output.WrittenMemory;
+                await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, payloadTarget,
+                    null, "Binary", cancellationToken).ConfigureAwait(false);
                 using PublicationReservation publication = PublicationReservation.Create(governor, true, payload.Length);
                 publication.Begin();
                 await using (IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, payloadTarget, governor, cancellationToken).ConfigureAwait(false))

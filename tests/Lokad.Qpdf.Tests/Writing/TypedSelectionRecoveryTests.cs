@@ -162,7 +162,7 @@ public sealed class TypedSelectionRecoveryTests
     public async Task RepairModeRetainsBoundedSelectionForValidSparseInputs()
     {
         byte[] bytes = Document(9 << 20);
-        SelectiveInputTests.Host host = new(bytes, 37) { ReplaceFutureInput = true };
+        SelectiveInputTests.Host host = new(bytes, 37, Input) { ReplaceFutureInput = true };
         PdfPageSelectionResult result = await Qpdf.SelectPageAsync(host, Input, Output, PdfPageSelectionOptions.FirstAndLast(1),
             QpdfRecoveryMode.BoundedRepair, QpdfLimits.Default with { MaxMemoryBytes = 1 << 20 }, CancellationToken.None);
         Assert.Equal(new[] { 1, 4 }, result.SourcePages); Assert.Empty(result.Warnings);

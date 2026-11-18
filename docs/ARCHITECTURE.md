@@ -100,8 +100,9 @@ dependencies before writing hints and keeps the outline closure outside packed o
 emission. Writers share identifier validation, byte encoding and bounded
 sink writes. `OutputPublication` owns staged captures. Output preparation
 and result admission finish before commit. Split captures finish before any
-target commits. Split and JSON publication check readable target identities
-against acquired inputs and earlier targets before staging. Commits are sequential.
+target commits. Named PDF, JSON, capture and binary targets share preflight
+against acquired inputs and earlier targets. Input tracking includes consumed
+configuration and continues when source leases close. Commits are sequential.
 An explicit JSON patch replacement closes the complete source lease before
 staging. Admitted reader storage remains valid through serialization.
 
