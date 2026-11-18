@@ -103,6 +103,28 @@ public sealed class TypedMergeRecoveryTests
     }
 
     [Fact]
+    public async Task MergeKeepsValidationOrderBeforeSourceAcquisition()
+    {
+        UnusedHost host = new();
+        CancellationToken token = CancellationToken.None;
+        PdfPageMergeOptions invalidRecovery = new() { RecoveryMode = (QpdfRecoveryMode)(-1) };
+        QpdfLimits invalidLimits = QpdfLimits.Default with { MaxInputBytes = 0 };
+        ArgumentOutOfRangeException budget = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            Qpdf.SelectPagesAsync(host, [], Output, invalidRecovery, invalidLimits, token).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxInputBytes), budget.ParamName);
+
+        ArgumentOutOfRangeException recovery = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            Qpdf.SelectPagesAsync(host, [], Output, invalidRecovery, token).AsTask());
+        Assert.Equal("mergeOptions", recovery.ParamName);
+
+        PdfPageMergeOptions invalidMerge = new() { Collation = new PdfPageCollation([1, 1, 1, 1]), SplitPages = 0 };
+        ArgumentException collation = await Assert.ThrowsAsync<ArgumentException>(() =>
+            Qpdf.SelectPagesAsync(host, Sources(), Output, invalidMerge, token).AsTask());
+        Assert.Equal("mergeOptions", collation.ParamName);
+        Assert.Contains("Collation group sizes", collation.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RepairedEncryptedSourcesAuthenticateIndependentlyAndPreservePrimaryProtection()
     {
         using InMemoryQpdfHost storage = new();

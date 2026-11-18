@@ -19,7 +19,8 @@ flowchart LR
 ```
 
 Argv and job JSON feed the same semantic planner. Typed methods adapt requests
-to the same validation and operation cores. Configuration loading owns include
+to the same operation cores. The typed multi-page overloads share preparation,
+result admission and cleanup. Configuration loading owns include
 order, duplicate keys, encoding and retained text. Writer options are projected
 after source roles are known.
 

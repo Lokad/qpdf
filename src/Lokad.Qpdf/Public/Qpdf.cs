@@ -118,63 +118,13 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">No page source was supplied.</exception>
-    public static async ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+    public static ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
         IQpdfHost host,
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
         QpdfLimits limits,
         CancellationToken cancellationToken)
-    {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (sources is null)
-        {
-            throw new ArgumentNullException(nameof(sources));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
-
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
-        try
-        {
-            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
-            preparation.FreezeSources(sources);
-            DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
-                host: host,
-                sources: preparation.Sources,
-                outputPath: outputPath,
-                primaryInput: preparation.Sources[0].Input,
-                pruneUnreachableFields: true,
-                limits: limits,
-                recovery: QpdfRecoveryMode.Strict,
-                settings: SelectionSettings.Typed,
-                collation: null,
-                verbatimLabels: null,
-                splitPages: null,
-                replaceInput: false,
-                governor: governor,
-                diagnostics: diagnostics,
-                emptyPrimary: false,
-                preparedSource: null,
-                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
-            preparation.Dispose();
-            PdfMultiPageSelectionResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => RunTypedSelectionAsync(host, sources, outputPath, null, null, TypedSelectionOverload.Default, limits, cancellationToken);
 
     /// <summary>
     /// Copies pages from several inputs into one standalone PDF, rotating output
@@ -196,66 +146,14 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">No page source was supplied.</exception>
-    public static async ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+    public static ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
         IQpdfHost host,
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
         IReadOnlyList<PdfPageRotation> rotations,
         QpdfLimits limits,
         CancellationToken cancellationToken)
-    {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (sources is null)
-        {
-            throw new ArgumentNullException(nameof(sources));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
-        limits.Validate();
-        ArgumentNullException.ThrowIfNull(rotations);
-        if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
-
-        ResourceGovernor governor = new(limits, cancellationToken, host);
-        governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
-        try
-        {
-            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
-            preparation.FreezeSources(sources);
-            preparation.ConvertRotations(rotations);
-            DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
-                host: host,
-                sources: preparation.Sources,
-                outputPath: outputPath,
-                primaryInput: preparation.Sources[0].Input,
-                pruneUnreachableFields: true,
-                limits: limits,
-                recovery: QpdfRecoveryMode.Strict,
-                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations },
-                collation: null,
-                verbatimLabels: null,
-                splitPages: null,
-                replaceInput: false,
-                governor: governor,
-                diagnostics: diagnostics,
-                emptyPrimary: false,
-                preparedSource: null,
-                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
-            preparation.Dispose();
-            PdfMultiPageSelectionResult presented = result.Present(governor);
-            governor.FinishTypedCounters();
-            return presented;
-        }
-        finally { governor.AbandonTypedCounters(); }
-    }
+        => RunTypedSelectionAsync(host, sources, outputPath, rotations, null, TypedSelectionOverload.Rotations, limits, cancellationToken);
 
     /// <summary>
     /// Copies pages from several inputs into one standalone PDF with merge options
@@ -277,85 +175,92 @@ public static partial class Qpdf
     /// </summary>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">No page source was supplied.</exception>
-    public static async ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
+    public static ValueTask<PdfMultiPageSelectionResult> SelectPagesAsync(
         IQpdfHost host,
         IReadOnlyList<PdfPageSource> sources,
         QpdfPath outputPath,
         PdfPageMergeOptions mergeOptions,
         QpdfLimits limits,
         CancellationToken cancellationToken)
+        => RunTypedSelectionAsync(host, sources, outputPath, null, mergeOptions, TypedSelectionOverload.Merge, limits, cancellationToken);
+
+    private enum TypedSelectionOverload { Default, Rotations, Merge }
+
+    private static async ValueTask<PdfMultiPageSelectionResult> RunTypedSelectionAsync(
+        IQpdfHost host,
+        IReadOnlyList<PdfPageSource> sources,
+        QpdfPath outputPath,
+        IReadOnlyList<PdfPageRotation>? rotations,
+        PdfPageMergeOptions? mergeOptions,
+        TypedSelectionOverload overload,
+        QpdfLimits limits,
+        CancellationToken cancellationToken)
     {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
-
-        if (sources is null)
-        {
-            throw new ArgumentNullException(nameof(sources));
-        }
-
-        if (mergeOptions is null)
-        {
-            throw new ArgumentNullException(nameof(mergeOptions));
-        }
-
-        if (limits is null)
-        {
-            throw new ArgumentNullException(nameof(limits));
-        }
-
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(sources);
+        if (overload == TypedSelectionOverload.Merge) { ArgumentNullException.ThrowIfNull(mergeOptions); }
+        ArgumentNullException.ThrowIfNull(limits);
         limits.Validate();
-        if (mergeOptions.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+        if (overload == TypedSelectionOverload.Rotations) { ArgumentNullException.ThrowIfNull(rotations); }
+        if (mergeOptions is not null)
         {
-            throw new ArgumentOutOfRangeException(nameof(mergeOptions), mergeOptions.RecoveryMode, "Unknown recovery mode.");
+            if (mergeOptions.RecoveryMode is not (QpdfRecoveryMode.Strict or QpdfRecoveryMode.BoundedRepair))
+            {
+                throw new ArgumentOutOfRangeException(nameof(mergeOptions), mergeOptions.RecoveryMode, "Unknown recovery mode.");
+            }
+            ArgumentNullException.ThrowIfNull(mergeOptions.Rotations, "rotations");
+            ArgumentNullException.ThrowIfNull(mergeOptions.Labels, "labels");
+            ArgumentNullException.ThrowIfNull(mergeOptions.OutputEncryption, "outputEncryption");
         }
-        ArgumentNullException.ThrowIfNull(mergeOptions.Rotations, "rotations");
-        ArgumentNullException.ThrowIfNull(mergeOptions.Labels, "labels");
-        ArgumentNullException.ThrowIfNull(mergeOptions.OutputEncryption, "outputEncryption");
         if (sources.Count == 0) { throw new ArgumentException("At least one page source is required.", nameof(sources)); }
 
         ResourceGovernor governor = new(limits, cancellationToken, host);
         governor.PrepareTypedResult(PdfMultiPageSelectionResult.StorageBytes);
         try
         {
-            using TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor);
-            preparation.FreezeSources(sources);
-            if (mergeOptions.Collation is not null
-                && mergeOptions.Collation.GroupSizes.Count != 1
-                && mergeOptions.Collation.GroupSizes.Count != preparation.Sources.Count)
+            MultiPageSelectionOutcome result;
+            using (TypedSelectionPreparation preparation = TypedSelectionPreparation.Create(governor))
             {
-                throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(mergeOptions));
-            }
+                preparation.FreezeSources(sources);
+                PdfPageCollation? collation = mergeOptions?.Collation;
+                if (collation is not null && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != preparation.Sources.Count)
+                {
+                    throw new ArgumentException("Collation group sizes must hold one value or one per source.", nameof(mergeOptions));
+                }
+                if (mergeOptions?.SplitPages is < 1)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(mergeOptions), "Split pages must be a positive group size.");
+                }
 
-            if (mergeOptions.SplitPages.HasValue && mergeOptions.SplitPages.Value < 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(mergeOptions), "Split pages must be a positive group size.");
+                IReadOnlyList<PdfPageRotation>? selectedRotations = mergeOptions?.Rotations ?? rotations;
+                if (selectedRotations is not null) { preparation.ConvertRotations(selectedRotations); }
+                if (mergeOptions is not null) { preparation.ConvertLabels(mergeOptions.Labels); }
+                SelectionSettings settings = SelectionSettings.Typed with
+                {
+                    Rotations = preparation.Rotations,
+                    Labels = preparation.Labels,
+                    OutputEncryption = mergeOptions?.OutputEncryption,
+                };
+                DiagnosticBag diagnostics = new(governor);
+                result = (await SelectPagesCoreAsync(
+                    host: host,
+                    sources: preparation.Sources,
+                    outputPath: outputPath,
+                    primaryInput: preparation.Sources[0].Input,
+                    pruneUnreachableFields: true,
+                    limits: limits,
+                    recovery: mergeOptions?.RecoveryMode ?? QpdfRecoveryMode.Strict,
+                    settings: settings,
+                    collation: collation,
+                    verbatimLabels: null,
+                    splitPages: mergeOptions?.SplitPages,
+                    replaceInput: false,
+                    governor: governor,
+                    diagnostics: diagnostics,
+                    emptyPrimary: false,
+                    preparedSource: null,
+                    cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
             }
-
-            preparation.ConvertRotations(mergeOptions.Rotations);
-            preparation.ConvertLabels(mergeOptions.Labels);
-            DiagnosticBag diagnostics = new(governor);
-            MultiPageSelectionOutcome result = (await SelectPagesCoreAsync(
-                host: host,
-                sources: preparation.Sources,
-                outputPath: outputPath,
-                primaryInput: preparation.Sources[0].Input,
-                pruneUnreachableFields: true,
-                limits: limits,
-                recovery: mergeOptions.RecoveryMode,
-                settings: SelectionSettings.Typed with { Rotations = preparation.Rotations, Labels = preparation.Labels,
-                    OutputEncryption = mergeOptions.OutputEncryption },
-                collation: mergeOptions.Collation,
-                verbatimLabels: null,
-                splitPages: mergeOptions.SplitPages,
-                replaceInput: false,
-                governor: governor,
-                diagnostics: diagnostics,
-                emptyPrimary: false,
-                preparedSource: null,
-                cancellationToken: cancellationToken).ConfigureAwait(false)).Result;
-            preparation.Dispose();
             PdfMultiPageSelectionResult presented = result.Present(governor);
             governor.FinishTypedCounters();
             return presented;
