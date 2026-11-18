@@ -513,10 +513,11 @@ internal sealed class LinearizedParts : IDisposable
         List<int> outlineOrder = CollectOutlines(lookup, catalog, catalogNumber, closures, openDocuments, treeSet, owners, retained, governor, cancellationToken);
         GovernedIntSet outlinePlaced = CopySet(outlineOrder, temporary, governor, cancellationToken);
         bool outlinesInFirstPage = outlineOrder.Count > 0 && IsUseOutlines(catalog, lookup, governor, cancellationToken);
-        List<List<int>> thumbRuns = CollectThumbs(lookup, thumbImages, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
+        List<IReadOnlyList<int>> thumbRuns = CollectThumbs(lookup, thumbImages, users, openDocuments, treeSet, outlinePlaced, owners, temporary, governor, cancellationToken);
         GovernedIntSet thumbPlaced = GovernedIntSet.Create(temporary, governor, cancellationToken);
-        foreach (List<int> run in thumbRuns)
+        foreach (IReadOnlyList<int> run in thumbRuns)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             foreach (int number in run)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -606,8 +607,9 @@ internal sealed class LinearizedParts : IDisposable
         }
 
         List<int> part9 = CopyNumbers(tree, retained, governor, cancellationToken);
-        foreach (List<int> run in thumbRuns)
+        foreach (IReadOnlyList<int> run in thumbRuns)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             AddRange(retained, governor, part9, run, cancellationToken);
         }
 
@@ -637,7 +639,7 @@ internal sealed class LinearizedParts : IDisposable
         return result;
     }
 
-    private static List<List<int>> CollectThumbs(
+    private static List<IReadOnlyList<int>> CollectThumbs(
         GovernedIntDictionary<QpdfObject> lookup,
         IReadOnlyList<int> thumbImages,
         GovernedIntDictionary<GovernedIntSet> users,
@@ -655,113 +657,70 @@ internal sealed class LinearizedParts : IDisposable
             throw new ArgumentNullException(nameof(owners));
         }
 
-        List<GovernedIntSet> thumbClosures = ParserContainers.CreateList<GovernedIntSet>(temporary);
-        GovernedIntDictionary<GovernedIntSet> thumbUsers = GovernedIntDictionary<GovernedIntSet>.Create(temporary, governor, IntPtr.Size, cancellationToken);
+        List<List<int>?> thumbClosures = ParserContainers.CreateList<List<int>?>(temporary);
+        GovernedIntSet seen = GovernedIntSet.Create(temporary, governor, cancellationToken);
+        GovernedIntSet shared = GovernedIntSet.Create(temporary, governor, cancellationToken);
         for (int i = 0; i < thumbImages.Count; i++)
         {
-            GovernedIntSet thumbClosure = GovernedIntSet.Create(temporary, governor, cancellationToken);
-            if (thumbImages[i] > 0 && lookup.TryGetValue(thumbImages[i], out QpdfObject? image) && image is not (null or PdfNull))
+            cancellationToken.ThrowIfCancellationRequested();
+            int thumbnail = thumbImages[i];
+            if (thumbnail <= 0 || !lookup.TryGetValue(thumbnail, out QpdfObject? image) || image is null or PdfNull)
             {
-                GovernedCollections.AddNumber(temporary, governor, thumbClosure, thumbImages[i]);
-                WalkSubtree(lookup, image, false, thumbClosure, owners, temporary, governor, cancellationToken);
+                GovernedCollections.AddItem(temporary, governor, thumbClosures, null, IntPtr.Size);
+                continue;
             }
 
-            // users already indexes the union of all page closures. Inspect
-            // only this thumbnail's candidates, rather than visiting every
-            // page closure for every page (including absent thumbnails).
-            if (thumbClosure.Count != 0)
+            using ParserMemoryScope walk = ParserMemoryScope.Create(governor);
+            GovernedIntSet closure = GovernedIntSet.Create(walk, governor, cancellationToken);
+            GovernedCollections.AddNumber(walk, governor, closure, thumbnail);
+            WalkSubtree(lookup, image, false, closure, owners, walk, governor, cancellationToken);
+            List<int>? candidates = null;
+            foreach (int number in closure)
             {
-                using ParserMemoryScope candidatesMemory = ParserMemoryScope.Create(governor);
-                List<int> candidates = CopyNumbers(thumbClosure, candidatesMemory, governor, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                governor.NoteOperation();
+                if (users.ContainsKey(number) || openDocuments.Contains(number)
+                    || treeSet.Contains(number) || outlinePlaced.Contains(number)) { continue; }
+                candidates ??= ParserContainers.CreateList<int>(temporary);
+                Add(temporary, governor, candidates, number);
+                // Classification of shared thumbnails uses lookup entries.
+                // Streamed writer container IDs can lie outside that lookup.
+                if (lookup.ContainsKey(number) && !GovernedCollections.AddNumber(temporary, governor, seen, number))
+                { GovernedCollections.AddNumber(temporary, governor, shared, number); }
+            }
+            GovernedCollections.AddItem(temporary, governor, thumbClosures, candidates, IntPtr.Size);
+        }
+
+        List<IReadOnlyList<int>> runs = ParserContainers.CreateList<IReadOnlyList<int>>(memory);
+        for (int i = 0; i < thumbImages.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            List<int>? run = null;
+            if (thumbClosures[i] is List<int> candidates)
+            {
+                int thumbnail = thumbImages[i];
+                GovernedCollections.SortNumbers(temporary, governor, candidates);
+                if (!shared.Contains(thumbnail) && candidates.BinarySearch(thumbnail) >= 0)
+                {
+                    run = ParserContainers.CreateList<int>(memory);
+                    Add(memory, governor, run, thumbnail);
+                }
                 foreach (int number in candidates)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     governor.NoteOperation();
-                    if (users.ContainsKey(number)) { thumbClosure.Remove(number); }
-                }
-            }
-
-            Except(thumbClosure, openDocuments, governor, cancellationToken);
-            Except(thumbClosure, treeSet, governor, cancellationToken);
-            Except(thumbClosure, outlinePlaced, governor, cancellationToken);
-            GovernedCollections.AddItem(temporary, governor, thumbClosures, thumbClosure, IntPtr.Size);
-            foreach (int number in thumbClosure)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (!thumbUsers.TryGetValue(number, out GovernedIntSet? set))
-                {
-                    set = GovernedIntSet.Create(temporary, governor, cancellationToken);
-                    GovernedCollections.Assign(temporary, governor, thumbUsers, number, set);
-                }
-
-                GovernedCollections.AddNumber(temporary, governor, set, i);
-            }
-        }
-
-        GovernedIntSet thumbShared = GovernedIntSet.Create(temporary, governor, cancellationToken);
-        foreach (int number in SortedKeys(lookup, temporary, governor, cancellationToken))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (thumbUsers.TryGetValue(number, out GovernedIntSet? use) && use.Count >= 2)
-            {
-                GovernedCollections.AddNumber(temporary, governor, thumbShared, number);
-            }
-        }
-
-        List<List<int>> runs = ParserContainers.CreateList<List<int>>(memory);
-        for (int i = 0; i < thumbImages.Count; i++)
-        {
-            List<int> run = ParserContainers.CreateList<int>(memory);
-            using ParserMemoryScope rowMemory = ParserMemoryScope.Create(governor);
-            List<int> ordered = CopyNumbers(thumbClosures[i], rowMemory, governor, cancellationToken);
-            GovernedCollections.SortNumbers(rowMemory, governor, ordered);
-            foreach (int number in ordered)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                governor.NoteOperation();
-                if (thumbShared.Contains(number) || users.ContainsKey(number))
-                {
-                    continue;
-                }
-
-                if (number == thumbImages[i])
-                {
-                    Add(memory, governor, run, number);
-                    for (int position = run.Count - 1; position > 0; position--)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        governor.NoteOperation();
-                        run[position] = run[position - 1];
-                    }
-                    run[0] = number;
-                }
-                else
-                {
+                    if (number == thumbnail || shared.Contains(number)) { continue; }
+                    run ??= ParserContainers.CreateList<int>(memory);
                     Add(memory, governor, run, number);
                 }
             }
-
-            GovernedCollections.AddItem(memory, governor, runs, run, IntPtr.Size);
+            GovernedCollections.AddItem(memory, governor, runs, (IReadOnlyList<int>?)run ?? Array.Empty<int>(), IntPtr.Size);
         }
 
-        List<int> shared = CopyNumbers(thumbShared, temporary, governor, cancellationToken);
-        GovernedCollections.SortNumbers(temporary, governor, shared);
-        List<int> tail = ParserContainers.CreateList<int>(memory);
-        foreach (int number in shared)
+        if (shared.Count > 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (!users.ContainsKey(number))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Add(memory, governor, tail, number);
-            }
-        }
-
-        if (tail.Count > 0)
-        {
+            List<int> tail = CopyNumbers(shared, memory, governor, cancellationToken);
+            GovernedCollections.SortNumbers(temporary, governor, tail);
             GovernedCollections.AddItem(memory, governor, runs, tail, IntPtr.Size);
         }
 
@@ -1315,17 +1274,6 @@ internal sealed class LinearizedParts : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             GovernedCollections.AddNumber(memory, governor, target, number);
-        }
-    }
-
-    private static void Except(GovernedIntSet target, GovernedIntSet source,
-        ResourceGovernor governor, CancellationToken cancellationToken)
-    {
-        foreach (int number in source)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            target.Remove(number);
         }
     }
 

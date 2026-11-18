@@ -93,7 +93,8 @@ JSON imports and ordinary PDF operations share catalog and version policy.
 ordering and object-stream grouping. Direct outline roots gain an indirect
 identity for layout. Streamed
 linearization keeps the outline closure together outside packed objects.
-Linearization uses two passes.
+Linearization uses two passes. The shared classifier checks thumbnail
+dependencies against existing parts from each thumbnail's candidate set.
 
 `OutputSerialization` dispatches counting, identifier replay and final
 emission. Writers share identifier validation, byte encoding and bounded
