@@ -31,7 +31,11 @@ internal static class OutputModelPreparation
             model.Add(new(number, value));
         }
         if (graph.PruneSuperseded)
-        { PruneOutputModel(model, graph.Pool, graph.Compressed, graph.Info, governor, token); }
+        {
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+            HashSet<int> reachable = FindPublishedObjects(graph.Pool, graph.Catalog, graph.Pages, graph.Info, scratch, governor);
+            RetainPublishedObjects(model, graph.Compressed, reachable, 2, governor, token);
+        }
         return Finish(model, graph.Compressed, graph.Security, memory, governor, token);
     }
 
@@ -98,22 +102,27 @@ internal static class OutputModelPreparation
         }
     }
 
-    private static void PruneOutputModel(List<NumberedObject> model, Dictionary<int, QpdfObject> pool,
-        HashSet<int> compressed, PdfReference? info, ResourceGovernor governor, CancellationToken token)
+    internal static HashSet<int> FindPublishedObjects(Dictionary<int, QpdfObject> pool, PdfDictionary catalog,
+        PdfDictionary? separatePages, PdfReference? info, ParserMemoryScope scratch, ResourceGovernor governor)
     {
-        // Catalog, page tree and trailer Info are the actual output roots. Keep
-        // shared page/catalog references; replaced-only objects have no root.
-        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(96L);
-        PdfArray roots = PdfArray.FromOwnedItems([model[0].Value, model[1].Value, info is null ? PdfNull.Instance : info]);
-        HashSet<int> reachable = GraphReachability.Find(new Content.PoolResolver(pool), roots, scratch, governor);
-        int kept = 2;
-        for (int index = 2; index < model.Count; index++)
+        // The catalog reaches the page tree of an imported graph. Ordinary
+        // assembly supplies its new page tree before adding it to the pool.
+        PdfArray roots = PdfArray.FromOwnedItems([catalog, (QpdfObject?)separatePages ?? PdfNull.Instance,
+            (QpdfObject?)info ?? PdfNull.Instance]);
+        return GraphReachability.Find(new Content.PoolResolver(pool), roots, scratch, governor);
+    }
+
+    internal static void RetainPublishedObjects(List<NumberedObject> model, HashSet<int>? compressed,
+        HashSet<int> reachable, int explicitRootCount, ResourceGovernor governor, CancellationToken token)
+    {
+        int kept = explicitRootCount;
+        for (int index = explicitRootCount; index < model.Count; index++)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             NumberedObject entry = model[index];
             if (reachable.Contains(entry.Number)) { model[kept++] = entry; }
-            else { compressed.Remove(entry.Number); }
+            else { compressed?.Remove(entry.Number); }
         }
         model.RemoveRange(kept, model.Count - kept);
     }

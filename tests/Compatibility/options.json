@@ -6125,6 +6125,8 @@
           "PreserveUnreferencedTests.PreserveEmptyMergeDropsOrphans",
           "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup",
           "PreserveUnreferencedTests.PreserveWithGenerateCompressesOrphans",
+          "JsonPreservationTests.CommandCreationSelectsDetachedRootPolicy",
+          "JsonPreservationTests.UpdateRetiresSourceRolesButPreservesPrivateAliases",
           "PreservationGraphTests.PreservationKeepsOneCopyAndRetiresFailedCandidates",
           "PreservationGraphTests.NonzeroAndStaleGenerationsKeepTheirIdentityPolicy",
           "PreservationGraphTests.RollbackKeepsEarlierCopiesAndRetriesIndependentDescendants",
@@ -6142,6 +6144,8 @@
           "PreserveUnreferencedTests.PreserveSkipsRebuiltRoots",
           "PreserveUnreferencedTests.PreserveSkipsUnpreservableWithWarning",
           "PreserveUnreferencedTests.JobJsonParityHolds",
+          "JsonPreservationTests.CreationSplitOnlySharesDetachedRootsWhenRequested",
+          "JsonPreservationTests.DecryptedUpdateRetiresPhysicalFramesButRetainsPrivateXrefStream",
           "PublicationProfileTests.ExplicitLoosePreservationKeepsInactiveSignatureData"
         ],
         "resource": [

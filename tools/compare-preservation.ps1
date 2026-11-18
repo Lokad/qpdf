@@ -149,5 +149,65 @@ try {
     }
     Write-Output "[preservation/negative/$($control.name)] altered graph rejects."
   }
+  $source = Join-Path $WorkRoot 'shared-stream-whole/argv.pdf'
+  $expectedSource = Read-PreservedGraph $source
+  $declaration = Get-Content -LiteralPath "$source.state.json" -Raw | ConvertFrom-Json -AsHashtable
+  $peer = @($declaration.qpdf[1].GetEnumerator() | Where-Object { $_.Value.stream -and $_.Value.stream.dict['/Tag'] -ceq 'u:B' })
+  if ($peer.Count -ne 1) { throw 'Missing shared source stream in JSON preservation fixture.' }
+  $next = 1 + [int]$declaration.qpdf[0].maxobjectid
+  $patchObjects = [ordered]@{}
+  $patchObjects["obj:$next 0 R"] = @{ value = @{ '/Tag' = 'u:Patch'; '/Peer' = $peer[0].Key.Substring(4) } }
+  $expectedUpdate = [ordered]@{}
+  foreach ($key in $expectedSource.Keys) { $expectedUpdate[$key] = $expectedSource[$key] }
+  $expectedUpdate['u:Patch'] = [ordered]@{ peer = 'u:B'; payload = $null }
+  $empty = [ordered]@{}
+  foreach ($control in @(
+      @{ name='create-default'; update=$false; preserve=$false; split=$false },
+      @{ name='create-preserve'; update=$false; preserve=$true; split=$false },
+      @{ name='update-default'; update=$true; preserve=$false; split=$false },
+      @{ name='update-preserve'; update=$true; preserve=$true; split=$false },
+      @{ name='create-split-preserve'; update=$false; preserve=$true; split=$true },
+      @{ name='update-split-preserve'; update=$true; preserve=$true; split=$true }
+  )) {
+    $case = Join-Path $WorkRoot ("json-" + $control.name)
+    New-Item -ItemType Directory -Path (Join-Path $case 'inputs') | Out-Null
+    if ($control.update) {
+      Copy-Item -LiteralPath $source -Destination "$case/inputs/source.pdf"
+      @{ qpdf=@(@{ jsonversion=2 },$patchObjects) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$case/inputs/patch.json"
+      $tail = @('inputs/source.pdf','--update-from-json=inputs/patch.json')
+    } else {
+      Copy-Item -LiteralPath "$source.state.json" -Destination "$case/inputs/graph.json"
+      $tail = @('inputs/graph.json','--json-input')
+    }
+    if ($control.preserve) { $tail += '--preserve-unreferenced' }
+    if ($control.split) { $tail += '--split-pages=1' }
+    $tail += '--stream-data=preserve'
+    $suffix = if ($control.split) { '-1.pdf' } else { '.pdf' }
+    Push-Location $case
+    try {
+      & $QpdfExe @tail native.pdf 1> native.txt 2> native-error.txt
+      if ($LASTEXITCODE -ne 0) { throw "Native JSON preservation failed: $case" }
+    } finally { Pop-Location }
+    $native = "$case/native$suffix"
+    $managed = "$case/managed$suffix"
+    $emit = @('emit','--workdir',$case,'--out',"outputs/managed$suffix=$managed",'--') + $tail + 'outputs/managed.pdf'
+    $output = Invoke-ReferenceProbe -Arguments (@($ProbeDll) + $emit) 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0 -or $output -notmatch 'emit: status=Completed exit=0') {
+      throw "Managed JSON preservation failed: $case; $output"
+    }
+    $expected = if (-not $control.preserve) { $empty } elseif ($control.update) { $expectedUpdate } else { $expectedSource }
+    $expectedNative = if ($control.split) { $empty } else { $expected }
+    Assert-PreservedGraph (Read-PreservedGraph $native) $expectedNative $native
+    Assert-PreservedGraph (Read-PreservedGraph $managed) $expected $managed
+    foreach ($pdf in @($native,$managed)) {
+      $validated = Invoke-ReferenceProbe -Arguments @($ProbeDll,'validate','--input',$pdf) 2>&1 | Out-String
+      if ($LASTEXITCODE -ne 0 -or $validated -notmatch 'independent: npages=1') {
+        throw "Independent JSON preservation validation failed: $pdf; $validated"
+      }
+    }
+    $nativeBaselines++
+    $managedComparisons++
+    Write-Output "[preservation/json/$($control.name)] reachability, shared stream bytes and page count verified"
+  }
   Write-Output "Preservation lane passed: $managedComparisons managed comparisons, $nativeBaselines native baselines."
 } finally { Complete-ReferenceProbe }

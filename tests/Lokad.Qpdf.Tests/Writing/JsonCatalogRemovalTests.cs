@@ -43,7 +43,8 @@ public sealed class JsonCatalogRemovalTests
     public async Task PrivateRootsKeepTheirOriginalCatalogData(string alias)
     {
         using InMemoryQpdfHost host = await Prepare(alias);
-        await Check(host, await Run(host, false, "all", "argv", [], CancellationToken.None), "all", alias);
+        string[] flags = alias == "unreferenced" ? ["--preserve-unreferenced"] : [];
+        await Check(host, await Run(host, false, "all", "argv", flags, CancellationToken.None), "all", alias);
     }
 
     [Fact]

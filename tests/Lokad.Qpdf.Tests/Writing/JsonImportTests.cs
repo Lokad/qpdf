@@ -582,6 +582,8 @@ public sealed class JsonImportTests
             inner["/Marker"] = "u:added";
             added["value"] = inner;
             objects["obj:9 0 R"] = added;
+            JsonObject catalog = Assert.IsType<JsonObject>(objects["obj:1 0 R"]?["value"]);
+            catalog["/Added"] = "9 0 R";
         });
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
         host.AddInput(QpdfPath.From("inputs/u.json"), Encoding.UTF8.GetBytes(changed), QpdfInputOwnership.Copy);

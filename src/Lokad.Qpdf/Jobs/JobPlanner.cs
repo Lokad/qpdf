@@ -994,7 +994,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
 
-            if (importJson && (testJsonSchema || preserveUnreferenced
+            if (importJson && (testJsonSchema
                 || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no")
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
@@ -1034,6 +1034,7 @@ internal static partial class JobPlanner
                 {
                     ReplaceInput = replaceInput,
                     SplitPages = splitPages,
+                    PreserveUnreferenced = preserveUnreferenced,
                     CompressionState = compressionSettings.State,
                     CoalesceContents = coalesceContents,
                     Labels = labels,

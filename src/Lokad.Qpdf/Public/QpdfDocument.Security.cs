@@ -53,7 +53,7 @@ public sealed partial class QpdfDocument
             if (!needsDocument || security.Parameters is not null && security.Authentication == PasswordAuthentication.None)
             { return (null, security); }
             QpdfDocument document = CompleteDocumentOpen(input, path, engine, header, limits, governor,
-                diagnostics, cancellationToken, false, false);
+                diagnostics, cancellationToken, false, false, null);
             transferred = true;
             return (document, security);
         }

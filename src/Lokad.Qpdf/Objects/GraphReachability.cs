@@ -34,6 +34,14 @@ internal static class GraphReachability
 
     internal static HashSet<int> Find(IIndirectResolver resolver, QpdfObject root,
         ParserMemoryScope memory, ResourceGovernor governor)
+        => FindCore(resolver, root, null, memory, governor);
+
+    internal static HashSet<int> Find(IIndirectResolver resolver, IReadOnlyList<QpdfObject> roots,
+        ParserMemoryScope memory, ResourceGovernor governor)
+        => FindCore(resolver, null, roots, memory, governor);
+
+    private static HashSet<int> FindCore(IIndirectResolver resolver, QpdfObject? root,
+        IReadOnlyList<QpdfObject>? roots, ParserMemoryScope memory, ResourceGovernor governor)
     {
         memory.CheckOwner(governor);
         using ParserMemoryScope result = ParserMemoryScope.Create(governor);
@@ -41,6 +49,7 @@ internal static class GraphReachability
         HashSet<int> numbers = ParserContainers.CreateSet<int>(result);
         HashSet<(int Number, int Generation)> visited = ParserContainers.CreateSet<(int, int)>(scratch);
         List<(object Values, int Next)> frames = ParserContainers.CreateList<(object, int)>(scratch);
+        if (roots is { Count: > 0 }) { ParserContainers.AddItem(scratch, frames, (roots, roots.Count - 1), 16L); }
         QpdfObject? current = root;
         while (current is not null || frames.Count > 0)
         {

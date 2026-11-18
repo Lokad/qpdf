@@ -685,7 +685,7 @@ internal static class InspectionExecution
             null, limits, governor, graph, token).ConfigureAwait(false);
         Json.ImportedModel model = engine is null
             ? await Json.JsonImport.BuildCreateModelAsync(host, json, true, limits, governor, graph, token).ConfigureAwait(false)
-            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true, null,
+            : await Json.JsonImport.BuildUpdateModelAsync(host, json, engine, source.Header, true, false, true, null, null,
                 limits, governor, graph, token).ConfigureAwait(false);
         Json.JsonImport.CheckObjectCount(model, limits);
         if (PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject declaration)

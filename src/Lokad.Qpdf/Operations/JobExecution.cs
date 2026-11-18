@@ -277,7 +277,8 @@ internal static class JobExecution
                 import.OutputEncryption ?? QpdfOutputEncryption.Preserve,
                 new(import.RemoveInfo, import.RemoveMetadata, import.RemoveAcroform, import.RemoveStructure, import.RemoveLabels),
                 import.Compression(), new(import.Qdf, import.NoOriginalObjectIds), import.NormalizeContent,
-                import.CoalesceContents, import.SplitPages, import.Labels);
+                import.CoalesceContents, import.SplitPages, import.Labels,
+                import.PreserveUnreferenced ? JsonDetachedObjects.Preserve : JsonDetachedObjects.Prune);
             await ImportCoreAsync(
                 host,
                 source,

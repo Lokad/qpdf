@@ -31,7 +31,7 @@ public sealed class JsonSidecarReuseTests
             await using QpdfDocument source = await QpdfDocument.OpenInspectionCore(host, Source, null,
                 limits, governor, diagnostics, QpdfRecoveryMode.Strict, CancellationToken.None, false);
             model = await JsonImport.BuildUpdateModelAsync(host, json, source.Engine, source.HeaderVersionParts,
-                false, false, false, null, limits, governor, memory, CancellationToken.None);
+                false, false, false, null, null, limits, governor, memory, CancellationToken.None);
         }
         else
         {

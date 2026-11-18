@@ -10,6 +10,9 @@
 - Split an authored or patched page tree, retaining inherited page attributes,
   label continuation and independent widget registrations. Capture the first
   linearization pass for whole PDFs or split parts.
+- Honor `--preserve-unreferenced` during command JSON creation and update.
+  Commands prune detached objects by default. Opt-in retention includes split
+  parts and preserves independently referenced source roles.
 - Check bound JSON graphs and issue follow-up listings without a PDF output.
   Update a PDF in place with `--replace-input` / `replaceInput`. The source lease
   closes before staging, and auxiliary inputs are protected from replacement.

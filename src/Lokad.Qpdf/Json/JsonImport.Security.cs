@@ -1,5 +1,6 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Json;
 
@@ -7,20 +8,29 @@ internal static partial class JsonImport
 {
     // JSON carries plaintext objects. Output protection comes from an authenticated
     // PDF or an explicit policy, never from unauthenticated JSON password entries.
-    internal static ImportedModel RemoveEncryptionDeclaration(ImportedModel model, ResourceGovernor governor, CancellationToken token)
+    internal static ImportedModel RemoveEncryptionDeclaration(ImportedModel model, bool excludeDetached, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject value) || value is PdfNull) { return model; }
+        HashSet<int>? excluded = model.DetachedRootExclusions;
+        if (excludeDetached && value is PdfReference reference)
+        {
+            excluded ??= ParserContainers.CreateSet<int>(memory);
+            ParserContainers.AddSetItem(memory, excluded, reference.ObjectNumber, sizeof(int));
+        }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary trailer = PdfDictionaryRebuild.RemoveEntry(graph, model.Trailer, "Encrypt"u8);
-        graph.Memory.Reserve(48L); graph.Add(48L);
-        ImportedModel result = model with { Trailer = trailer };
+        graph.Memory.Reserve(ImportedModel.AllocationBytes); graph.Add(ImportedModel.AllocationBytes);
+        ImportedModel result = model with { Trailer = trailer, DetachedRootExclusions = excluded };
         graph.Retain(); return result;
     }
 
     private static ImportedModel PrepareUpdateEncryption(ImportedModel model, PdfDictionary originalTrailer,
-        QpdfObject originalEncryption, bool authenticated, bool preserve, ResourceGovernor governor, CancellationToken token)
+        QpdfObject originalEncryption, bool authenticated, bool preserve, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
     {
-        if (!preserve) { return RemoveEncryptionDeclaration(model, governor, token); }
+        bool excludeDetached = model.DetachedRootExclusions is not null;
+        if (!preserve) { return RemoveEncryptionDeclaration(model, excludeDetached, memory, governor, token); }
         if (!authenticated || !PdfDictionaryLookup.TryGet(model.Trailer, "Encrypt"u8, governor, token, out QpdfObject current) || current is PdfNull)
         { return model; }
         // Unchanged full exports may repeat the original handler. Reject edits to
@@ -32,7 +42,7 @@ internal static partial class JsonImport
         if (originalEncryption is not PdfDictionary || currentEncryption is not PdfDictionary
             || !SameEncryptionValue(originalEncryption, currentEncryption, governor, token, 0L))
         { throw new QpdfCryptoException("/Encrypt"); }
-        return RemoveEncryptionDeclaration(model, governor, token);
+        return RemoveEncryptionDeclaration(model, excludeDetached, memory, governor, token);
     }
 
     private static bool SameEncryptionValue(QpdfObject left, QpdfObject right, ResourceGovernor governor, CancellationToken token, long depth)

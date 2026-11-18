@@ -19,6 +19,7 @@ internal static class JsonSplitPublication
     internal static async ValueTask PublishAsync(IQpdfHost host, QpdfPath outputPath, int groupSize,
         JsonImportWriterSettings writer, PdfVersion version, JsonImport.RenumberedModel graph,
         IReadOnlyList<PageLocation> pages, List<(int Index, PdfDictionary Label)>? authoredLabels,
+        List<QpdfObject>? detachedRoots,
         HashSet<int>? originalPacking, byte[]? originalId,
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, OutputSecurity? security,
         PublicationInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
@@ -57,7 +58,7 @@ internal static class JsonSplitPublication
             {
                 using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
                 (int first, int last) = groups[group];
-                SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, form, first, last,
+                SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, form, detachedRoots, first, last,
                     limits, groupMemory, governor, token);
                 HashSet<int> packing = ObjectStreamPreparation.RemapCompressedSet(compressed, part.Numbers.Map,
                     groupMemory, governor, token);
@@ -160,7 +161,8 @@ internal static class JsonSplitPublication
 
     private static SplitPart PreparePart(JsonImport.RenumberedModel graph, PdfDictionary catalog, List<PdfReference> kids,
         HashSet<int> pageNumbers, int pagesNumber, List<(int Index, PdfDictionary Label)> labels, CopiedForm? form,
-        int first, int last, QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        List<QpdfObject>? detachedRoots, int first, int last, QpdfLimits limits,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         ReadOnlySpan<PdfReference> group = CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1);
         HashSet<int> groupPages = ParserContainers.CreateSet<int>(memory);
@@ -185,11 +187,19 @@ internal static class JsonSplitPublication
             memory.Reserve(32L);
             ParserContainers.AddItem(memory, roots, new PdfReference(info, 0), IntPtr.Size);
         }
+        if (detachedRoots is not null)
+        {
+            foreach (QpdfObject root in detachedRoots)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ParserContainers.AddItem(memory, roots, root, IntPtr.Size);
+            }
+        }
 
         using ParserMemoryScope walk = ParserMemoryScope.Create(governor);
         memory.Reserve(40L);
         SplitResolver resolver = new(graph.Objects, pageNumbers, groupPages);
-        HashSet<int> reachable = GraphReachability.Find(resolver, ParserContainers.CopyArray(memory, roots), walk, governor);
+        HashSet<int> reachable = GraphReachability.Find(resolver, roots, walk, governor);
         GroupNumbers numbers = NumberGroup(graph.Objects, reachable, 1, pagesNumber, memory, governor, token);
         List<NumberedObject> objects = ParserContainers.CreateList<NumberedObject>(memory);
         ParserContainers.AddItem(memory, objects,

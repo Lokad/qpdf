@@ -196,7 +196,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         {
             IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken).ConfigureAwait(false);
             QpdfDocument document = await OpenInputDocument(input, path, limits, governor, diagnostics,
-                recoveryMode, cancellationToken, true, false, false, InputReadMode.Complete, password).ConfigureAwait(false);
+                recoveryMode, cancellationToken, true, false, false, InputReadMode.Complete, password, null).ConfigureAwait(false);
             governor.AcceptDocument();
             return document;
         }
@@ -321,14 +321,21 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken,
             borrowInputStreams, false);
 
-    internal static async ValueTask<QpdfDocument> OpenInspectionCore(
+    internal static ValueTask<QpdfDocument> OpenInspectionCore(
         IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
         CancellationToken cancellationToken, bool borrowInputStreams, bool replacementSource)
+        => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken,
+            borrowInputStreams, replacementSource, null);
+
+    internal static async ValueTask<QpdfDocument> OpenInspectionCore(
+        IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
+        CancellationToken cancellationToken, bool borrowInputStreams, bool replacementSource, PageTreeRoleSet? roles)
     {
         IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken, replacementSource).ConfigureAwait(false);
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password).ConfigureAwait(false);
+            false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password, roles).ConfigureAwait(false);
     }
 
     private static ValueTask<QpdfDocument> OpenInputDocument(
@@ -342,19 +349,19 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         bool valuesEscape,
         bool borrowInputStreams)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            valuesEscape, borrowInputStreams, false, InputReadMode.Complete, null);
+            valuesEscape, borrowInputStreams, false, InputReadMode.Complete, null, null);
 
     internal static ValueTask<QpdfDocument> OpenSelectionInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool selective,
         CancellationToken cancellationToken, QpdfPassword? password)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery,
-            cancellationToken, false, false, true, selective ? InputReadMode.Selection : InputReadMode.Complete, password);
+            cancellationToken, false, false, true, selective ? InputReadMode.Selection : InputReadMode.Complete, password, null);
 
     internal static ValueTask<QpdfDocument> OpenPageCountInputAsync(IQpdfInput input, QpdfPath path,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
         bool selective, QpdfPassword? password, CancellationToken cancellationToken)
         => OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
-            false, false, true, selective ? InputReadMode.PageCount : InputReadMode.Complete, password);
+            false, false, true, selective ? InputReadMode.PageCount : InputReadMode.Complete, password, null);
 
     // A multisource copy closes each source before publication. During a
     // speculative attempt the caller keeps its lease for fallback; once all
@@ -383,7 +390,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         IQpdfInput input, QpdfPath path, QpdfLimits limits, ResourceGovernor governor,
         DiagnosticBag diagnostics, QpdfRecoveryMode recovery, CancellationToken cancellationToken,
         bool valuesEscape, bool borrowInputStreams, bool leaveInputOpen, InputReadMode readMode,
-        QpdfPassword? password)
+        QpdfPassword? password, PageTreeRoleSet? roles)
     {
         DocumentEngine? engine = null;
         try
@@ -393,7 +400,7 @@ public sealed partial class QpdfDocument : IAsyncDisposable
             engine = loaded;
             AuthenticateEncrypted(engine, password, governor);
             return CompleteDocumentOpen(input, path, engine, headerParts, limits, governor,
-                diagnostics, cancellationToken, valuesEscape, leaveInputOpen);
+                diagnostics, cancellationToken, valuesEscape, leaveInputOpen, roles);
         }
         catch (Exception error)
         {
@@ -408,7 +415,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     // The caller owns the engine and input until the document accepts them.
     private static QpdfDocument CompleteDocumentOpen(IQpdfInput input, QpdfPath path,
         DocumentEngine engine, VersionParts headerParts, QpdfLimits limits, ResourceGovernor governor,
-        DiagnosticBag diagnostics, CancellationToken cancellationToken, bool valuesEscape, bool leaveInputOpen)
+        DiagnosticBag diagnostics, CancellationToken cancellationToken, bool valuesEscape, bool leaveInputOpen,
+        PageTreeRoleSet? roles)
     {
         ParserMemoryScope? pageStorage = null;
         try
@@ -418,7 +426,8 @@ public sealed partial class QpdfDocument : IAsyncDisposable
                 && (catalog.Major > headerParts.Major || catalog.Major == headerParts.Major && catalog.Minor > headerParts.Minor)
                 ? catalog : headerParts;
             pageStorage = ParserMemoryScope.Create(governor);
-            List<PageLocation> pages = PageTree.Read(engine, ReadRootObject(engine), diagnostics, governor, limits, pageStorage, cancellationToken);
+            List<PageLocation> pages = PageTree.Read(engine, ReadRootObject(engine), diagnostics, governor, limits,
+                pageStorage, roles, cancellationToken);
             // Exclusive JSON emits components as text and never exports this
             // document or a version alias. Public/shared readers own carriers.
             PdfVersion? headerVersion = valuesEscape ? governor.OwnVersion(headerParts.Major, headerParts.Minor) : null;

@@ -14,15 +14,17 @@ using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
 
 namespace Lokad.Qpdf.Operations;
 
+internal enum JsonDetachedObjects { RetainAll, Prune, Preserve }
+
 internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
     string ObjectStreams, bool Linearize, QpdfPath? LinearizePass1, QpdfOutputEncryption Encryption,
     DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
-    bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels)
+    bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels, JsonDetachedObjects DetachedObjects)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
-            null, QdfOptions.Disabled, false, false, null, []);
+            null, QdfOptions.Disabled, false, false, null, [], JsonDetachedObjects.RetainAll);
 }
 
 internal static class JsonExecution
@@ -318,10 +320,14 @@ internal static class JsonExecution
         }
 
         using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
+        using ParserMemoryScope? sourceRoleMemory = sourcePdf.HasValue && writer.DetachedObjects == JsonDetachedObjects.Preserve
+            ? ParserMemoryScope.Create(governor) : null;
+        PageTreeRoleSet? sourceRoles = sourceRoleMemory is null ? null
+            : new(ParserContainers.CreateSet<int>(sourceRoleMemory), sourceRoleMemory);
         using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         await using QpdfDocument? document = sourcePdf is QpdfPath input
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery,
-                cancellationToken, false, replaceInput).ConfigureAwait(false)
+                cancellationToken, false, replaceInput, sourceRoles).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
         (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
@@ -335,14 +341,19 @@ internal static class JsonExecution
             model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, limits, governor,
                 importMemory, cancellationToken).ConfigureAwait(false);
             if (!writer.Encryption.PreservesInput)
-            { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
+            {
+                model = Json.JsonImport.RemoveEncryptionDeclaration(model, writer.DetachedObjects == JsonDetachedObjects.Preserve,
+                    importMemory, governor, cancellationToken);
+            }
         }
         else
         {
             model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document.Engine, document.HeaderVersionParts, writer.Encryption.PreservesInput,
-                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement,
+                writer.ObjectStreams == "preserve", retainOriginalPairs, sourceRoles, replacement,
                 limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         }
+        sourceRoles = null;
+        sourceRoleMemory?.Dispose();
 
         byte[]? originalId = document is null ? null : TryGetOriginalId(document.Engine);
         var preparedSecurity = await PrepareOutputSecurityAsync(host, writer.Encryption, document, originalId, importMemory,
@@ -359,7 +370,8 @@ internal static class JsonExecution
             if (prepared.Pages is null)
             { throw new InvalidOperationException("Missing bound JSON split preparation."); }
             await JsonSplitPublication.PublishAsync(host, outputPath, groupSize, writer, prepared.Version, prepared.Graph,
-                prepared.Pages, prepared.Labels, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security,
+                prepared.Pages, prepared.Labels, prepared.DetachedRoots, prepared.PreservedPacking,
+                preparedSecurity.Identifier, originalIds, security,
                 PublicationInputAliases.Active(governor),
                 limits, governor, cancellationToken).ConfigureAwait(false);
         }
@@ -375,7 +387,7 @@ internal static class JsonExecution
 
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph,
         PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking,
-        List<(int Index, PdfDictionary Label)>? Labels);
+        List<(int Index, PdfDictionary Label)>? Labels, List<QpdfObject>? DetachedRoots);
 
     private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, JsonImportWriterSettings writer,
         OutputSecurity? security, QpdfLimits limits,
@@ -431,15 +443,49 @@ internal static class JsonExecution
         HashSet<int>? compressed = generateSplitPacking ? null
             : ResolveCompressedSet(mode, renumbered.Objects, sources, 1, pagesNumber, memory, governor, token);
         bool hasPacking = compressed is not null ? compressed.Count != 0 : renumbered.PageCount != 0;
+        List<QpdfObject>? detachedRoots = null;
+        using ParserMemoryScope? publicationWalk = writer.DetachedObjects == JsonDetachedObjects.RetainAll
+            ? null : ParserMemoryScope.Create(governor);
+        HashSet<int>? reachable = null;
+        bool measured = publicationWalk is not null && splitMemory is null && compressed is { Count: > 0 }
+            && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0;
+        if (measured && publicationWalk is not null && compressed is not null)
+        {
+            reachable = ImportedPublication.FindRetainedObjects(model, renumbered, mappedCatalog, writer.DetachedObjects,
+                null, publicationWalk, governor, token, out _);
+            if (reachable is not null)
+            {
+                hasPacking = false;
+                foreach (int number in compressed)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (reachable.Contains(number)) { hasPacking = true; break; }
+                }
+            }
+        }
         (version, extensionLevel) = RequireObjectStreamVersion(version, extensionLevel, hasPacking, governor);
         IIndirectResolver mappedResolver = Content.PoolResolver.Create(graph.Memory, renumbered.Objects);
         PdfDictionaryLookup.TryGet(mappedCatalog, "Extensions"u8, governor, token, out QpdfObject originalExtensions);
         QpdfObject? extensions = PrepareExtensions(originalExtensions, mappedResolver, version, extensionLevel, graph);
-        if (!ReferenceEquals(extensions, originalExtensions))
+        bool extensionsChanged = !ReferenceEquals(extensions, originalExtensions);
+        if (extensionsChanged)
         {
             PdfDictionary replacement = extensions is null ? PdfDictionaryRebuild.RemoveEntry(graph, mappedCatalog, "Extensions"u8)
                 : PdfDictionaryRebuild.ReplaceEntry(graph, mappedCatalog, "Extensions"u8, extensions);
+            mappedCatalog = replacement;
             renumbered.Objects[1] = replacement; renumbered.Model[0] = new(1, replacement);
+        }
+        if (publicationWalk is not null)
+        {
+            if (!measured || extensionsChanged)
+            {
+                reachable = ImportedPublication.FindRetainedObjects(model, renumbered, mappedCatalog, writer.DetachedObjects,
+                    splitMemory, publicationWalk, governor, token, out detachedRoots);
+            }
+            if (reachable is not null)
+            { OutputModelPreparation.RetainPublishedObjects(renumbered.Model, compressed, reachable, 1, governor, token); }
+            reachable = null;
+            publicationWalk.Dispose();
         }
         graph.Retain();
         PreparedOutputModel output;
@@ -480,7 +526,7 @@ internal static class JsonExecution
             foreach (NumberedObject item in output.Model)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
         }
-        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels);
+        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots);
     }
 
 }

@@ -13,7 +13,9 @@ namespace Lokad.Qpdf.Json;
 internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, QpdfObject> Objects,
     PdfDictionary Trailer, HashSet<int>? CompressedObjects)
 {
+    internal const long AllocationBytes = 56L;
     internal IReadOnlyDictionary<(int Number, int Generation), int>? OriginalPairs { get; init; }
+    internal HashSet<int>? DetachedRootExclusions { get; init; }
 }
 
 /// <summary>
@@ -163,6 +165,7 @@ internal static partial class JsonImport
         bool preserveEncryption,
         bool preserveObjectStreams,
         bool retainOriginalPairs,
+        PageTreeRoleSet? sourceRoles,
         (QpdfPath Path, string Identity)? replacementTarget,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -205,6 +208,7 @@ internal static partial class JsonImport
         memory.Reserve(checked(128L + 64L * bindings.Count));
         Dictionary<int, QpdfObject> merged = new(bindings.Count);
         HashSet<int>? compressed = preserveObjectStreams ? ParserContainers.CreateSet<int>(memory) : null;
+        HashSet<int>? excluded = sourceRoles.HasValue ? ParserContainers.CreateSet<int>(memory) : null;
         foreach (KeyValuePair<int, XrefEntry> entry in engine.XRefEntries)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -217,6 +221,19 @@ internal static partial class JsonImport
             int number = bindings[(entry.Key, entry.Value.Kind == XrefEntryKind.Compressed ? 0 : entry.Value.Second)];
             if (entry.Value.Kind == XrefEntryKind.Compressed && compressed is not null)
             { ParserContainers.AddSetItem(memory, compressed, number, sizeof(int)); }
+            if (excluded is not null && sourceRoles is { } roles)
+            {
+                if (roles.Numbers.Contains(entry.Key) || engine.IsCrossReferenceStream(entry.Key))
+                { ParserContainers.AddSetItem(memory, excluded, number, sizeof(int)); }
+                if (entry.Value.Kind == XrefEntryKind.Compressed
+                    && entry.Value.First is > 0L and <= int.MaxValue
+                    && engine.XRefEntries.TryGetValue((int)entry.Value.First, out XrefEntry frame)
+                    && frame.Kind == XrefEntryKind.Uncompressed)
+                {
+                    int boundFrame = bindings[((int)entry.Value.First, frame.Second)];
+                    ParserContainers.AddSetItem(memory, excluded, boundFrame, sizeof(int));
+                }
+            }
             QpdfObject value = prepared is not null && prepared.Objects.TryGetValue(entry.Key, out QpdfObject? replacement)
                 ? replacement : engine.Load(entry.Key);
             merged[number] = Writing.ObjectRemap.NormalizeSource(value, engine.XRefEntries, bindings,
@@ -229,6 +246,9 @@ internal static partial class JsonImport
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 int number = bindings[(reference.ObjectNumber, reference.Generation)];
+                // Page preparation can promote direct containers and duplicate leaves.
+                // Retain such synthetic objects only through a published edge.
+                if (excluded is not null) { ParserContainers.AddSetItem(memory, excluded, number, sizeof(int)); }
                 merged[number] = Writing.ObjectRemap.NormalizeSource(prepared.Objects[reference.ObjectNumber], engine.XRefEntries,
                     bindings, prepared.AddedReferences, memory, governor, cancellationToken);
             }
@@ -242,6 +262,8 @@ internal static partial class JsonImport
         {
             originalEncryption = declaration is PdfReference reference
                 ? merged.GetValueOrDefault(reference.ObjectNumber, PdfNull.Instance) : declaration;
+            if (excluded is not null && declaration is PdfReference originalHandler)
+            { ParserContainers.AddSetItem(memory, excluded, originalHandler.ObjectNumber, sizeof(int)); }
         }
         foreach (JsonProperty property in qpdf[1].EnumerateObject())
         {
@@ -267,9 +289,9 @@ internal static partial class JsonImport
         }
 
         ImportedModel result = new(metadata.Version ?? governor.PrivateVersion(header.Major, header.Minor), merged, trailer, compressed)
-        { OriginalPairs = retainOriginalPairs ? bindings : null };
+        { OriginalPairs = retainOriginalPairs ? bindings : null, DetachedRootExclusions = excluded };
         return PrepareUpdateEncryption(result, originalTrailer, originalEncryption, engine.Security is not null,
-            preserveEncryption, governor, cancellationToken);
+            preserveEncryption, memory, governor, cancellationToken);
     }
 
     private static JsonElement ReadEnvelope(JsonDocument document, ParserMemoryScope memory,

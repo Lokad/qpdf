@@ -43,7 +43,8 @@ public sealed class JsonMetadataPolicyTests
     public async Task RetiresOnlySupersededRolesWhilePreservingPrivateRoots(string alias)
     {
         using InMemoryQpdfHost host = await Prepare(alias);
-        QpdfExecutionResult result = await Run(host, false, true, true, "argv", [], CancellationToken.None);
+        string[] flags = alias == "unreferenced" ? ["--preserve-unreferenced"] : [];
+        QpdfExecutionResult result = await Run(host, false, true, true, "argv", flags, CancellationToken.None);
         await Check(host, result, true, true, alias);
     }
 
@@ -78,7 +79,7 @@ public sealed class JsonMetadataPolicyTests
     {
         using InMemoryQpdfHost host = await Prepare("info");
         host.AddInput(QpdfPath.From("patch"), """{"qpdf":[{"jsonversion":2},{"obj:4 0 R":{"value":{"/Title":"u:PATCHED","/ModDate":"10 9 R"}},"obj:10 9 R":{"value":"u:D:20250102030405Z"}}]}"""u8.ToArray(), QpdfInputOwnership.Transfer);
-        QpdfExecutionResult result = await Run(host, true, true, false, "argv", [], CancellationToken.None);
+        QpdfExecutionResult result = await Run(host, true, true, false, "argv", ["--preserve-unreferenced"], CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes));
         host.AddInput(QpdfPath.From("read"), bytes, QpdfInputOwnership.Transfer);
@@ -241,8 +242,8 @@ public sealed class JsonMetadataPolicyTests
                 && subtype is PdfName name && name.DisplayText == "XML")
             { Assert.Equal("<x/>"u8.ToArray(), StreamObservation.Decode(stream)); streams++; }
         }
-        Assert.Contains("UNRELATED", textValues);
-        if (alias != "unreferenced") { Assert.Contains("UNRELATED-2", textValues); }
+        Assert.Equal(alias == "unreferenced", textValues.Contains("UNRELATED"));
+        Assert.DoesNotContain("UNRELATED-2", textValues);
         Assert.Equal(!removeInfo || alias is "info" or "unreferenced", textValues.Contains("TITLE"));
         bool retainedXml = keepXml || alias is "xml" or "catalog" or "unreferenced";
         Assert.Equal(retainedXml ? 1 : 0, streams);

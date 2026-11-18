@@ -425,8 +425,12 @@ Argv/job imports apply remove-info/remove-metadata and remove-acroform/
 remove-structure/remove-page-labels after reference binding, using the ordinary
 document policies. AcroForm removal retains widgets; structure removal omits
 StructTreeRoot and MarkInfo together. Fresh catalog/Info roles preserve private
-aliases; superseded metadata retires unless independently rooted. Unrelated
-unreferenced JSON declarations retain their existing preservation policy.
+aliases and retire superseded metadata unless independently rooted.
+Command imports publish the graph reachable from the catalog and Info.
+`--preserve-unreferenced` / `preserveUnreferenced` also retains eligible
+detached declarations and source objects. Superseded source page-tree,
+security and physical layout roles require a retained graph edge. Typed
+imports continue to retain detached declarations.
 Command imports and updates can coalesce page contents after binding. The
 shared coalescer joins the decoded chunks in order before stream encoding.
 Private references keep the original array and streams. An edited direct
@@ -450,6 +454,8 @@ Command creation and updates can split the bound page order with
 continues its labels, and maps references to pages outside the part to null.
 Repeated pages have separate widget registrations and point back to their own
 pages.
+With explicit unreferenced preservation, every part also receives the detached
+roots from the bound graph. Native qpdf drops these roots in split output.
 Expanded names use the ordinary splitter, including a single number for a
 one-page final part. Split targets must differ from the acquired inputs,
 including the source PDF, JSON and sidecars. When the host can open an existing

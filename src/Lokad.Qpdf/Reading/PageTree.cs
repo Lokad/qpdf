@@ -4,6 +4,15 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Reading;
 
+internal readonly record struct PageTreeRoleSet(HashSet<int> Numbers, ParserMemoryScope Memory)
+{
+    internal void Include(QpdfObject edge)
+    {
+        if (edge is PdfReference reference)
+        { ParserContainers.AddSetItem(Memory, Numbers, reference.ObjectNumber, sizeof(int)); }
+    }
+}
+
 /// <summary>Bounded page-tree reading shared by documents and imported models.</summary>
 internal static class PageTree
 {
@@ -15,7 +24,12 @@ internal static class PageTree
         QpdfLimits limits,
         ParserMemoryScope pageStorage,
         CancellationToken cancellationToken)
-        => ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, null, cancellationToken);
+        => Read(resolver, root, diagnostics, governor, limits, pageStorage, null, cancellationToken);
+
+    internal static List<PageLocation> Read(IIndirectResolver resolver, QpdfObject root,
+        DiagnosticBag diagnostics, ResourceGovernor governor, QpdfLimits limits, ParserMemoryScope pageStorage,
+        PageTreeRoleSet? roles, CancellationToken cancellationToken)
+        => ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, null, roles, cancellationToken);
 
     internal static List<PageLocation> Rewrite(
         Dictionary<int, QpdfObject> pool, int catalogNumber, IIndirectResolver resolver,
@@ -29,7 +43,7 @@ internal static class PageTree
         editMemory.Reserve(48L);
         LeafEdit edit = new(pool, rewritePage, addObject, changes);
         PdfDictionary root = (PdfDictionary)pool[catalogNumber];
-        List<PageLocation> pages = ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, edit, token);
+        List<PageLocation> pages = ReadCore(resolver, root, diagnostics, governor, limits, pageStorage, edit, null, token);
         if (edit.Catalog is PdfDictionary catalog) { pool[catalogNumber] = catalog; }
         changes.Memory.TransferTo(valueStorage, changes.Bytes);
         return pages;
@@ -44,17 +58,23 @@ internal static class PageTree
 
     private static List<PageLocation> ReadCore(IIndirectResolver resolver, QpdfObject root, DiagnosticBag diagnostics,
         ResourceGovernor governor, QpdfLimits limits, ParserMemoryScope pageStorage, LeafEdit? edit,
-        CancellationToken cancellationToken)
+        PageTreeRoleSet? roles, CancellationToken cancellationToken)
     {
         pageStorage.CheckOwner(governor);
         PdfDictionary pages = ReadRoot(resolver, root, governor, cancellationToken, out PdfDictionary catalog, out QpdfObject pagesEdge);
+        if (roles is { } retained)
+        {
+            retained.Memory.CheckOwner(governor);
+            retained.Include(root);
+            retained.Include(pagesEdge);
+        }
         List<PageLocation> collector = ParserContainers.CreateList<PageLocation>(pageStorage);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         HashSet<int> path = ParserContainers.CreateSet<int>(traversal);
         Dictionary<PdfDictionary, int>? emptySubtrees = null;
         PdfDictionary original = pages;
         WalkPages(resolver, diagnostics, governor, limits, ref pages, null, path, collector, pageStorage, traversal,
-            ref emptySubtrees, 0, edit, cancellationToken);
+            ref emptySubtrees, 0, edit, roles, cancellationToken);
         if (edit is not null && !ReferenceEquals(original, pages))
         {
             if (pagesEdge is PdfReference reference) { edit.Pool[reference.ObjectNumber] = pages; }
@@ -153,6 +173,7 @@ internal static class PageTree
         ref Dictionary<PdfDictionary, int>? emptySubtrees,
         int depth,
         LeafEdit? edit,
+        PageTreeRoleSet? roles,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -163,6 +184,7 @@ internal static class PageTree
 
         governor.NoteOperation();
         governor.CheckCancellation();
+        if (incoming is not null) { roles?.Include(incoming); }
         if (emptySubtrees is not null && emptySubtrees.TryGetValue(node, out int remainingDepth))
         {
             long deepest = (long)depth + remainingDepth;
@@ -188,7 +210,11 @@ internal static class PageTree
         if (PdfDictionaryLookup.TryGet(node, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw))
         {
             if (kidsRaw is PdfReference reference)
-            { PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved); kids = resolved as PdfArray; }
+            {
+                PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? resolved);
+                kids = resolved as PdfArray;
+                if (kids is not null) { roles?.Include(reference); }
+            }
             else { kids = kidsRaw as PdfArray; }
         }
         if (kids is null)
@@ -216,7 +242,7 @@ internal static class PageTree
 
                 PdfDictionary originalChild = child;
                 int childHeight = WalkPages(resolver, diagnostics, governor, limits, ref child, reference, path, collector,
-                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, cancellationToken);
+                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, roles, cancellationToken);
                 if (edit is not null && !ReferenceEquals(child, originalChild)) { edit.Pool[reference.ObjectNumber] = child; }
                 height = Math.Max(height, childHeight + 1);
                 path.Remove(reference.ObjectNumber);
@@ -228,7 +254,7 @@ internal static class PageTree
                 int pageIndex = collector.Count;
                 PdfDictionary edited = direct;
                 int childHeight = WalkPages(resolver, diagnostics, governor, limits, ref edited, null, path, collector,
-                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, cancellationToken);
+                    pageStorage, traversal, ref emptySubtrees, depth + 1, edit, roles, cancellationToken);
                 if (edit is not null && !ReferenceEquals(direct, edited))
                 {
                     rewritten ??= CopyKids(kids, edit.Changes, governor, cancellationToken);
