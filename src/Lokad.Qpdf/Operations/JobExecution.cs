@@ -242,9 +242,8 @@ internal static class JobExecution
 
         if (plan is ShowObjectPlan showObject)
         {
-            await ShowObjectCoreAsync(host, showObject, suppliedPassword is null ? showObject.TransformationPassword : suppliedPassword.Password,
+            return await ShowObjectCoreAsync(host, showObject, suppliedPassword is null ? showObject.TransformationPassword : suppliedPassword.Password,
                 limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-            return CompleteWithPresentation(governor);
         }
 
         if (plan is JsonPlan json)

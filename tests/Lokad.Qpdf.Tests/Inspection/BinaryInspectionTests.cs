@@ -114,6 +114,51 @@ public sealed class BinaryInspectionTests
     };
 
     [Theory]
+    [InlineData("argv", false, false)]
+    [InlineData("job", true, false)]
+    [InlineData("argv", true, true)]
+    public async Task NamedObjectPayloadPublishesAfterInputCloseWithOneHandle(string route, bool filtered, bool cancel)
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1 };
+        InMemoryQpdfHost storage = new(limits);
+        QpdfPath input = QpdfPath.From("a.pdf"), output = QpdfPath.From("payload.bin");
+        byte[] original = [17, 23, 41];
+        storage.AddInput(input, Fixture(filtered, false), QpdfInputOwnership.Transfer);
+        await using (IQpdfOutputTransaction prior = await storage.CreateOutputAsync(output, CancellationToken.None))
+        {
+            await prior.WriteAsync(original, CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+
+        using RecordingJobHost host = new(storage, "write", output, "success", true);
+        using CancellationTokenSource cancellation = new();
+        QpdfExecutionOptions options = new(limits);
+        Task<QpdfExecutionResult> operation = (route == "job"
+            ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"a.pdf","outputFile":"payload.bin","showObject":"5","filteredStreamData":""}""", options, cancellation.Token)
+            : Qpdf.ExecuteAsync(host, new([input.Value, "--show-object=5", filtered ? "--filtered-stream-data" : "--raw-stream-data", output.Value]), options, cancellation.Token)).AsTask();
+        try
+        {
+            Assert.Same(host.Entered, await Task.WhenAny(host.Entered, operation).WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(1L, storage.OpenLeaseCount);
+            Assert.Equal(StreamBytes, host.PendingWrite.ToArray());
+            Assert.True(storage.TryGetOutput(output, out byte[] stagingControl));
+            Assert.Equal(original, stagingControl);
+            if (cancel) { cancellation.Cancel(); }
+        }
+        finally { host.Resume(); }
+
+        QpdfExecutionResult result = await operation;
+        Assert.Equal(cancel ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Completed, result.Status);
+        Assert.Null(result.OutputBytes);
+        Assert.Equal(StreamBytes.Length, result.Counters.TotalOutputBytes);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.Equal(!cancel, host.Committed.Contains(output));
+        Assert.True(storage.TryGetOutput(output, out byte[] published));
+        Assert.Equal(cancel ? original : StreamBytes, published);
+    }
+
+    [Theory]
     [InlineData("argv", "json")]
     [InlineData("job", "json")]
     [InlineData("argv", "raw")]

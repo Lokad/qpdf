@@ -116,7 +116,7 @@ internal static class InspectionExecution
         diagnostics.AddParts(QpdfDiagnosticCode.PageCount, QpdfDiagnosticSeverity.Info, [input.Value, ": ", DiagnosticPart.Invariant(count)]);
     }
 
-    internal static async ValueTask ShowObjectCoreAsync(
+    internal static async ValueTask<ExecutionOutcome> ShowObjectCoreAsync(
         IQpdfHost host,
         ShowObjectPlan showObject,
         QpdfPassword? password,
@@ -126,11 +126,19 @@ internal static class InspectionExecution
         CancellationToken cancellationToken)
     {
         using PublicationInputAliases? ownedAliases = showObject.Output.HasValue ? PublicationInputAliases.BeginIfNeeded(governor) : null;
-        await using QpdfDocument document = showObject.EmptyDocument
+        using ParserMemoryScope payloadOwner = ParserMemoryScope.Create(governor);
+        ReadOnlyMemory<byte>? payload;
+        await using (QpdfDocument document = showObject.EmptyDocument
             ? await QpdfDocument.OpenEmptyDocument(showObject.Input, limits, governor, diagnostics, showObject.Recovery, cancellationToken, true).ConfigureAwait(false)
-            : await QpdfDocument.OpenInspectionCore(host, showObject.Input, password, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false);
-        using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        await ShowObjectAsync(host, document, showObject, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false);
+            : await QpdfDocument.OpenInspectionCore(host, showObject.Input, password, limits, governor, diagnostics, showObject.Recovery, cancellationToken).ConfigureAwait(false))
+        {
+            payload = ShowObject(document, showObject, limits, governor, diagnostics, payloadOwner, cancellationToken);
+            if (payload.HasValue && showObject.Output.HasValue)
+            { document.Engine.TransferExclusiveValuesTo(payloadOwner); }
+        }
+        return showObject.Output is QpdfPath target && payload is ReadOnlyMemory<byte> bytes
+            ? await PublishInspectionPayloadAsync(host, target, bytes, true, governor, diagnostics, cancellationToken).ConfigureAwait(false)
+            : CompleteWithPresentation(governor);
     }
 
     internal static IReadOnlyList<QpdfAttachmentInfo> ListAttachments(
@@ -314,8 +322,7 @@ internal static class InspectionExecution
         }
     }
 
-    internal static async ValueTask<ReadOnlyMemory<byte>?> ShowObjectAsync(
-        IQpdfHost host,
+    internal static ReadOnlyMemory<byte>? ShowObject(
         QpdfDocument document,
         ShowObjectPlan showObject,
         QpdfLimits limits,
@@ -363,14 +370,7 @@ internal static class InspectionExecution
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), payload.Length, limits.MaxOutputBytes);
             }
 
-            if (!output.HasValue) { return payload; }
-            await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, output.Value,
-                null, "Binary", cancellationToken).ConfigureAwait(false);
-            await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, output.Value, governor, cancellationToken).ConfigureAwait(false);
-            TransactionSink sink = new(transaction, governor);
-            await sink.AppendAsync(payload, cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-            return null;
+            return payload;
         }
 
         if (showObject.Output is not null)
@@ -574,14 +574,14 @@ internal static class InspectionExecution
                         {
                             bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.ShowEncryption || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
                             using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
-                            ReadOnlyMemory<byte>? payload = await ShowObjectAsync(host, document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
+                            ReadOnlyMemory<byte>? payload = ShowObject(document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
                             {
                                 RawStreamData = plan.RawStreamData,
                                 FilteredStreamData = plan.FilteredStreamData,
                                 NormalizeContent = plan.NormalizeContent,
                                 RejectStreamAfterInfo = priorInfo && plan.AttachmentKey is null,
                             },
-                                limits, governor, diagnostics, objectMemory, cancellationToken).ConfigureAwait(false);
+                                limits, governor, diagnostics, objectMemory, cancellationToken);
                             if (payload is not null)
                             {
                                 AppendInspectionBytes(output, payload.Value, governor);
@@ -615,25 +615,8 @@ internal static class InspectionExecution
             }
             if (hasPayload && plan.PayloadOutput is QpdfPath payloadTarget)
             {
-                IReadOnlyList<QpdfDiagnostic> reports = diagnostics.Entries;
-                for (int index = 0; index < reports.Count; index++)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (reports[index].Severity == QpdfDiagnosticSeverity.Error) { return CompleteWithPresentation(governor); }
-                }
-                ReadOnlyMemory<byte> payload = directPayload ?? output.WrittenMemory;
-                await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, payloadTarget,
-                    null, "Binary", cancellationToken).ConfigureAwait(false);
-                using PublicationReservation publication = PublicationReservation.Create(governor, true, payload.Length);
-                publication.Begin();
-                await using (IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, payloadTarget, governor, cancellationToken).ConfigureAwait(false))
-                {
-                    GovernedHost.PrepareOutputCapacity(transaction, payload.Length, cancellationToken);
-                    // Extraction already charged output bytes; publishing must not charge them twice.
-                    await transaction.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-                    await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-                }
-                return CompleteWithPresentation(governor);
+                return await PublishInspectionPayloadAsync(host, payloadTarget, directPayload ?? output.WrittenMemory,
+                    false, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
             ReadOnlyMemory<byte>? bytes = null;
             if (hasPayload)
@@ -660,6 +643,30 @@ internal static class InspectionExecution
         {
             return ExecutionOutcome.Canceled([]);
         }
+    }
+
+    private static async ValueTask<ExecutionOutcome> PublishInspectionPayloadAsync(IQpdfHost host, QpdfPath target,
+        ReadOnlyMemory<byte> payload, bool chargeOnWrite, ResourceGovernor governor, DiagnosticBag diagnostics,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<QpdfDiagnostic> reports = diagnostics.Entries;
+        for (int index = 0; index < reports.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (reports[index].Severity == QpdfDiagnosticSeverity.Error) { return CompleteWithPresentation(governor); }
+        }
+        await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, target, null, "Binary", cancellationToken).ConfigureAwait(false);
+        using PublicationReservation publication = PublicationReservation.Create(governor, true, payload.Length);
+        publication.Begin();
+        await using (IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, target, governor, cancellationToken).ConfigureAwait(false))
+        {
+            GovernedHost.PrepareOutputCapacity(transaction, payload.Length, cancellationToken);
+            // Buffered and attachment extraction already charge output bytes on capture.
+            if (chargeOnWrite) { governor.ChargeOutputBytes(payload.Length); }
+            await transaction.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        return CompleteWithPresentation(governor);
     }
 
     internal static void AppendInspectionBytes(GovernedBufferStream output, ReadOnlyMemory<byte> payload, ResourceGovernor governor)

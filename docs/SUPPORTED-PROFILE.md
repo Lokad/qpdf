@@ -336,7 +336,8 @@ the effective graph. Xref listings and linearization reports describe the
 acquired file.
 
 Filtered stream inspection accepts normalization for returned bytes or an explicit
-host output target. Raw extraction retains its encoded bytes.
+host output target. Raw extraction retains its encoded bytes. Named object-stream
+extraction closes its PDF input lease before staging the payload.
 Image filter/parameter descriptors retain stored aliases, live references and
 array shapes. With decoding disabled they project raw specifications without
 building or validating a decoder plan; input and output limits still apply.

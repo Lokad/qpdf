@@ -3555,6 +3555,7 @@
         "resource": [
           "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
           "CodecDecodedBudgetTests.PublicPngExtractionChargesSamplesAndPreservesPriorOutputOnRefusal",
+          "BinaryInspectionTests.NamedObjectPayloadPublishesAfterInputCloseWithOneHandle",
           "LzwDictionaryTests.PublicInspectionFitsTwentyMiBAndRetainsOutput",
           "FilterPlanTests.EmptyParameterArraysUseDefaultsWithoutRetainingResolutionStorage",
           "FilterPlanTests.CancellationAtResolverBoundaryPreventsPublication",
@@ -6368,7 +6369,8 @@
           "NormalizedStreamPublicationTests.RawPublicationKeepsEncodedBytesWithNormalizationEnabled"
         ],
         "resource": [
-          "ShowObjectTests.StreamDataYieldsToExhaustedBudget"
+          "ShowObjectTests.StreamDataYieldsToExhaustedBudget",
+          "BinaryInspectionTests.NamedObjectPayloadPublishesAfterInputCloseWithOneHandle"
         ],
         "oracle": [
           "diff:show-object-stream-data"

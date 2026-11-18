@@ -31,13 +31,13 @@ public sealed class StreamInspectionStorageTests
         long before = GC.GetAllocatedBytesForCurrentThread();
         if (refuse)
         {
-            QpdfLimitException error = await Assert.ThrowsAsync<QpdfLimitException>(() =>
-                InspectionExecution.ShowObjectAsync(host, document, plan, limits, governor, new(governor), memory, CancellationToken.None).AsTask());
+            QpdfLimitException error = Assert.Throws<QpdfLimitException>(() =>
+                InspectionExecution.ShowObject(document, plan, limits, governor, new(governor), memory, CancellationToken.None));
             Assert.Equal(nameof(QpdfLimits.MaxOutputBytes), error.LimitName);
         }
         else
         {
-            ReadOnlyMemory<byte>? bytes = await InspectionExecution.ShowObjectAsync(host, document, plan, limits, governor, new(governor), memory, CancellationToken.None);
+            ReadOnlyMemory<byte>? bytes = InspectionExecution.ShowObject(document, plan, limits, governor, new(governor), memory, CancellationToken.None);
             Assert.Equal(stream.RawMemory, bytes);
         }
         Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < stream.RawMemory.Length);
@@ -55,7 +55,7 @@ public sealed class StreamInspectionStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            ReadOnlyMemory<byte>? bytes = await InspectionExecution.ShowObjectAsync(host, document,
+            ReadOnlyMemory<byte>? bytes = InspectionExecution.ShowObject(document,
                 new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, "4") { FilteredStreamData = true, NormalizeContent = normalize },
                 QpdfLimits.Default, governor, new(governor), memory, CancellationToken.None);
             Assert.NotNull(bytes); Assert.True(memory.ReservedBytes >= bytes.Value.Length + 32L);
@@ -74,9 +74,9 @@ public sealed class StreamInspectionStorageTests
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
-        await Assert.ThrowsAsync<QpdfLimitException>(() => InspectionExecution.ShowObjectAsync(host, document,
+        Assert.Throws<QpdfLimitException>(() => InspectionExecution.ShowObject(document,
             new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, "4") { FilteredStreamData = true },
-            limits, governor, new(governor), memory, CancellationToken.None).AsTask());
+            limits, governor, new(governor), memory, CancellationToken.None));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }
 }
