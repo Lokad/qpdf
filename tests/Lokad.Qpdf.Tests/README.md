@@ -37,7 +37,7 @@ coverage boundaries are:
 | Guarantee | Ownership and observations |
 | --- | --- |
 | Syntax, repair and security | JSON refusal policy exhausts settings at one planner route and samples operation/adapter wiring. Primitive tables own grammar and known answers; workflows retain limits, source roles and reader/writer integration. |
-| Labels and splitting | Typed selection owns label/range/split-size combinations; argv/job cases cover reordering, duplicates, boundaries, prefixes and unlabelled output. |
+| Labels and splitting | Typed selection owns label, range and split-size combinations. The reference lane checks each label shape and samples reordered job selection. |
 | Compression setters | Exhaust native encodings and effective setter order; sample argv/job/mixed/nested configuration. |
 | Content and resources | Feature owners cover alias, content and layout semantics; integration retains selection, merging, splitting and conservative failure behavior. |
 | Geometry | Exhaust subtype, operation, indirection, border, coefficient and thin-page semantics through argv; selected job cases retain adapter wiring. NoRotate, private originals, escaped values and canonical/reversed comparisons stay independent. |
