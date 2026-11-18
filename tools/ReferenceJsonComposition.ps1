@@ -111,4 +111,49 @@ function Invoke-ReferenceJsonComposition {
     }
     Write-Output "[json-composition/inspect-$checked] bound count, patched pair and requested check agree."
   }
+
+  $page = @{ '/Type'='/Page'; '/Parent'='8 7 R'; '/MediaBox'=@(0,0,100,100); '/Resources'=@{} }
+  foreach ($direct in @($true, $false)) {
+    $tag = if ($direct) { 'direct-pages' } else { 'repeated-page' }
+    $case = New-Case "json-composition-$tag"
+    $table = @{
+      'obj:2 4 R'=@{ value=@{ '/Type'='/Catalog'; '/Pages'='8 7 R' } }
+      'obj:8 7 R'=@{ value=@{ '/Type'='/Pages'; '/Count'=2 } }
+      trailer=@{ value=@{ '/Root'='2 4 R'; '/Size'=9 } }
+    }
+    if ($direct) {
+      $second = $page.Clone()
+      $second['/MediaBox'] = @(0,0,100,200)
+      $kids = @($page,$second)
+      $expected = '9 0 R|10 0 R'
+    } else {
+      $table['obj:3 5 R'] = @{ value=$page }
+      $kids = @('3 5 R','3 5 R')
+      $expected = '3 5 R|9 0 R'
+    }
+    $table['obj:8 7 R'].value['/Kids'] = $kids
+    @{ qpdf=@(@{jsonversion=2;pdfversion='1.4'},$table) } | ConvertTo-Json -Depth 12 |
+      Set-Content -LiteralPath "$case/inputs/pages.json"
+    $projection = @('inputs/pages.json','--json-input','--json-output','--json-key=pages')
+    $nativeExit = Invoke-Oracle $case ($projection + @('native.json'))
+    $probeArgs = @('emit','--workdir',$case,'--out',"report.json=$case/managed.json",'--') +
+      $projection + @('report.json')
+    $run = Invoke-ReferenceProbeRequest -Arguments $probeArgs -WorkingDirectory $case
+    if ($nativeExit -ne 3 -or $run.ExitCode -ne 0 -or
+        (Get-Content -Raw -LiteralPath $run.StandardOutput) -notmatch '(?m)^emit: status=Completed exit=3\r?$') {
+      throw "$tag did not report page identity repair."
+    }
+    foreach ($name in @('native', 'managed')) {
+      $report = Get-Content -Raw -LiteralPath "$case/$name.json" | ConvertFrom-Json -AsHashtable
+      $bound = $report.qpdf[1]
+      if (($report.pages.object -join '|') -cne $expected -or
+          ($bound['obj:8 7 R'].value['/Kids'] -join '|') -cne $expected -or
+          !$report.qpdf[0].calledgetallpages -or $report.qpdf[0].pushedinheritedpageresources) {
+        throw "$tag $name did not project the prepared tree and its descriptor pairs."
+      }
+      if ((Invoke-Oracle $case @("$name.json",'--json-input',"$name.pdf")) -ne 0) { throw "$tag report recreation failed." }
+    }
+    Assert-Trio "json-composition/$tag" "$case/managed.pdf" "$case/native.pdf" 2
+    Write-Output "[json-composition/$tag] both reports use the prepared page identities."
+  }
 }

@@ -323,17 +323,63 @@ internal static class JsonExecution
                     limits, memory, governor, token);
             }
             Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
-            PdfDictionary catalog = ReadBoundCatalog(model, resolver, governor, token);
-            IReadOnlyList<PageLocation> pages = request.Wants("pages") || request.Wants("pagelabels")
-                    || request.Wants("outlines") || request.Wants("acroform")
-                ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, memory, token) : [];
-            IReadOnlyDictionary<int, (int Number, int Generation)>? ids = OriginalObjectIds.PrepareImportedIds(
-                model.OriginalPairs, null, memory, governor, token);
+            _ = ReadBoundCatalog(model, resolver, governor, token);
+            Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
+                model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
+            IReadOnlyList<PageLocation> pages = [];
+            if (Json.DocumentJson.RequestUsesPageTree(request))
+            {
+                (PdfDictionary trailer, IReadOnlyList<PageLocation> locations) = PrepareBoundProjectionPages(model, resolver, ids,
+                    limits, memory, governor, diagnostics, token);
+                memory.Reserve(Json.ImportedModel.AllocationBytes);
+                model = model with { Trailer = trailer, CalledAllPages = true };
+                pages = locations;
+            }
             Json.JsonDocumentView view = new(model, resolver, pages, ids, engine?.Security);
             rendered = Json.DocumentJson.WriteDocument(view, request, output, limits, governor, diagnostics, token);
         }
         catch { rendered?.Dispose(); throw; }
         return rendered;
+    }
+
+    private static (PdfDictionary Trailer, IReadOnlyList<PageLocation> Pages) PrepareBoundProjectionPages(
+        Json.ImportedModel model, Content.PoolResolver resolver,
+        Dictionary<int, (int Number, int Generation)> ids, QpdfLimits limits, ParserMemoryScope memory,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        int lastBound = 0, lastDeclared = 0;
+        int objects = model.Objects.Count;
+        using ParserMemoryScope temporary = ParserMemoryScope.Create(governor);
+        PageTreePreparation.Prepared prepared = PageTreePreparation.PrepareBoundForInspection(resolver, model.Trailer,
+            Allocate, limits, memory, temporary, governor, token);
+        Json.JsonImport.ApplyPreparedPageObjects(prepared, model.Objects, memory, governor, token);
+        if (prepared.AddedReferences.Count != 0)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.RecoveryEngaged, QpdfDiagnosticSeverity.Warning,
+                "Direct or repeated page tree entries were assigned independent object identities.");
+        }
+        return (prepared.Trailer, prepared.Pages ?? throw new InvalidOperationException("Missing prepared pages."));
+
+        int Allocate()
+        {
+            if (lastBound == 0)
+            {
+                foreach ((int bound, var pair) in ids)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    lastBound = Math.Max(lastBound, bound);
+                    lastDeclared = Math.Max(lastDeclared, pair.Number);
+                }
+            }
+            if (lastDeclared == int.MaxValue || lastBound == int.MaxValue)
+            { throw new QpdfParseException("No object identity is available for page preparation.", null, null); }
+            if (objects >= limits.MaxContainerSize)
+            { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), objects + 1L, limits.MaxContainerSize); }
+            objects++;
+            ParserContainers.EnsureEntryCapacity(memory, ids, 2L * sizeof(int));
+            ids.Add(++lastBound, (++lastDeclared, 0));
+            return lastBound;
+        }
     }
 
     internal static async ValueTask<Json.ImportedModel> BindInspectionModelAsync(IQpdfHost host, ImportedInspectionInput imported,

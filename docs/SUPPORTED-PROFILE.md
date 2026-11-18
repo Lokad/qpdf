@@ -357,6 +357,9 @@ Commands can combine JSON export with `--json-input` or
 declared pairs in descriptors, object keys and filters. A create-and-patch
 job can export the result directly. Physical updates authenticate before
 binding. The report and its sidecars protect every consumed input.
+Page, page-label, outline and form reports assign separate object identities
+to direct and repeated page occurrences and report the repair. An object-table
+report alone preserves the existing page tree.
 When exported objects share a number across generations, nonzero generations
 add a suffix to the sidecar name to keep the files distinct.
 

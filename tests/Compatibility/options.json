@@ -4652,6 +4652,7 @@
           "JsonResourcePruningTests.CoalescingDoesNotChangeTheOriginalSourceAutoDecision",
           "JsonResourcePruningTests.MinimalJobAndReturnedVersionsCarryThePrunedBindings",
           "JsonCompositionTests.BoundProjectionKeepsDeclaredAddressesAcrossDescriptorsAndValues",
+          "JsonCompositionTests.BoundPageProjectionRegistersDirectAndRepeatedOccurrences",
           "JsonCompositionTests.NamedProjectionSeparatesSameNumberStreamGenerations"
         ],
         "resource": [

@@ -44,6 +44,9 @@ internal static class DocumentJson
     // can carry a full-depth PDF value. Model limits remain with their readers.
     internal const int SyntaxMaxDepth = 3 * (int)QpdfLimits.ParserNestingCeiling + 8;
 
+    internal static bool RequestUsesPageTree(JsonRequest request)
+        => request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines") || request.Wants("acroform");
+
     internal static DisplayBuffer WriteDocument(
         QpdfDocument document,
         JsonRequest request,
@@ -75,7 +78,7 @@ internal static class DocumentJson
             }
 
             using ParserMemoryScope inspectionMemory = ParserMemoryScope.Create(governor);
-            bool touchesPages = request.Wants("pages") || request.Wants("pagelabels") || request.Wants("outlines") || request.Wants("acroform");
+            bool touchesPages = RequestUsesPageTree(request);
             SortedDictionary<int, QpdfObject> labels = new();
             bool hasLabelTree = false;
             if (request.Wants("pages") || request.Wants("pagelabels"))

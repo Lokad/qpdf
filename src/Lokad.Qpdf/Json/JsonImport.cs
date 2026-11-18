@@ -163,12 +163,7 @@ internal static partial class JsonImport
                 Content.PoolResolver resolver = Content.PoolResolver.Create(bindingMemory, objects);
                 PageTreePreparation.Prepared prepared = PageTreePreparation.PrepareBound(resolver, trailer, Allocate,
                     patchMetadata.PushedInherited, limits, memory, bindingMemory, governor, cancellationToken);
-                foreach (KeyValuePair<int, QpdfObject> replacement in prepared.Objects)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (!objects.ContainsKey(replacement.Key)) { ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size); }
-                    objects[replacement.Key] = replacement.Value;
-                }
+                ApplyPreparedPageObjects(prepared, objects, memory, governor, cancellationToken);
                 trailer = prepared.Trailer;
             }
             PdfDictionary? patchedTrailer = await ApplyObjectTableAsync(patchObjects, objects, bindings, sidecars, true,
@@ -190,6 +185,17 @@ internal static partial class JsonImport
             if (greatest == int.MaxValue)
             { throw new QpdfParseException("No object identity is available for page preparation.", null, null); }
             return Bind(bindings, (++greatest, 0), retainedBindings, governor);
+        }
+    }
+
+    internal static void ApplyPreparedPageObjects(PageTreePreparation.Prepared prepared, Dictionary<int, QpdfObject> objects,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        foreach (KeyValuePair<int, QpdfObject> replacement in prepared.Objects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!objects.ContainsKey(replacement.Key)) { ParserContainers.EnsureEntryCapacity(memory, objects, IntPtr.Size); }
+            objects[replacement.Key] = replacement.Value;
         }
     }
 

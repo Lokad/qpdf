@@ -65,12 +65,12 @@ internal static class OriginalObjectIds
         return inverted;
     }
 
-    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareImportedIds(
+    internal static Dictionary<int, (int Number, int Generation)>? PrepareImportedIds(
         IReadOnlyDictionary<(int Number, int Generation), int>? sources, IReadOnlyDictionary<int, int>? numbering,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
         => PrepareImportedIds(sources, numbering, null, memory, governor, token);
 
-    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareImportedIds(
+    internal static Dictionary<int, (int Number, int Generation)>? PrepareImportedIds(
         IReadOnlyDictionary<(int Number, int Generation), int>? sources, IReadOnlyDictionary<int, int>? numbering,
         IReadOnlyDictionary<int, int>? compact, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {

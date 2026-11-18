@@ -31,6 +31,63 @@ public sealed class JsonCompositionTests
         """;
 
     [Theory]
+    [InlineData(true, "9 0 R", "10 0 R", 10)]
+    [InlineData(false, "3 5 R", "9 0 R", 9)]
+    public async Task BoundPageProjectionRegistersDirectAndRepeatedOccurrences(bool direct,
+        string first, string second, int greatest)
+    {
+        const string page = """{"/Type":"/Page","/Parent":"8 7 R","/MediaBox":[0,0,100,100],"/Resources":{}}""";
+        string kids = direct ? page + "," + page.Replace("100,100", "100,200", StringComparison.Ordinal) : "\"3 5 R\",\"3 5 R\"";
+        string registered = direct ? string.Empty : $$""" "obj:3 5 R":{"value":{{page}}}, """;
+        string model = $$$"""
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
+              "obj:2 4 R":{"value":{"/Type":"/Catalog","/Pages":"8 7 R"}},
+              {{{registered}}}
+              "obj:8 7 R":{"value":{"/Type":"/Pages","/Count":2,"/Kids":[{{{kids}}}]}},
+              "trailer":{"value":{"/Root":"2 4 R","/Size":9}}
+            }]}
+            """;
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Source, Encoding.UTF8.GetBytes(model), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult raw = await Qpdf.ExecuteAsync(host, new(["source.json", "--json-input", "--json-output"]), Token);
+        Assert.Equal(QpdfExitCode.Success, raw.ExitCode);
+        using (JsonDocument report = JsonDocument.Parse(Assert.IsType<string>(raw.OutputText)))
+        {
+            JsonElement graph = report.RootElement.GetProperty("qpdf");
+            Assert.False(graph[0].GetProperty("calledgetallpages").GetBoolean());
+            Assert.Equal(8, graph[0].GetProperty("maxobjectid").GetInt32());
+            JsonElement originalKids = graph[1].GetProperty("obj:8 7 R").GetProperty("value").GetProperty("/Kids");
+            Assert.Equal(direct ? JsonValueKind.Object : JsonValueKind.String, originalKids[1].ValueKind);
+            if (!direct) { Assert.Equal("3 5 R", originalKids[1].GetString()); }
+        }
+
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["source.json", "--json-input", "--json-output", "--json-key=pages"]), Token);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RecoveryEngaged);
+        using JsonDocument projected = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        JsonElement root = projected.RootElement, table = root.GetProperty("qpdf")[1];
+        JsonElement preparedKids = table.GetProperty("obj:8 7 R").GetProperty("value").GetProperty("/Kids");
+        Assert.True(root.GetProperty("qpdf")[0].GetProperty("calledgetallpages").GetBoolean());
+        Assert.False(root.GetProperty("qpdf")[0].GetProperty("pushedinheritedpageresources").GetBoolean());
+        Assert.Equal(greatest, root.GetProperty("qpdf")[0].GetProperty("maxobjectid").GetInt32());
+        for (int index = 0; index < 2; index++)
+        {
+            string pair = index == 0 ? first : second;
+            Assert.Equal(pair, preparedKids[index].GetString());
+            Assert.Equal(pair, root.GetProperty("pages")[index].GetProperty("object").GetString());
+            JsonElement leaf = table.GetProperty("obj:" + pair).GetProperty("value");
+            Assert.Equal(direct && index == 1 ? 200 : 100, leaf.GetProperty("/MediaBox")[3].GetInt32());
+        }
+
+        QpdfExecutionResult filtered = await Qpdf.ExecuteAsync(host,
+            new(["source.json", "--json-input", "--json-output", "--json-key=pages", "--json-object=" + greatest]), Token);
+        Assert.Equal(QpdfExitCode.Warning, filtered.ExitCode);
+        using JsonDocument selected = JsonDocument.Parse(Assert.IsType<string>(filtered.OutputText));
+        Assert.Equal("obj:" + second, Assert.Single(selected.RootElement.GetProperty("qpdf")[1].EnumerateObject()).Name);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CreateThenPatchBindsExactPairsAndReusesTheFirstPayload(bool job)

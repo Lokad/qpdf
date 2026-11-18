@@ -28,6 +28,10 @@ internal static class PageTreePreparation
         ResourceGovernor governor, CancellationToken token)
         => PrepareCore(source, trailer, null, allocateNumber, pushInherited, false, limits, values, temporary, governor, token);
 
+    internal static Prepared PrepareBoundForInspection(IIndirectResolver source, PdfDictionary trailer, Func<int> allocateNumber,
+        QpdfLimits limits, ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
+        => PrepareCore(source, trailer, null, allocateNumber, false, true, limits, values, temporary, governor, token);
+
     private static Prepared PrepareCore(IIndirectResolver source, PdfDictionary trailer, IReadOnlyDictionary<int, XrefEntry>? xrefs,
         Func<int>? allocateNumber, bool pushInherited, bool collectPages, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
