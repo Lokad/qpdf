@@ -516,9 +516,13 @@ public sealed class XrefCollectionTests
             ResourceGovernor governor = new(limits, cancellation.Token);
             Task<XRefTable> parsing = Task.Factory.StartNew(() => Parse(input, governor, limits), CancellationToken.None,
                 TaskCreationOptions.LongRunning, TaskScheduler.Default);
-            bool reached = SpinWait.SpinUntil(() => governor.Snapshot().LiveMemoryBytes >= 50000L || parsing.IsCompleted, TimeSpan.FromSeconds(10));
+            bool observed = false;
+            bool reached = SpinWait.SpinUntil(() =>
+            {
+                observed = governor.Snapshot().LiveMemoryBytes >= 50000L;
+                return observed || parsing.IsCompleted;
+            }, TimeSpan.FromSeconds(10));
             Assert.True(reached);
-            bool observed = governor.Snapshot().LiveMemoryBytes >= 50000L;
             cancellation.Cancel();
             try
             {
