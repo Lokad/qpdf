@@ -17,15 +17,18 @@ publication are separate actions.
 
 ## Build and checks
 
-```sh
+```powershell
 dotnet restore Lokad.Qpdf.slnx --locked-mode
 dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
-dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
-pwsh -File tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg
-pwsh -File tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg
-pwsh -File tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg
+$package = ./tools/pack-release.ps1
+./tools/verify-package.ps1 -PackagePath $package
+./tools/verify-package-consumer.ps1 -PackagePath $package
+./tools/test-package-consumer.ps1 -PackagePath $package
 ```
+
+The pack helper writes to a fresh directory and supplies the current package
+path to every guard.
 
 The consumer verifier copies the reviewed lock into an isolated run, binds only
 the local package hash to the supplied artifact, and restores in locked mode
@@ -38,8 +41,7 @@ External documentation URLs are not fetched. Copied-package controls cover
 relative links, inline and reference-style destinations, and missing headings.
 
 After an intentional dependency change, restore without locked mode once,
-review and commit the new lock files, then verify locked mode again. Update
-version-specific package commands when changing the project version.
+review and commit the new lock files, then verify locked mode again.
 
 ## Architecture and style
 

@@ -74,20 +74,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Pack Release
         run: |
-          dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore `
-            2>&1 | Tee-Object artifacts/ci/logs/pack.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $package = ./tools/pack-release.ps1 -LogPath artifacts/ci/logs/pack.log
+          "LOKAD_QPDF_CANDIDATE=$package" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Inspect package boundary
         run: |
-          ./tools/verify-package.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg `
+          ./tools/verify-package.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE `
             2>&1 | Tee-Object artifacts/ci/logs/package.log
       - name: Verify fresh artifact consumer
         run: |
-          ./tools/verify-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg `
+          ./tools/verify-package-consumer.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE `
             2>&1 | Tee-Object artifacts/ci/logs/consumer.log
       - name: Test consumer verification rejections
         run: |
-          ./tools/test-package-consumer.ps1 -PackagePath artifacts/nuget/Lokad.qpdf.0.2.0-dev.7.nupkg `
+          ./tools/test-package-consumer.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE `
             2>&1 | Tee-Object artifacts/ci/logs/consumer-rejections.log
       - name: Capture failure process diagnostics
         if: failure()
