@@ -65,6 +65,13 @@ internal static class GovernedHost
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(governor);
+        ValueTask<IQpdfInput> pending = OpenInputCoreAsync(host, path, governor, cancellationToken);
+        return governor.SplitInputs is SplitInputAliases aliases ? RememberInputAsync(pending, aliases, path) : pending;
+    }
+
+    private static ValueTask<IQpdfInput> OpenInputCoreAsync(
+        IQpdfHost host, QpdfPath path, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
         governor.ReserveMemory(InputWrapperBytes);
         bool acquired = false;
@@ -82,6 +89,22 @@ internal static class GovernedHost
         {
             if (acquired) { governor.ReleaseHandle(); }
             governor.ReleaseMemory(InputWrapperBytes);
+            throw;
+        }
+    }
+
+    private static async ValueTask<IQpdfInput> RememberInputAsync(ValueTask<IQpdfInput> pending,
+        SplitInputAliases aliases, QpdfPath path)
+    {
+        IQpdfInput input = await pending.ConfigureAwait(false);
+        try
+        {
+            aliases.Remember(path, input.Path, input.Identity);
+            return input;
+        }
+        catch
+        {
+            await input.DisposeAsync().ConfigureAwait(false);
             throw;
         }
     }

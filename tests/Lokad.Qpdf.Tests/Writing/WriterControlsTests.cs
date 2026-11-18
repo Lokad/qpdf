@@ -8,14 +8,21 @@ namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class WriterControlsTests
 {
-    private sealed class SingleSourceHost(InMemoryQpdfHost inner) : IQpdfHost
+    private sealed class SingleSourceHost(InMemoryQpdfHost inner, QpdfPath source) : IQpdfHost
     {
-        internal int Opens { get; private set; }
+        internal int SourceOpens { get; private set; }
+        internal List<string> CheckedTargets { get; } = [];
         private int _activeInputs;
 
         public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken cancellationToken)
         {
-            Assert.Equal(1, ++Opens);
+            if (path != source)
+            {
+                Assert.Equal(0, _activeInputs);
+                CheckedTargets.Add(path.Value);
+                throw new QpdfHostException(path, QpdfHostFailureReason.Unsupported);
+            }
+            Assert.Equal(1, ++SourceOpens);
             IQpdfInput input = await inner.OpenInputAsync(path, cancellationToken);
             _activeInputs++;
             return new Input(this, input);
@@ -54,8 +61,8 @@ public sealed class WriterControlsTests
     [InlineData("job", "pass1")]
     public async Task WholeFileUsesOneStableSourceAndClosesItBeforePublication(string route, string operation)
     {
-        InMemoryQpdfHost inner = await HostWithFixture("input.pdf", "minimal-2page.pdf");
-        SingleSourceHost host = new(inner);
+        using InMemoryQpdfHost inner = await HostWithFixture("input.pdf", "minimal-2page.pdf");
+        SingleSourceHost host = new(inner, QpdfPath.From("input.pdf"));
         QpdfExecutionResult result;
         if (route == "argv")
         {
@@ -78,7 +85,8 @@ public sealed class WriterControlsTests
         }
         Assert.True(result.Status == QpdfExecutionStatus.Completed,
             string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message)));
-        Assert.Equal(1, host.Opens);
+        Assert.Equal(1, host.SourceOpens);
+        Assert.Equal(operation == "split" ? new[] { "output-1.pdf", "output-2.pdf" } : [], host.CheckedTargets);
         Assert.Equal(0L, inner.OpenLeaseCount);
         Assert.Equal(0L, result.Counters.OpenHandles);
         string[] paths = operation == "split" ? ["output-1.pdf", "output-2.pdf"]

@@ -160,7 +160,7 @@ public sealed class JsonSplitTests
         QpdfPath payload = role == "sidecar" && !identityAlias ? Last : Body;
         if (role == "source") { AddUpdate(host.Inner, input); }
         else { AddCreation(host.Inner, json, payload); }
-        IQpdfHost operation = identityAlias ? new AliasHost(host, payload) : host;
+        IQpdfHost operation = identityAlias ? new OutputAliasHost(host, Last, payload) : host;
         QpdfExecutionResult result = role == "source"
             ? await Qpdf.ExecuteAsync(operation, new([input.Value, "--update-from-json=graph.json", "--split-pages=2", "part.pdf"]), CancellationToken.None)
             : await Create(operation, json, QpdfLimits.Default, CancellationToken.None);
@@ -345,25 +345,4 @@ public sealed class JsonSplitTests
     private static QpdfObject Resolve(QpdfDocument document, QpdfObject value)
         => value is PdfReference reference ? document.GetObject(reference) : value;
 
-    private sealed class AliasHost(RecordingJobHost host, QpdfPath source) : IQpdfHost, IQpdfMemoryHost
-    {
-        public IMemoryBudget MemoryBudget => host.Budget;
-        public async ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token)
-        {
-            IQpdfInput input = await host.OpenInputAsync(path == Last ? source : path, token);
-            return path == Last ? new AliasInput(input) : input;
-        }
-        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-            => host.CreateOutputAsync(path, token);
-
-        private sealed class AliasInput(IQpdfInput input) : IQpdfInput
-        {
-            public QpdfPath Path => Last;
-            public string Identity => input.Identity;
-            public long Length => input.Length;
-            public ValueTask<int> ReadAsync(long offset, Memory<byte> destination, CancellationToken token)
-                => input.ReadAsync(offset, destination, token);
-            public ValueTask DisposeAsync() => input.DisposeAsync();
-        }
-    }
 }

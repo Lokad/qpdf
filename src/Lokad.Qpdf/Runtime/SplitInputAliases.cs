@@ -2,17 +2,29 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
 
-// Expanded split names must not replace any of the inputs that supplied the
-// bound graph, including sidecars whose leases have already been released.
-internal sealed class SplitInputAliases
+// Protect the sources that supplied the graph, including leases already retired.
+internal sealed class SplitInputAliases : IDisposable
 {
     private readonly ParserMemoryScope _memory;
+    private readonly ResourceGovernor _governor;
     private readonly HashSet<string> _paths;
     private readonly HashSet<string> _identities;
 
-    internal SplitInputAliases(ParserMemoryScope memory)
+    internal static SplitInputAliases Begin(ParserMemoryScope memory, ResourceGovernor governor)
+    {
+        memory.CheckOwner(governor);
+        if (governor.SplitInputs is not null)
+        { throw new InvalidOperationException("Split input tracking is already active."); }
+        memory.Reserve(48L);
+        SplitInputAliases aliases = new(memory, governor);
+        governor.SplitInputs = aliases;
+        return aliases;
+    }
+
+    private SplitInputAliases(ParserMemoryScope memory, ResourceGovernor governor)
     {
         _memory = memory;
+        _governor = governor;
         _paths = ParserContainers.CreateSet<string>(memory);
         _identities = ParserContainers.CreateSet<string>(memory);
     }
@@ -33,12 +45,20 @@ internal sealed class SplitInputAliases
     internal async ValueTask ValidateTargetsAsync(IQpdfHost host, IReadOnlyList<string> names,
         ResourceGovernor governor, CancellationToken token)
     {
+        _memory.CheckOwner(governor);
+        // Target probes must stay out of the set of graph inputs.
+        Dispose();
+        if (names.Count == 0) { return; }
+        foreach (string name in names)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (_paths.Contains(name)) { throw Alias(name); }
+        }
         using ParserMemoryScope targetMemory = ParserMemoryScope.Create(governor);
         HashSet<string> claimed = ParserContainers.CreateSet<string>(targetMemory);
         foreach (string name in names)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (_paths.Contains(name)) { throw Alias(name); }
             IQpdfInput input;
             try { input = await GovernedHost.OpenInputAsync(host, QpdfPath.From(name), governor, token).ConfigureAwait(false); }
             catch (QpdfHostException ex) when (ex.Reason is QpdfHostFailureReason.NotFound or QpdfHostFailureReason.Unsupported)
@@ -56,4 +76,9 @@ internal sealed class SplitInputAliases
 
     private static QpdfParseException Alias(string name)
         => new($"Split output '{name}' aliases an input.", null, null);
+
+    public void Dispose()
+    {
+        if (ReferenceEquals(_governor.SplitInputs, this)) { _governor.SplitInputs = null; }
+    }
 }

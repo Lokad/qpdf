@@ -309,27 +309,21 @@ internal static class JsonExecution
             throw new QpdfParseException(message, 0L, null);
         }
 
+        using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
+        using SplitInputAliases? splitInputs = splitMemory is null ? null : SplitInputAliases.Begin(splitMemory, governor);
         await using QpdfDocument? document = sourcePdf is QpdfPath input
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
-        using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
-        SplitInputAliases? splitInputs = null;
-        if (splitMemory is not null)
-        {
-            splitMemory.Reserve(40L);
-            splitInputs = new(splitMemory);
-            if (document is not null) { splitInputs.Remember(document.Path, document.LeasedInputPath, document.InputIdentity); }
-        }
         (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
             ? (outputPath, document.InputIdentity) : null;
-        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, replacement?.Identity, splitInputs,
+        using System.Text.Json.JsonDocument parsed = await Json.JsonImport.ReadJsonAsync(host, jsonPath, replacement?.Identity,
             limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         bool retainOriginalPairs = writer.Qdf.Enabled && !writer.Qdf.NoOriginalIds && !writer.Linearize;
         Json.ImportedModel model;
         if (document is null)
         {
-            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, splitInputs, limits, governor,
+            model = await Json.JsonImport.BuildCreateModelAsync(host, parsed, retainOriginalPairs, limits, governor,
                 importMemory, cancellationToken).ConfigureAwait(false);
             if (!writer.Encryption.PreservesInput)
             { model = Json.JsonImport.RemoveEncryptionDeclaration(model, governor, cancellationToken); }
@@ -337,7 +331,7 @@ internal static class JsonExecution
         else
         {
             model = await Json.JsonImport.BuildUpdateModelAsync(host, parsed, document.Engine, document.HeaderVersionParts, writer.Encryption.PreservesInput,
-                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement, splitInputs,
+                writer.ObjectStreams == "preserve", retainOriginalPairs, replacement,
                 limits, governor, importMemory, cancellationToken).ConfigureAwait(false);
         }
 

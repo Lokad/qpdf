@@ -283,7 +283,7 @@ public sealed class JsonPagePreparationTests
         using InMemoryQpdfHost host = new(); using JsonDocument json = JsonDocument.Parse(model);
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        ImportedModel imported = await JsonImport.BuildCreateModelAsync(host, json, false, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        ImportedModel imported = await JsonImport.BuildCreateModelAsync(host, json, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
         Assert.Equal(2, imported.Objects.Count);
         PdfDictionary pages = Assert.IsType<PdfDictionary>(imported.Objects[2]);
         Assert.IsType<PdfDictionary>(Assert.IsType<PdfArray>(Entry(pages, "Kids"))[0]);

@@ -130,7 +130,7 @@ public sealed class JsonImportMemoryTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new MemoryHost(storage, owner));
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+            ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
             PdfStream original = Assert.IsType<PdfStream>(model.Objects[4]);
             JsonImport.RenumberedModel remapped = JsonImport.Renumber(model, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, null, false, out _, CancellationToken.None);
             PdfStream actual = Assert.IsType<PdfStream>(Assert.Single(remapped.Model, item => item.Number == 4).Value);
@@ -177,7 +177,7 @@ public sealed class JsonImportMemoryTests
         {
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                JsonImport.BuildCreateModelAsync(storage, json, false, null, QpdfLimits.Default, governor, memory,
+                JsonImport.BuildCreateModelAsync(storage, json, false, QpdfLimits.Default, governor, memory,
                     governorToken ? CancellationToken.None : cancellation.Token).AsTask());
         }
         Assert.Equal(0L, root.ReservedBytes);
@@ -195,7 +195,7 @@ public sealed class JsonImportMemoryTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None, new MemoryHost(storage, owner));
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+            ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
             PdfByteString value = Assert.IsType<PdfByteString>(model.Objects[4]);
             Assert.Equal(length, value.ValueSpan.Length);
             Assert.Equal((byte)'A', value.ValueSpan[0]);
@@ -245,12 +245,12 @@ public sealed class JsonImportMemoryTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using JsonDocument warmJson = JsonDocument.Parse(Fixture("{\"value\":7}"));
-        ImportedModel warm = await JsonImport.BuildCreateModelAsync(storage, warmJson, false, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        ImportedModel warm = await JsonImport.BuildCreateModelAsync(storage, warmJson, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
         JsonImport.Renumber(warm, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, null, false, out _, CancellationToken.None);
         string source = Encoding.UTF8.GetString(Fixture("{\"value\":7}"))
             .Replace(catalog ? "\"/Type\":\"/Catalog\"" : "\"/Type\":\"/Page\"", "\"/Type\":\"/" + new string('A', 1048576) + "\"", StringComparison.Ordinal);
         using JsonDocument json = JsonDocument.Parse(source);
-        ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, null, QpdfLimits.Default, governor, memory, CancellationToken.None);
+        ImportedModel model = await JsonImport.BuildCreateModelAsync(storage, json, false, QpdfLimits.Default, governor, memory, CancellationToken.None);
         long before = GC.GetAllocatedBytesForCurrentThread();
         QpdfParseException failure = Assert.Throws<QpdfParseException>(() =>
             JsonImport.Renumber(model, QpdfLimits.Default, governor, new DiagnosticBag(governor), memory, null, false, out _, CancellationToken.None));

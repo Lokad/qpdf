@@ -361,7 +361,6 @@ public sealed partial class QpdfDocument : IAsyncDisposable
     }
 
     internal string InputIdentity => (_input ?? throw new InvalidOperationException("No open input lease.")).Identity;
-    internal QpdfPath LeasedInputPath => (_input ?? throw new InvalidOperationException("No open input lease.")).Path;
 
     // Complete acquisition owns its bytes or an independent snapshot borrow.
     internal async ValueTask ReleaseCompleteInputAsync()

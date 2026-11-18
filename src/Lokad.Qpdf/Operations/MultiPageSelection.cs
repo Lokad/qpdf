@@ -102,6 +102,7 @@ internal static class MultiPageSelection
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
+        using SplitInputAliases? splitInputs = splitPages.HasValue ? SplitInputAliases.Begin(selectionMemory, governor) : null;
         using SelectionSecurity securityOwner = SelectionSecurity.Create(governor);
         PdfReference? outputParent = null;
         int primaryIdx = sources.Count;
@@ -636,31 +637,17 @@ internal static class MultiPageSelection
         }
 
         List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
-        HashSet<string> seenNames = ParserContainers.CreateSet<string>(selectionMemory);
-        foreach (string name in names)
+        if (settings.Linearize && settings.LinearizePass1 is QpdfPath firstPass)
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (name.Length > QpdfPath.MaxLength)
+            foreach (string name in names)
             {
-                throw new QpdfParseException("A split output name exceeds the path budget.", null, null);
-            }
-
-            if ((!emptyPrimary && string.Equals(primaryInput.Value, name, StringComparison.Ordinal))
-                || sourceGroups.ContainsKey(name))
-            {
-                throw new QpdfParseException($"Split output '{name}' aliases an input.", null, null);
-            }
-
-            if (!ParserContainers.AddSetItem(selectionMemory, seenNames, name, IntPtr.Size))
-            {
-                throw new QpdfParseException($"Split outputs collide on '{name}'.", null, null);
-            }
-
-            if (settings.Linearize && string.Equals(settings.LinearizePass1?.Value, name, StringComparison.Ordinal))
-            {
-                throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (name == firstPass.Value)
+                { throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null); }
             }
         }
+        if (splitInputs is null) { throw new InvalidOperationException("Missing split input tracking."); }
+        await splitInputs.ValidateTargetsAsync(host, names, governor, cancellationToken).ConfigureAwait(false);
 
         List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value, selectionMemory, governor);
         HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(selectionMemory);

@@ -7504,6 +7504,7 @@
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "SplitLabelContinuationTests.RealOverflowAndCyclicTreesFailBeforeAnySplitIsPublished",
           "SplitInputCollisionTests.EveryExpandedNameProtectsThePrimaryEvenWhenItsPagesAreOmitted",
+          "SplitInputCollisionTests.LatePartCannotCommitToAClaimedStorageIdentity",
           "OptionalContentTests.UnsupportedCombinedStatesRefuseBeforePublication",
           "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
