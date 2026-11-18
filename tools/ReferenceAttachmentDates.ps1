@@ -29,25 +29,31 @@ function Invoke-ReferenceAttachmentDates {
     $case = New-Case $name
     Copy-Item -LiteralPath "$fixtureDir/minimal-1page.pdf" -Destination "$case/inputs/a.pdf"
     [IO.File]::WriteAllBytes("$case/inputs/note.bin", [byte[]]@(65))
-    [IO.File]::WriteAllBytes("$case/lib.pdf", [Text.Encoding]::ASCII.GetBytes('prior'))
-    [IO.File]::WriteAllBytes("$case/ora.pdf", [Text.Encoding]::ASCII.GetBytes('prior'))
-    $prior = (Get-FileHash -LiteralPath "$case/lib.pdf" -Algorithm SHA256).Hash
+    if (!$row.Valid) {
+      [IO.File]::WriteAllBytes("$case/ora.pdf", [Text.Encoding]::ASCII.GetBytes('prior'))
+      $prior = (Get-FileHash -LiteralPath "$case/ora.pdf" -Algorithm SHA256).Hash
+    }
+    $mapping = @('--out', "outputs/a.pdf=$case/lib.pdf")
     if ($row.Route -eq 'job') {
       $add = @{ file = 'inputs/note.bin'; key = 'K' }; $add[$row.Field] = $row.Value
       $job = @{ inputFile = 'inputs/a.pdf'; outputFile = 'outputs/a.pdf'; addAttachment = @($add) }
       $job | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$case/job.json" -Encoding utf8NoBOM
-      $managed = Invoke-Emit $case @('emit-job', '--workdir', $case, '--job', "$case/job.json", '--out', "outputs/a.pdf=$case/lib.pdf")
+      $managedArgs = @('emit-job', '--workdir', $case, '--job', "$case/job.json") + $mapping
       $job.outputFile = "$case/ora.pdf"
       $job | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$case/native.json" -Encoding utf8NoBOM
-      $native = Invoke-Oracle $case @("--job-json-file=$case/native.json")
+      $nativeArgs = @("--job-json-file=$case/native.json")
     }
     else {
       $options = @('--add-attachment', 'inputs/note.bin', '--key=K', "--$($row.Field)=$($row.Value)")
       if ($row.Repeat) { $options += "--$($row.Field)=D:20240102030405Z" }
       $options += '--'
-      $managed = Invoke-Emit $case (@('emit', '--workdir', $case, '--out', "outputs/a.pdf=$case/lib.pdf", '--', 'inputs/a.pdf') + $options + @('--', 'outputs/a.pdf'))
-      $native = Invoke-Oracle $case (@('inputs/a.pdf') + $options + @("$case/ora.pdf"))
+      $managedArgs = @('emit', '--workdir', $case) + $mapping + @('--', 'inputs/a.pdf') + $options + @('--', 'outputs/a.pdf')
+      $nativeArgs = @('inputs/a.pdf') + $options + @("$case/ora.pdf")
     }
+    $managed = (Start-ReferenceProcess -FilePath 'dotnet' -ArgumentList (@($probeDll) + $managedArgs) `
+      -WorkingDirectory $case -Wait -PassThru -RedirectStandardOutput "$case/managed.txt" `
+      -RedirectStandardError "$case/managed-error.txt").ExitCode
+    $native = Invoke-Oracle $case $nativeArgs
     $expected = if ($row.Valid) { 0 } else { 2 }
     if ($managed -ne $expected -or $native -ne $expected) { throw "$name exit mismatch: managed $managed, native $native, expected $expected." }
     if ($row.Valid) {
@@ -58,10 +64,16 @@ function Invoke-ReferenceAttachmentDates {
       }
     }
     else {
-      foreach ($file in @("$case/lib.pdf", "$case/ora.pdf")) {
-        if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -cne $prior) { throw "$name replaced a prior target on refusal." }
+      $reports = [IO.File]::ReadAllText("$case/managed.txt")
+      if ($reports -notmatch '(?m)^emit: status=Failed exit=2\r?$' -or
+          $reports -notmatch '(?m)^emit: diagnostic InvalidArguments Error Attachment date must be a full PDF timestamp' -or
+          (Test-Path -LiteralPath "$case/lib.pdf")) {
+        throw "$name did not refuse the date before producing managed output."
+      }
+      if ((Get-FileHash -LiteralPath "$case/ora.pdf" -Algorithm SHA256).Hash -cne $prior) {
+        throw "$name replaced the native prior target on refusal."
       }
     }
-    Write-Output "[$name] authoring syntax, stored values and prior-target policy agree"
+    Write-Output "[$name] timestamp syntax and output disposition agree"
   }
 }
