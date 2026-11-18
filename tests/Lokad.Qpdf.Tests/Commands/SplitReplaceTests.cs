@@ -110,16 +110,53 @@ public sealed class SplitReplaceTests
     [Fact]
     public async Task SplitPrunesUnsharedObjects()
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
-            new QpdfCommandInvocation(["inputs/a.pdf", "--split-pages", "--pages", ".", "1", ".", "2", "--", "outputs/split.pdf"]),
+            new QpdfCommandInvocation(["inputs/a.pdf", "--stream-data=uncompress", "--split-pages", "outputs/split.pdf"]),
             CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/split-1.pdf"), out byte[] first));
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/split-2.pdf"), out byte[] second));
-        Assert.DoesNotContain("Second", Encoding.ASCII.GetString(first), StringComparison.Ordinal);
-        Assert.DoesNotContain("First", Encoding.ASCII.GetString(second), StringComparison.Ordinal);
+        string firstText = Encoding.ASCII.GetString(first), secondText = Encoding.ASCII.GetString(second);
+        Assert.Contains("(First)", firstText, StringComparison.Ordinal);
+        Assert.DoesNotContain("(Second)", firstText, StringComparison.Ordinal);
+        Assert.Contains("(Second)", secondText, StringComparison.Ordinal);
+        Assert.DoesNotContain("(First)", secondText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SplitSizeAndNumericOutputHaveExplicitPrecedence()
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-2page.pdf");
+        QpdfExecutionResult grouped = await Qpdf.ExecuteAsync(host,
+            new(["inputs/a.pdf", "--split-pages", "2", "outputs/group.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, grouped.ExitCode);
+        await using (QpdfDocument both = await Reopen(host, "outputs/group-1-2.pdf"))
+        { Assert.Equal(2, both.PageCount); }
+
+        QpdfExecutionResult numeric = await Qpdf.ExecuteAsync(host,
+            new(["inputs/a.pdf", "--stream-data=uncompress", "--split-pages", "--", "2"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, numeric.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("2-1"), out byte[] first));
+        Assert.True(host.TryGetOutput(QpdfPath.From("2-2"), out byte[] second));
+        Assert.Contains("(First)", Encoding.ASCII.GetString(first), StringComparison.Ordinal);
+        Assert.Contains("(Second)", Encoding.ASCII.GetString(second), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--split-pages", "2", "output")]
+    [InlineData("--split-pages", "2147483648", "group size")]
+    [InlineData("--split-pages=2147483648", "outputs/split.pdf", "group size")]
+    [InlineData("--split-pages=-1", "outputs/split.pdf", "group size")]
+    public async Task SplitReportsMissingOutputAndInvalidSizesBeforeOpeningInput(string option, string next, string diagnostic)
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["inputs/a.pdf", option, next]), CancellationToken.None);
+        QpdfDiagnostic error = SingleError(result);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, error.Code);
+        Assert.Contains(diagnostic, error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0L, result.Counters.HostOperations);
     }
 
     [Fact]

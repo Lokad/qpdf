@@ -84,7 +84,10 @@ internal static class ArgvParser
         else if (i + 1 < argv.Count)
         {
             string next = argv[i + 1];
-            if (next is not null && next != "--" && !(next.StartsWith("--", StringComparison.Ordinal) && next.Length > 2))
+            // The managed separated size is an unsigned decimal token.
+            // Other operands belong to argv, including the output filename.
+            if (next is not null && next.Length != 0 && next.Length <= QpdfPath.MaxLength
+                && next.AsSpan().IndexOfAnyExceptInRange('0', '9') < 0)
             {
                 value = next;
                 i += 1;
