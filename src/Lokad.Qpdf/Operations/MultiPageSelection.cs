@@ -102,7 +102,7 @@ internal static class MultiPageSelection
         }
         using ResultWarningSnapshot? resultWarnings = ResultWarningSnapshot.Create(governor, diagnostics, cancellationToken);
         using ParserMemoryScope selectionMemory = ParserMemoryScope.Create(governor);
-        using SplitInputAliases? splitInputs = splitPages.HasValue ? SplitInputAliases.Begin(selectionMemory, governor) : null;
+        using PublicationInputAliases? splitInputs = splitPages.HasValue ? PublicationInputAliases.Begin(selectionMemory, governor, "Split") : null;
         using SelectionSecurity securityOwner = SelectionSecurity.Create(governor);
         PdfReference? outputParent = null;
         int primaryIdx = sources.Count;

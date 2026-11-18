@@ -34,7 +34,7 @@ internal sealed class ResourceGovernor
     private long _preparedTypedResultBytes;
     internal bool OwnsDocumentCounters { get; set; }
     internal bool DocumentAccepted { get; private set; }
-    internal SplitInputAliases? SplitInputs { get; set; }
+    internal PublicationInputAliases? PublicationInputs { get; set; }
     internal ExecutionPresentation? ExecutionPresentation => _executionPresentation as ExecutionPresentation;
 
     internal ResourceGovernor(QpdfLimits limits, CancellationToken cancellationToken)

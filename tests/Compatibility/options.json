@@ -4703,6 +4703,7 @@
         "negative": [
           "JsonModesTests.BadStreamOptionsFail",
           "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
+          "JsonOutputAliasTests.ResultOnlyJsonRejectsALateSidecarAliasingTheSource",
           "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
           "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],
@@ -4716,6 +4717,7 @@
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonValueOwnershipTests.SidecarsPreserveRawAndDecodedBytesAfterReaderCloses",
           "JsonValueOwnershipTests.InputCloseFaultPreservesMainAndSidecarTargets",
+          "JsonOutputAliasTests.TargetProbeCancellationLeavesEveryTargetIntact",
           "JsonSidecarNameTests.NameChecksAndAdmissionPrecedeLargePayloadCopies"
         ],
         "oracle": [
@@ -4755,6 +4757,7 @@
           "JsonModesTests.BadStreamOptionsFail",
           "JsonModesTests.StrayStreamOptionsFail",
           "PublicationAdmissionTests.JsonSidecarCannotOverwriteMainOutput",
+          "JsonOutputAliasTests.JobJsonRejectsALateSidecarAliasingAnEarlierTarget",
           "JsonSidecarNameTests.SidecarNamesStayExactOrFailBeforeAnyPublication",
           "JsonSidecarNameTests.CommandAdaptersPreserveNamesAndPreflightFailures"
         ],

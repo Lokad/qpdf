@@ -40,6 +40,8 @@
   processing and protection. Physical xref sections remain clear.
 - Keep omitted primary inputs safe from expanded split output names. Protect
   templates, password files and consumed configuration from first-pass capture.
+- Check stable host identities for JSON reports and sidecars before staging
+  to protect acquired inputs and earlier targets.
 - Share typed attachment recovery options across listing, extraction and edits.
   List with warnings and counters. Close extraction inputs before committing
   plaintext bytes to a host target. Command attachment reports and extraction

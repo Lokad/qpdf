@@ -51,7 +51,7 @@ public sealed class JsonResultOnlyTests
         ObservedHost host = new(storage, false);
         QpdfJsonOptions options = new(version, [], mode, null, [], false);
         QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, Input, options, CancellationToken.None);
-        Assert.Empty(host.Outputs); Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.Empty(host.Outputs); Assert.Equal(1, host.Opens); Assert.Equal(0L, storage.OpenLeaseCount);
         using JsonDocument json = JsonDocument.Parse(result.Json);
         Assert.Equal(1, json.RootElement.GetProperty("pages").GetArrayLength());
         // V1 keeps its existing descriptor-only stream representation.

@@ -191,21 +191,22 @@ internal static class JsonExecution
         ValidateJsonKeys(inspection.Version, inspection.Keys);
         // The configuration owner funds this immutable selection through execution.
         HashSet<(bool Trailer, int Number, int Generation)>? wanted = inspection.Objects;
-        using ParserMemoryScope? sourceProtection = inspection.GraphPlan is { Sources.Count: > 0 }
+        using ParserMemoryScope? targetMemory = outputPath.HasValue || (inspection.Version == 2 && inspection.StreamData == "file")
             ? ParserMemoryScope.Create(governor) : null;
-        HashSet<string>? sourcePaths = null;
-        if (sourceProtection is not null && inspection.GraphPlan is IInspectionGraphPlan graphPlan)
+        using PublicationInputAliases? targetAliases = targetMemory is null ? null : PublicationInputAliases.Begin(targetMemory, governor, "JSON");
+        if (targetAliases is not null)
         {
-            sourcePaths = ParserContainers.CreateSet<string>(sourceProtection);
-            ParserContainers.AddSetItem(sourceProtection, sourcePaths, inputPath.Value, IntPtr.Size);
-            foreach (PdfPageSource source in graphPlan.Sources)
+            targetAliases.RememberPath(inputPath.Value);
+            if (inspection.GraphPlan is IInspectionGraphPlan graphPlan)
             {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddSetItem(sourceProtection, sourcePaths, source.Input.Value == "." ? inputPath.Value : source.Input.Value, IntPtr.Size);
+                foreach (PdfPageSource source in graphPlan.Sources)
+                {
+                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    targetAliases.RememberPath(source.Input.Value == "." ? inputPath.Value : source.Input.Value);
+                }
             }
         }
-        bool IsSource(string path) => sourcePaths is null ? string.Equals(inputPath.Value, path, StringComparison.Ordinal) : sourcePaths.Contains(path);
-        if (outputPath.HasValue && IsSource(outputPath.Value.Value))
+        if (outputPath is QpdfPath report && targetAliases is not null && targetAliases.ContainsPath(report.Value))
         {
             throw new QpdfParseException("The output file must differ from every input file.", 0L, null);
         }
@@ -259,14 +260,20 @@ internal static class JsonExecution
         List<Json.JsonPayload> sidecars = output.Sidecars;
 
         long anticipatedBytes = mainBytes;
-        foreach (Json.JsonPayload sidecar in sidecars)
+        if (targetAliases is not null && targetMemory is not null && (outputPath.HasValue || sidecars.Count != 0))
         {
-            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (IsSource(sidecar.Name))
-            { throw new QpdfParseException("A JSON stream file must differ from every input file.", 0L, null); }
-            if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
-            { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
-            anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
+            int targetCount = checked(sidecars.Count + (outputPath.HasValue ? 1 : 0));
+            List<string> names = ParserContainers.CreateList<string>(targetMemory, targetCount, IntPtr.Size);
+            if (outputPath is QpdfPath path) { ParserContainers.AddItem(targetMemory, names, path.Value, IntPtr.Size); }
+            foreach (Json.JsonPayload sidecar in sidecars)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (string.Equals(sidecar.Name, outputPath?.Value, StringComparison.Ordinal))
+                { throw new QpdfParseException("A JSON stream file must differ from the main JSON output.", 0L, null); }
+                ParserContainers.AddItem(targetMemory, names, sidecar.Name, IntPtr.Size);
+                anticipatedBytes = checked(anticipatedBytes + sidecar.Data.Length);
+            }
+            await targetAliases.ValidateTargetsAsync(host, names, governor, cancellationToken).ConfigureAwait(false);
         }
         governor.ChargeOutputBytes(anticipatedBytes);
         using PublicationReservation publicationAdmission = PublicationReservation.Create(governor, outputPath.HasValue || sidecars.Count != 0);
@@ -310,7 +317,7 @@ internal static class JsonExecution
         }
 
         using ParserMemoryScope? splitMemory = writer.SplitPages.HasValue ? ParserMemoryScope.Create(governor) : null;
-        using SplitInputAliases? splitInputs = splitMemory is null ? null : SplitInputAliases.Begin(splitMemory, governor);
+        using PublicationInputAliases? splitInputs = splitMemory is null ? null : PublicationInputAliases.Begin(splitMemory, governor, "Split");
         await using QpdfDocument? document = sourcePdf is QpdfPath input
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery, cancellationToken, false).ConfigureAwait(false)
             : null;

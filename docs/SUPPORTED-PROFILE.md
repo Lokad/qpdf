@@ -363,10 +363,12 @@ retain their separate complete-input contracts.
 Typed `GetDocumentJsonAsync` overloads without an output path return JSON without
 publishing a report. None/inline stream modes need no output capability. File
 mode requires an explicit stream prefix without a report target, even in v1.
-Emitted sidecars retain ordinary collision checks and sequential publication.
-Existing overloads with an output path publish the
-report as well as returning it. Caller budget scopes must outlive returned text
-and warnings, including after host/document cleanup.
+Overloads with an output path publish the report as well as returning it.
+Report and sidecar paths must differ from the graph inputs and each other.
+For readable existing targets, the engine checks stable host identities after
+closing input leases and before creating any transaction. Hosts may return
+`NotFound` or `Unsupported` for a target probe. Commits remain sequential.
+Caller budget scopes must outlive returned text and warnings.
 
 `--test-json-schema` checks generated syntax and the selected version's nested
 help description: required/unknown keys, wildcard maps and array patterns.

@@ -21,7 +21,7 @@ internal static class JsonSplitPublication
         IReadOnlyList<PageLocation> pages, List<(int Index, PdfDictionary Label)>? authoredLabels,
         HashSet<int>? originalPacking, byte[]? originalId,
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, OutputSecurity? security,
-        SplitInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        PublicationInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
         using ParserMemoryScope split = ParserMemoryScope.Create(governor);
         List<string> names = GenerateSplitNames(outputPath.Value, pages.Count, groupSize, split, governor);
