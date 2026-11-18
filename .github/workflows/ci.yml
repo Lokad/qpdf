@@ -137,7 +137,8 @@ jobs:
       - name: Run explicit reference checks with fresh scratch
         timeout-minutes: 35
         run: |
-          ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE -Configuration Release `
+          ./tools/run-reference-checks.ps1 -QpdfExe $env:QPDF_EXE `
+            -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
             2>&1 | Tee-Object artifacts/ci/logs/reference.log
       - name: Capture failure process diagnostics
         if: failure()

@@ -9,7 +9,8 @@ param(
   [Parameter(Mandatory = $false)]
   [string] $Configuration = 'Release',
   [Parameter(Mandatory = $false)]
-  [string] $WorkRoot
+  [string] $WorkRoot,
+  [string] $ProbeDll
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,26 +20,26 @@ if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$probeProject = Join-Path $repoRoot 'tools/QpdfProbe/QpdfProbe.csproj'
 $fixtureDir = Join-Path $repoRoot 'tests/Fixtures'
 
-Write-Output "Building QpdfProbe ($Configuration)..."
-dotnet build $probeProject -c $Configuration --nologo -v q
-if ($LASTEXITCODE -ne 0) {
-  throw "QpdfProbe build failed."
+if ([string]::IsNullOrWhiteSpace($ProbeDll)) {
+  $probeProject = Join-Path $repoRoot 'tools/QpdfProbe/QpdfProbe.csproj'
+  Write-Output "Building QpdfProbe ($Configuration)..."
+  dotnet build $probeProject -c $Configuration --nologo -v q -p:RestoreLockedMode=true
+  if ($LASTEXITCODE -ne 0) {
+    throw "QpdfProbe build failed."
+  }
+  $ProbeDll = Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll"
 }
-
-$probeDllCandidates = @(
-  (Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll")
-)
-$probeDll = $probeDllCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if ($null -eq $probeDll) {
-  throw "QpdfProbe.dll not found after build."
+if (-not (Test-Path -LiteralPath $ProbeDll -PathType Leaf)) {
+  throw "QpdfProbe.dll not found: $ProbeDll"
 }
+$ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
+Write-Output "Reference probe: $ProbeDll"
 
 function Invoke-Probe {
   param([string[]] $ProbeArgs)
-  $output = & dotnet $probeDll @ProbeArgs 2>&1
+  $output = & dotnet $ProbeDll @ProbeArgs 2>&1
   $code = $LASTEXITCODE
   foreach ($line in $output) { Write-Host $line }
   return $code
@@ -50,7 +51,7 @@ Write-Output "--- bootstrap oracle ---"
 $contentControls = if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
   Join-Path $repoRoot ('external/diff/content-controls-' + [Guid]::NewGuid().ToString('N'))
 } else { [IO.Path]::GetFullPath($WorkRoot) + '-content-controls' }
-& (Join-Path $repoRoot 'tools/test-reference-content.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll -WorkRoot $contentControls
+& (Join-Path $repoRoot 'tools/test-reference-content.ps1') -QpdfExe $QpdfExe -ProbeDll $ProbeDll -WorkRoot $contentControls
 
 Write-Output "--- positive: minimal-1page (expected 1) ---"
 $code = Invoke-Probe @('compare', '--qpdf-exe', $QpdfExe, '--input', (Join-Path $fixtureDir 'minimal-1page.pdf'), '--expected-npages', '1')
@@ -79,7 +80,7 @@ if ($code -eq 0) {
 Write-Output "Reference lane passed: oracle and independent readers agree on valid fixtures and disagree explicitly on negative cases."
 
 Write-Output "--- differential: library vs oracle outputs ---"
-& (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -Configuration $Configuration -WorkRoot $WorkRoot
+& (Join-Path $repoRoot 'tools/run-differential-checks.ps1') -QpdfExe $QpdfExe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 
 Write-Output "--- parser: per-object budgets and repaired values ---"
-& (Join-Path $repoRoot 'tools/run-parser-checks.ps1') -QpdfExe $QpdfExe -ProbeDll $probeDll
+& (Join-Path $repoRoot 'tools/run-parser-checks.ps1') -QpdfExe $QpdfExe -ProbeDll $ProbeDll

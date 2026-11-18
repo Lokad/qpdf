@@ -11,7 +11,8 @@ param(
   [Parameter(Mandatory = $false)]
   [string] $Configuration = 'Release',
   [Parameter(Mandatory = $false)]
-  [string] $WorkRoot
+  [string] $WorkRoot,
+  [string] $ProbeDll
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,10 +22,13 @@ if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$probeDll = Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll"
-if (-not (Test-Path $probeDll)) {
-  throw "QpdfProbe.dll not found. Run tools/run-reference-checks.ps1 first (it builds the probe)."
+if ([string]::IsNullOrWhiteSpace($ProbeDll)) {
+  $ProbeDll = Join-Path $repoRoot "tools/QpdfProbe/bin/$Configuration/net11.0/QpdfProbe.dll"
 }
+if (-not (Test-Path -LiteralPath $ProbeDll -PathType Leaf)) {
+  throw "QpdfProbe.dll not found: $ProbeDll. Build QpdfProbe or specify -ProbeDll."
+}
+$ProbeDll = (Resolve-Path -LiteralPath $ProbeDll).Path
 
 if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
   $WorkRoot = Join-Path $repoRoot ('external/diff/' + [Guid]::NewGuid().ToString('N'))

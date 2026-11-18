@@ -26,5 +26,4 @@ $expectedExe = '1BDAF878F37EAFFEA1EA3C30591214C77636A0F2FC7432427516B6E22E36C0FF
 if ((Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash -ne $expectedExe) {
     throw 'Pinned qpdf executable checksum mismatch.'
 }
-& (Join-Path $PSScriptRoot 'bootstrap-qpdf.ps1') -QpdfExe $executable | Out-Host
 Write-Output $executable

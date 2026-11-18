@@ -174,8 +174,11 @@ and the [changelog](../CHANGELOG.md) for migration history.
 CI runs offline behavior tests, locked builds and isolated package consumers.
 The reference job compares native and managed semantics with an independent
 reader, including ordered page content, parser recovery, password policies and
-decoded JSON payloads. Its entry point is `tools/run-reference-checks.ps1`.
-Reference jobs fail when tools are missing.
+decoded JSON payloads. Reference jobs fail when tools are missing.
+
+Run `tools/run-reference-checks.ps1 -QpdfExe $oracle` from PowerShell with the
+pinned executable. It builds QpdfProbe with a locked restore. Pass `-ProbeDll`
+to run the positive, differential and parser checks with an existing build.
 
 Run the visual lane separately with a Release solution build, PowerShell on
 .NET 10 or later, the pinned qpdf executable and an identified `pdftoppm`.
