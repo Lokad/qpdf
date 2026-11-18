@@ -27,18 +27,8 @@ $package = ./tools/pack-release.ps1
 ./tools/test-package-consumer.ps1 -PackagePath $package
 ```
 
-The pack helper writes to a fresh directory and supplies the current package
-path to every guard.
-
-The consumer verifier copies the reviewed lock into an isolated run, binds only
-the local package hash to the supplied artifact, and restores in locked mode
-with a fresh cache/feed. External hashes and the tracked lock remain unchanged.
-Both package guards reject duplicate members and grouped or ungrouped
-dependencies. The package guard checks the DLLs against their portable PDBs,
-the companion manifest identity, and file and heading links in packaged Markdown.
-Negative controls mutate copied locks, libraries and symbol packages.
-External documentation URLs are not fetched. Copied-package controls cover
-relative links, inline and reference-style destinations, and missing headings.
+Run the package guards against the fresh artifact returned by the pack helper.
+The consumer uses an isolated feed and cache with the reviewed lock.
 
 After an intentional dependency change, restore without locked mode once,
 review and commit the new lock files, then verify locked mode again.
@@ -53,11 +43,9 @@ review and commit the new lock files, then verify locked mode again.
   development-only codecs and fixtures; never add it to the core package.
 - Runtime storage, descriptors, environment and publication must be host-mediated.
   Physical filesystem/process adapters belong in development tools or hosts.
-- Password-based PDF encryption/decryption and signed-page extraction are approved
-  roadmap scope in the ignored PLAN.md. Current support is defined by the tested
-  implementation and compatibility docs, not by roadmap entries. Use .NET system
-  cryptography; no runtime crypto dependency or custom native interop. Signing,
-  signature validation and certificate/public-key encryption remain out of scope.
+- Use .NET system cryptography for password security. Runtime crypto dependencies
+  and custom native interop are prohibited. The [supported profile](docs/SUPPORTED-PROFILE.md#password-security)
+  defines password security and signed-input behavior, including exclusions.
 - All exposed execution paths need bounded allocations/work and cancellation.
 - Search existing code before adding logic. Share the reader, object graph,
   filters and writer across typed, argv and job JSON entry points.

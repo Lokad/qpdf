@@ -75,12 +75,10 @@ Command imports use the shared coalescer during bound page-tree traversal.
 Joining changes the active contents link while reachability retains private
 aliases and retires replaced-only objects.
 
-PDF publication unregisters signature fields and removes their active
-attributes. Former widgets become static stamps using their stored appearances.
-Signature discovery follows each field's Parent/Kids component. Its results
-preserve unrelated fields and private aliases. Interactive fields and page
-content share reachable resources under the same graph ownership rules.
-Read-only inspection keeps source values.
+During publication, signature discovery follows each field's Parent/Kids
+component and preserves unrelated fields and private aliases. Former widgets
+become static stamps using their stored appearances.
+[Signed-input policy](SUPPORTED-PROFILE.md#signed-inputs-and-exclusions)
 
 ## Inspection and publication
 

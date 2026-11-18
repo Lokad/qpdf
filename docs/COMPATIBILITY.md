@@ -12,7 +12,7 @@ not establish implemented behavior. Development changes are in the
 | Boundary | Contract |
 | --- | --- |
 | Password security | Read/preserve/remove R2–R6; create AES-256 R6 or copy an authenticated template. R4 output normalizes to AES-128. New weak encryption remains deferred. The [password profile](SUPPORTED-PROFILE.md#password-security) defines credentials, source roles and output policies. |
-| Signed inputs | Published PDFs retain stored appearances and invalidate signatures. Read-only inspection retains original values. [Signed-input policy](SUPPORTED-PROFILE.md#signed-inputs-and-exclusions) |
+| Signed inputs | [Stored appearances, signature invalidation and inspection](SUPPORTED-PROFILE.md#signed-inputs-and-exclusions) |
 | Password encoding recovery | The [authentication profile](SUPPORTED-PROFILE.md#authentication) defines representations and retries. Malformed UTF-16 is rejected, while native recovery can discard its bytes. WinAnsi 0x98 follows [the standard U+02DC mapping](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1252.TXT); pinned native recovery maps it to U+0303. |
 | Legacy security | R3 accepts both full-digest and key-length owner hashing for short keys. Preservation retains the original password entries; native qpdf and Poppler reject full-digest owners on input and output, while the managed reader accepts them. V2 without Length uses the specified 40-bit default; native qpdf guesses 128 bits. |
 | Encryption predicates | `is-encrypted` uses 0/2 for encrypted/plain input; `requires-password` uses 0/2/3 for credentials needed/plain input/credentials matched. Completed query codes are independent of warning presentation. Unsupported handlers fail explicitly. |
