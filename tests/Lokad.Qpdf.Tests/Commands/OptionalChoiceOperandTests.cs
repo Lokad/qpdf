@@ -32,6 +32,41 @@ public sealed class OptionalChoiceOperandTests
         Assert.Equal(flag == "--json", json.RootElement.TryGetProperty("version", out _));
     }
 
+    [Theory]
+    [InlineData("json", "--json", false)]
+    [InlineData("jsonOutput", "--json-output", true)]
+    public async Task EmptyJsonJobChoiceUsesTheBareArgvVersionAndStreamDefaults(string key, string flag, bool minimal)
+    {
+        using InMemoryQpdfHost host = Host();
+        string settings = JsonSerializer.Serialize(new Dictionary<string, string> { ["inputFile"] = "input.pdf", [key] = "" });
+        QpdfExecutionResult job = await Qpdf.ExecuteJobAsync(host, settings, CancellationToken.None);
+        QpdfExecutionResult argv = await Qpdf.ExecuteAsync(host, new(["input.pdf", flag]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, job.ExitCode);
+        Assert.Equal(QpdfExitCode.Success, argv.ExitCode);
+        string text = Assert.IsType<string>(job.OutputText);
+        Assert.Equal(argv.OutputText, text);
+        using JsonDocument report = JsonDocument.Parse(text);
+        JsonElement objects = report.RootElement.GetProperty("qpdf");
+        Assert.Equal(2, objects[0].GetProperty("jsonversion").GetInt32());
+        Assert.Equal(!minimal, report.RootElement.TryGetProperty("parameters", out _));
+        Assert.Equal(minimal, objects[1].GetProperty("obj:5 0 R").GetProperty("stream").TryGetProperty("data", out _));
+    }
+
+    [Theory]
+    [InlineData(true, 2)]
+    [InlineData(false, 1)]
+    public async Task EmptyJsonJobChoiceFollowsLayeredSetterOrder(bool jobLast, int expectedVersion)
+    {
+        using InMemoryQpdfHost host = Host();
+        host.AddInput(QpdfPath.From("settings.json"), "{\"json\":\"\"}"u8.ToArray(), QpdfInputOwnership.Transfer);
+        string[] arguments = jobLast ? ["input.pdf", "--json=1", "--job-json-file=settings.json"]
+            : ["input.pdf", "--job-json-file=settings.json", "--json=1"];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using JsonDocument report = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        Assert.Equal(expectedVersion, report.RootElement.GetProperty("version").GetInt32());
+    }
+
     [Fact]
     public async Task BareCompressionLeavesTheTargetForRewrite()
     {

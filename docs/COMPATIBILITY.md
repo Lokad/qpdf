@@ -56,6 +56,7 @@ split sizes. Bare JSON and compression flags leave ordinary path operands
 available. If a filename matches a recognized choice, add a separator
 (`--json-output -- 2`) or specify the value with equals (`--json-output=2 2`).
 Use the same separator or equals syntax for numeric split output names.
+In job JSON, `"json":""` and `"jsonOutput":""` select the default version (2).
 For JSON export, an output of `-` returns the report in the execution result.
 Unknown options,
 invalid combinations and excluded crypto fail explicitly.

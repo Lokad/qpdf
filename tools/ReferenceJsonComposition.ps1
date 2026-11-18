@@ -16,7 +16,7 @@ function Invoke-ReferenceJsonComposition {
     $catalog['/Marker'] = 'u:physical-update'
     @{ qpdf=@(@{jsonversion=2},@{ $rootKey=@{value=$catalog} }) } |
       ConvertTo-Json -Depth 12 | Set-Content -LiteralPath "$case/inputs/physical-patch.json"
-    $job = @{ inputFile='inputs/native.pdf'; updateFromJson='inputs/physical-patch.json'; jsonOutput='2'; outputFile='report.json' }
+    $job = @{ inputFile='inputs/native.pdf'; updateFromJson='inputs/physical-patch.json'; jsonOutput=''; outputFile='report.json' }
     $job | ConvertTo-Json | Set-Content -LiteralPath "$case/job.json"
     if ((Invoke-Oracle $case @('--job-json-file=job.json')) -ne 0 -or
         (Invoke-Emit $case @('emit-job','--workdir',$case,'--job',"$case/job.json",'--out',"report.json=$case/physical-managed.json")) -ne 0) {

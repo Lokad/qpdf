@@ -227,6 +227,7 @@ internal static class HelpText
           jsonStreamPrefix, jsonOutput, jsonInput, updateFromJson, warningExit0, noWarn,
           suppressRecovery, ignoreXrefStreams, reportMemoryUsage, testJsonSchema, verbose, progress, keepFilesOpen, keepFilesOpenThreshold
         Inspection flags check, rawStreamData and filteredStreamData use "" as their value.
+        json and jsonOutput take "" for the default report version (2).
         rawStreamData and filteredStreamData require showObject; without outputFile they return result bytes.
         Nested "global" object: maxStreamFilters (non-negative filter count, default 25),
         parserMaxNesting (within 499), parserMaxContainerSize and parserMaxContainerSizeDamaged

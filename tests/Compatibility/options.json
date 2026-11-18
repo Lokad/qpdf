@@ -4163,6 +4163,7 @@
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.JsonWithoutFileReturnsText",
           "OptionalChoiceOperandTests.BareJsonLeavesTheFollowingFileOperand",
+          "OptionalChoiceOperandTests.EmptyJsonJobChoiceUsesTheBareArgvVersionAndStreamDefaults",
           "JsonRealExportTests.SignedAndZeroPaddedRealsExportValidExactJson",
           "AttachmentJsonTests.ReferencePresentationPreservesGenerationsAndDirectSpecNull",
           "JsonInspectionTests.ExplicitVersionOne",
@@ -4599,6 +4600,7 @@
         "positive": [
           "JsonModesTests.JsonOutputIsMinimal",
           "OptionalChoiceOperandTests.BareJsonLeavesTheFollowingFileOperand",
+          "OptionalChoiceOperandTests.EmptyJsonJobChoiceUsesTheBareArgvVersionAndStreamDefaults",
           "OptionalChoiceOperandTests.JsonDashReturnsTheReportWithoutOutputAccess",
           "JsonModesTests.JsonOutputAcceptsKeys",
           "JsonStringIdentityTests.TextEncodingIsUsedOnlyWhenItPreservesTheOriginalBytes",

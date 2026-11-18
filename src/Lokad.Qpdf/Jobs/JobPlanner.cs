@@ -181,7 +181,7 @@ internal static partial class JobPlanner
             bool seenKeepInlineImages = false;
             int? jpegQuality = null;
             bool seenJpegQuality = false;
-            string? jsonVersion = null;
+            int jsonVersion = 2;
             bool seenJson = false;
             List<string> jsonKeys = new();
             bool seenJsonKey = false;
@@ -195,7 +195,6 @@ internal static partial class JobPlanner
             bool seenJsonStreamData = false;
             string? jsonStreamPrefix = null;
             bool seenJsonStreamPrefix = false;
-            string? jsonOutput = null;
             bool seenJsonOutput = false;
             bool listAttachments = false;
             bool seenListAttachments = false;
@@ -632,7 +631,7 @@ internal static partial class JobPlanner
                         break;
                     case "json":
                         seenJson = true;
-                        jsonVersion = ParseJsonVersion(property.Value, textStorage);
+                        jsonVersion = ParseJsonVersion(property.Value, textStorage, false);
                         break;
                     case "jsonKey":
                         seenJsonKey = true;
@@ -662,7 +661,7 @@ internal static partial class JobPlanner
                         break;
                     case "jsonOutput":
                         seenJsonOutput = true;
-                        jsonOutput = ParseJsonOutput(property.Value, textStorage);
+                        _ = ParseJsonVersion(property.Value, textStorage, true);
                         break;
                     case "jsonInput":
                         seenJsonInput = true;
@@ -1077,13 +1076,7 @@ internal static partial class JobPlanner
 
             if (seenJsonOutput || seenJson)
             {
-                int jsonNumber = 2;
-                if (seenJson && jsonVersion is not null && jsonVersion != "latest")
-                {
-                    jsonNumber = int.Parse(jsonVersion, System.Globalization.CultureInfo.InvariantCulture);
-                }
-
-                if (seenJsonOutput && jsonNumber == 1)
+                if (seenJsonOutput && jsonVersion == 1)
                 {
                     throw new QpdfParseException("Job \"jsonOutput\" requires JSON version 2.", 0L, null);
                 }
@@ -1094,7 +1087,7 @@ internal static partial class JobPlanner
                     effectiveKeys.Add("qpdf");
                 }
 
-                JsonExecution.ValidateJsonKeys(jsonNumber, effectiveKeys);
+                JsonExecution.ValidateJsonKeys(jsonVersion, effectiveKeys);
                 HashSet<(bool Trailer, int Number, int Generation)>? wantedObjects = JsonExecution.ValidateJsonObjects(jsonObjects, 0L, textStorage);
                 string jsonDecode = decodeLevel ?? (seenJsonOutput ? "none" : "generalized");
                 if (jsonDecode != "none" && jsonDecode != "generalized" && jsonDecode != "specialized" && jsonDecode != "all")
@@ -1108,7 +1101,7 @@ internal static partial class JobPlanner
                     ? ParseInspectionSources(pages, input, empty, passwordMode, suppressPasswordRecovery, textStorage, governor) : [];
                 PdfPageCollation? jsonCollation = seenCollate && hasPages
                     ? ParseInspectionCollation(collationSizes, jsonSources.Count, textStorage) : null;
-                return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonNumber, effectiveKeys, recovery) with
+                return new JsonPlan(inspectionInput, output is null ? null : SelectionPlan.CheckedPath(output), jsonVersion, effectiveKeys, recovery) with
                 {
                     Import = importJson ? ResolveInspectionImport(inspectionInput, jsonInput, updateFromJson) : null,
                     CoalesceContents = coalesceContents,
@@ -1586,25 +1579,25 @@ internal static partial class JobPlanner
         return new AttachmentCopy(file, prefix is null || prefix.Length == 0 ? null : prefix) { PasswordText = password };
     }
 
-    private static string ParseJsonVersion(JobValue value, ConfigurationText textStorage)
+    private static int ParseJsonVersion(JobValue value, ConfigurationText textStorage, bool minimal)
     {
         if (value.ValueKind == JsonValueKind.Number
             && value.TryGetInt32(out int number)
-            && (number == 1 || number == 2))
+            && (number == 2 || (!minimal && number == 1)))
         {
-            return number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return number;
         }
 
         if (value.ValueKind == JsonValueKind.String)
         {
             string? text = value.ReadString(textStorage);
-            if (text == "1" || text == "2" || text == "latest")
-            {
-                return text;
-            }
+            if (text is "" or "2" or "latest") { return 2; }
+            if (text == "1" && !minimal) { return 1; }
         }
 
-        throw new QpdfParseException("Job \"json\" must be one of: 1, 2, latest.", 0L, null);
+        string message = minimal ? "Job \"jsonOutput\" must be one of: 2, latest."
+            : "Job \"json\" must be one of: 1, 2, latest.";
+        throw new QpdfParseException(message, 0L, null);
     }
 
     private static List<string> ParseJsonKeyArray(JobValue value, ConfigurationText textStorage)
@@ -1626,27 +1619,6 @@ internal static partial class JobPlanner
         }
 
         return keys;
-    }
-
-    private static string ParseJsonOutput(JobValue value, ConfigurationText textStorage)
-    {
-        if (value.ValueKind == JsonValueKind.Number
-            && value.TryGetInt32(out int number)
-            && number == 2)
-        {
-            return "2";
-        }
-
-        if (value.ValueKind == JsonValueKind.String)
-        {
-            string? text = value.ReadString(textStorage);
-            if (text == "2" || text == "latest")
-            {
-                return text;
-            }
-        }
-
-        throw new QpdfParseException("Job \"jsonOutput\" must be one of: 2, latest.", 0L, null);
     }
 
     private static List<string> ParseJsonObjectArray(JobValue value, ConfigurationText textStorage)
