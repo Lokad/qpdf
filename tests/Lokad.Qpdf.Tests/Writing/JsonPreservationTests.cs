@@ -149,6 +149,8 @@ public sealed class JsonPreservationTests
         Assert.Equal(preserve, FindDictionary(document, "SourceOrphan") is not null);
         Assert.Equal(preserve, FindDictionary(document, "PatchOrphan") is not null);
         Assert.Equal(preserve, FindDictionary(document, "PrivatePages") is not null);
+        int live = document.Engine.XRefEntries.Values.Count(entry => entry.Kind != XrefEntryKind.Free);
+        Assert.Equal(live + 1L, Assert.IsType<PdfInteger>(Entry(document.Engine.Trailer, "Size")).Value);
     }
 
     [Fact]

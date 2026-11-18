@@ -361,8 +361,28 @@ internal static class JsonExecution
         using OutputSecurity? security = preparedSecurity.Security;
         PreparedImportedOutput prepared = PrepareImportedOutput(model, writer, security, limits, importMemory, splitMemory, governor,
             diagnostics, cancellationToken);
-        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
-            model.OriginalPairs, prepared.Graph.Mapping, importMemory, governor, cancellationToken);
+        PreparedOutputModel output = prepared.Output;
+        int? info = prepared.Graph.InfoNumber;
+        int metadata = prepared.Graph.MetadataNumber;
+        IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds;
+        // Finish orders the whole-file model. Split parts number independently,
+        // and typed imports keep their existing numbering.
+        if (!writer.SplitPages.HasValue && writer.DetachedObjects != JsonDetachedObjects.RetainAll
+            && output.Model[^1].Number != output.Model.Count)
+        {
+            using ParserMemoryScope numbering = ParserMemoryScope.Create(governor);
+            output = OutputModelPreparation.CompactOrdered(output, importMemory, numbering,
+                governor, cancellationToken, out Dictionary<int, int> compact);
+            if (info.HasValue) { info = compact[info.Value]; }
+            if (metadata != 0) { metadata = compact[metadata]; }
+            originalIds = OriginalObjectIds.PrepareImportedIds(model.OriginalPairs, prepared.Graph.Mapping,
+                compact, importMemory, governor, cancellationToken);
+        }
+        else
+        {
+            originalIds = OriginalObjectIds.PrepareImportedIds(model.OriginalPairs, prepared.Graph.Mapping,
+                importMemory, governor, cancellationToken);
+        }
         if ((replaceInput || writer.SplitPages.HasValue) && document is not null)
         { await document.ReleaseCompleteInputAsync().ConfigureAwait(false); }
         if (writer.SplitPages is int groupSize)
@@ -377,10 +397,10 @@ internal static class JsonExecution
         }
         else
         {
-            await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null,
-                prepared.Graph.InfoNumber, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
+            await PublishModelAsync(host, prepared.Version, output.Model, output.ObjectStreams, false, null,
+                info, preparedSecurity.Identifier, writer.StaticId, writer.NewlineBeforeEndstream,
                 writer.Qdf, originalIds, writer.Linearize, writer.LinearizePass1, outputPath, limits, governor, cancellationToken,
-                security, prepared.Output.EncryptionObject, prepared.Graph.MetadataNumber).ConfigureAwait(false);
+                security, output.EncryptionObject, metadata).ConfigureAwait(false);
         }
         return new JsonImportOutcome(prepared.Graph.PageCount, ResultWarningSnapshot.Read(resultWarnings, diagnostics));
     }

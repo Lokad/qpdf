@@ -68,6 +68,11 @@ internal static class OriginalObjectIds
     internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareImportedIds(
         IReadOnlyDictionary<(int Number, int Generation), int>? sources, IReadOnlyDictionary<int, int>? numbering,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        => PrepareImportedIds(sources, numbering, null, memory, governor, token);
+
+    internal static IReadOnlyDictionary<int, (int Number, int Generation)>? PrepareImportedIds(
+        IReadOnlyDictionary<(int Number, int Generation), int>? sources, IReadOnlyDictionary<int, int>? numbering,
+        IReadOnlyDictionary<int, int>? compact, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         if (sources is null) { return null; }
         Dictionary<int, (int Number, int Generation)> result = ParserContainers.CreateDictionary<int, (int, int)>(memory);
@@ -76,6 +81,7 @@ internal static class OriginalObjectIds
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int destination = bound;
             if (numbering is not null && !numbering.TryGetValue(bound, out destination)) { continue; }
+            if (compact is not null && !compact.TryGetValue(destination, out destination)) { continue; }
             ParserContainers.EnsureEntryCapacity(memory, result, 2L * sizeof(int));
             result.Add(destination, pair);
         }

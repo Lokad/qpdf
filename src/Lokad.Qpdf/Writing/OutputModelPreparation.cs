@@ -68,6 +68,47 @@ internal static class OutputModelPreparation
         return number;
     }
 
+    // Rebase the final graph, once page and stream preparation no longer need
+    // the bound IDs. The writer still encrypts each object under its final ID.
+    internal static PreparedOutputModel CompactOrdered(PreparedOutputModel output, ParserMemoryScope memory,
+        ParserMemoryScope numbering, ResourceGovernor governor, CancellationToken token, out Dictionary<int, int> map)
+    {
+        numbering.CheckOwner(governor);
+        List<NumberedObject> model = output.Model;
+        map = ParserContainers.CreateDictionary<int, int>(numbering);
+        for (int index = 0; index < model.Count; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            ParserContainers.EnsureEntryCapacity(numbering, map, sizeof(int));
+            map.Add(model[index].Number, index + 1);
+        }
+        for (int index = 0; index < model.Count; index++)
+        {
+            QpdfObject value = ObjectRemap.RemapImported(model[index].Value, map, memory, governor, token);
+            model[index] = new(index + 1, value);
+        }
+
+        List<IReadOnlyList<int>>? groups = null;
+        if (output.ObjectStreams is { } sourceGroups)
+        {
+            groups = ParserContainers.CreateList<IReadOnlyList<int>>(memory, sourceGroups.Count, IntPtr.Size);
+            foreach (IReadOnlyList<int> source in sourceGroups)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                memory.Reserve(checked(32L + sizeof(int) * (long)source.Count));
+                int[] group = new int[source.Count];
+                for (int index = 0; index < group.Length; index++)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    group[index] = map[source[index]];
+                }
+                groups.Add(group);
+            }
+        }
+        int encryption = output.EncryptionObject == 0 ? 0 : map[output.EncryptionObject];
+        return new(model, groups, encryption);
+    }
+
     internal static void NormalizeIdentityCrypt(List<NumberedObject> model, ParserMemoryScope memory, ResourceGovernor governor)
     {
         CancellationToken token = governor.CancellationToken;

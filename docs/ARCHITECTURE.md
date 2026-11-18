@@ -89,6 +89,9 @@ checking. Text and JSON page reports share inherited image lookup and retain
 their distinct descriptor and diagnostic policies.
 
 JSON imports and ordinary PDF operations share catalog and version policy.
+Whole-file command imports compact the published numbers after stream
+preparation. Original pairs still identify QDF comments, and packing and
+encryption use the final numbers.
 Split imports partition the bound page tree after applying patches and stream
 preparation. They reuse the ordinary split numbering and publication owners.
 `OutputModelPreparation` finalizes reachability, encryption numbering,
