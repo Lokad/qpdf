@@ -93,7 +93,8 @@ JSON page-source assembly uses that inspection graph, preserves primary pairs,
 and exports new copied identities alongside original objects. Source action,
 form, annotation and layer owners bind secondary context before input cleanup;
 the graph detaches after serialization and sidecar copying, before publication.
-JSON coalescing/externalization uses the same content owners over that graph.
+JSON content/image transforms use the same content owners and host JPEG
+capability over that graph, including the ordinary inline-image policy.
 Parsed source references keep provenance so new inspection identities cannot
 revive old dangling edges. Source-aware pool resolution borrows untouched values;
 Form replacement propagation retains borrowed parents and exact source pairs.

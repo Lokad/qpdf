@@ -68,7 +68,7 @@ internal static class ImageOptimizer
 
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using FormResourceWalk forms = FormResourceWalk.Create(governor, cancellationToken);
-        PoolResolver resolver = forms.CreateResolver(copier.CopiedObjects);
+        PoolResolver resolver = forms.CreateResolver(copier);
         GovernedIntDictionary<PdfStream> replacements = GovernedIntDictionary<PdfStream>.Create(traversal, governor, IntPtr.Size, cancellationToken);
         foreach (int pageId in pageIds)
         {

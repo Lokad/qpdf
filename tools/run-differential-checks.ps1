@@ -2874,6 +2874,8 @@ Invoke-ReferenceAttachmentDates
 Invoke-ReferenceJsonAssembly
 . (Join-Path $repoRoot 'tools/ReferenceJsonContent.ps1')
 Invoke-ReferenceJsonContent
+. (Join-Path $repoRoot 'tools/ReferenceJsonImages.ps1')
+Invoke-ReferenceJsonImages
 . (Join-Path $repoRoot 'tools/ReferenceSecurity.ps1')
 Invoke-ReferenceSecurity
 . (Join-Path $repoRoot 'tools/ReferenceXrefRoles.ps1')

@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply image optimization before JSON export through the host JPEG codec,
+  preserving private originals and honoring thresholds, quality and inline policy.
+
 - Apply coalescing and inline-image externalization before JSON export, including
   assembled pages and nested Forms, while preserving original aliases and exact
   source references. Keep generated page identities linked to the visible tree.

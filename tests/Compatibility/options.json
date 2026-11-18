@@ -4073,22 +4073,31 @@
       "evidence": {
         "positive": [
           "ImageOptimizeTests.QualityForcesDctRecompression",
-          "ImageOptimizeTests.QualityMappingMatchesReference"
+          "ImageOptimizeTests.QualityMappingMatchesReference",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
-          "ImageOptimizeTests.InvalidValuesFail"
+          "ImageOptimizeTests.InvalidValuesFail",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
-          "ImageOptimizeTests.JobMalformedFails"
+          "ImageOptimizeTests.JobMalformedFails",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
           "JpegEncodeTests.EncodedOutputLimitReleasesAllWorkingOwners",
           "JpegEncodeTests.TightMemoryAdmissionPrecedesFrameAllocation",
-          "JpegEncodeTests.EncodingLeavesOnlyTheReturnedBytesCharged"
+          "JpegEncodeTests.EncodingLeavesOnlyTheReturnedBytesCharged",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize"
+          "diff:optimize",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -4121,8 +4130,7 @@
       "defaultReview": "reviewed",
       "remainingGaps": [
         "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
-        "JSON export accepts catalog-removal and authored-label policies without applying their effects.",
-        "JSON export accepts image optimization and its settings without applying the optimizer."
+        "JSON export accepts catalog-removal and authored-label policies without applying their effects."
       ],
       "evidence": {
         "positive": [
@@ -4157,7 +4165,9 @@
           "RawImageDescriptorTests.TypedMinimalAndJobVersionOneUseTheSameInactivePolicy",
           "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
           "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
-          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
           "JsonInspectionTests.BadVersionFails",
@@ -4171,7 +4181,10 @@
           "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport",
           "AttachmentJsonStreamKeysTests.AdditionalLongNamesObeyOutputLimitsBeforeOpeningTheReport",
           "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
-          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
           "JsonInspectionTests.JobRoundTripMatchesArgv",
@@ -4199,7 +4212,9 @@
           "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
           "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
-          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
           "JsonPublicationMemoryTests.KnownSidecarLengthFitsSharedAllowanceWithoutGrowthCopies",
@@ -4224,7 +4239,8 @@
           "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
           "AttachmentJsonStreamKeysTests.ExtraStreamInspectionRefundsEveryRefusedSharedGrowth",
           "RawImageDescriptorTests.InactiveInspectionAvoidsStageStorageWhileRetainingParsedContainerLimits",
-          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
           "diff:json-pages",
@@ -4232,7 +4248,8 @@
           "diff:json-images",
           "diff:json-page-assembly",
           "diff:json-images-raw-malformed",
-          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -4507,8 +4524,7 @@
       "defaultReview": "reviewed",
       "remainingGaps": [
         "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations.",
-        "JSON export accepts catalog-removal and authored-label policies without applying their effects.",
-        "JSON export accepts image optimization and its settings without applying the optimizer."
+        "JSON export accepts catalog-removal and authored-label policies without applying their effects."
       ],
       "evidence": {
         "positive": [
@@ -4521,14 +4537,19 @@
           "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection",
           "JsonContentTransformTests.ExternalizationBindsNamedColorsAndReusesSharedContents",
           "JsonContentTransformTests.NestedFormReplacementsKeepBorrowedParentsAndStaleAliasesSeparate",
-          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays"
+          "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
           "JsonModesTests.JsonOutputRejectsVersionOne",
           "JsonPageAssemblyTests.NoPublicationCanReplaceAConsumedSecondaryInput",
           "JsonReferenceProjectionTests.InvalidSelectedReferenceTargetsPreserveThePriorReport",
           "JsonContentTransformTests.StaleContentsDoNotAliasTheLiveGeneration",
-          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
+          "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
           "JsonModesTests.JobModesRoundTrip",
@@ -4544,7 +4565,9 @@
           "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
           "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
-          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
+          "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
@@ -4559,13 +4582,15 @@
           "JsonPageAssemblyTests.ContextAssemblyRefundsAdmissionAndPreservesPriorReports",
           "JsonPageAssemblyTests.AssembledBackingLivesThroughPendingSourceCloseAndSidecarWrite",
           "JsonReferenceProjectionTests.SourceSerializationPreservesRawValuesAndPriorOwners",
-          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
+          "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
           "diff:json-output",
           "diff:security-json",
           "diff:json-page-assembly",
-          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
+          "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -4787,20 +4812,29 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone"
+          "ImageOptimizeTests.KeepInlineImagesLeavesInlineAlone",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
-          "ImageOptimizeTests.InvalidValuesFail"
+          "ImageOptimizeTests.InvalidValuesFail",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
           "ImageOptimizeTests.InvalidValuesFail",
-          "ImageOptimizeTests.ThresholdJobParityHolds"
+          "ImageOptimizeTests.ThresholdJobParityHolds",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize"
+          "diff:optimize",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -5296,20 +5330,29 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
-          "ImageOptimizeTests.InvalidValuesFail"
+          "ImageOptimizeTests.InvalidValuesFail",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
-          "ImageOptimizeTests.ThresholdJobParityHolds"
+          "ImageOptimizeTests.ThresholdJobParityHolds",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize"
+          "diff:optimize",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -5335,19 +5378,28 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
-          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages"
+          "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
-          "ImageOptimizeTests.SmallImageStaysUntouched"
+          "ImageOptimizeTests.SmallImageStaysUntouched",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
-          "ImageOptimizeTests.ThresholdJobParityHolds"
+          "ImageOptimizeTests.ThresholdJobParityHolds",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize"
+          "diff:optimize",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -5374,21 +5426,30 @@
       "evidence": {
         "positive": [
           "ImageOptimizeTests.ZeroThresholdsOptimizeSmallImages",
-          "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds"
+          "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
-          "ImageOptimizeTests.InvalidValuesFail"
+          "ImageOptimizeTests.InvalidValuesFail",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails",
-          "ImageOptimizeTests.ThresholdJobParityHolds"
+          "ImageOptimizeTests.ThresholdJobParityHolds",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
-          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize"
+          "diff:optimize",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },
@@ -5412,8 +5473,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Decoding is separately qualified through an explicit host capability that preserves raw PDF samples.",
-        "JSON export accepts optimization settings without applying the optimizer."
+        "CMYK/YCCK recompression remains ineligible: the pinned development codec can decode four-component samples but cannot encode them. Decoding is separately qualified through an explicit host capability that preserves raw PDF samples."
       ],
       "evidence": {
         "positive": [
@@ -5425,7 +5485,9 @@
           "ImageOptimizeTests.SmaskImageOptimizesKeepingMask",
           "ImageOptimizeTests.ColorKeyImageKeepsExactSamples",
           "ImageOptimizeTests.IndexedImageStaysUntouched",
-          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing"
+          "LateContentTransformTests.FinalLiveFormsReceiveRequestedInlineProcessing",
+          "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
+          "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage"
         ],
         "negative": [
           "ImageOptimizeTests.SmallImageStaysUntouched",
@@ -5439,7 +5501,10 @@
           "ImageOptimizeTests.ExternalizedInlineRespectsOiThresholds",
           "ImageOptimizeTests.DimensionMismatchSkipsSilently",
           "LateContentPublicationTests.PreviouslyMissedEligibleImagesNowRequireTheHostCodec",
-          "LateContentPublicationTests.MalformedLateFormFailsWithoutPublishing"
+          "LateContentPublicationTests.MalformedLateFormFailsWithoutPublishing",
+          "JsonImageOptimizationTests.InactiveSettingsAndThresholdBoundariesKeepTheOriginalImage",
+          "JsonImageOptimizationTests.LargerCandidatesAndEncoderFailureKeepTheOriginalPayload",
+          "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
           "ImageOptimizeTests.MergeOptimizesEveryPage",
@@ -5448,7 +5513,9 @@
           "ImageColorKeyTests.OptimizationPreservesColorKeysAndStillSupportsOtherMaskKinds",
           "LateContentPublicationTests.LateCodecAndPublicationFailuresPreserveTargetsAndRefund",
           "LateContentPublicationTests.EveryGrowthCanRefuseThroughTheAssembledGraph",
-          "LateContentPublicationTests.LateImagePayloadEscapesDocumentAndHostOwnership"
+          "LateContentPublicationTests.LateImagePayloadEscapesDocumentAndHostOwnership",
+          "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
@@ -5456,10 +5523,12 @@
           "ImageOptimizationGraphTests.ZeroFilterCeilingStillAllowsUnfilteredImages",
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",
           "ResourcePayloadIdentityTests.FailurePreservesTheTargetAndRefundsBothResourcePaths",
-          "ImageColorKeyTests.ColorKeysSkipSampleAdmissionAndDoNotRequireACodec"
+          "ImageColorKeyTests.ColorKeysSkipSampleAdmissionAndDoNotRequireACodec",
+          "JsonImageOptimizationTests.CodecAndReplacementOwnersRefundAndProtectThePriorReport"
         ],
         "oracle": [
-          "diff:optimize-masks"
+          "diff:optimize-masks",
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }
     },

@@ -72,7 +72,8 @@ internal static class InspectionGraphPreparation
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
-        bool content = plan is JsonPlan && (plan.CoalesceContents || plan.ExternalizeInlineImages);
+        bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
+        bool content = plan is JsonPlan && (plan.CoalesceContents || externalize || plan.OptimizeImages);
         if (plan.Sources.Count == 0 && plan.Rotations.Count == 0 && !overlay && !content) { return null; }
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         InspectionGraph? lifetime = null;
@@ -138,7 +139,7 @@ internal static class InspectionGraphPreparation
                         SetInspectionEntry(extra, key, kept, memory);
                     }
                 }
-                else if (content && plan.ExternalizeInlineImages)
+                else if (content && (externalize || plan.OptimizeImages))
                 {
                     PdfName key = PdfName.FromAscii("Resources");
                     QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
@@ -315,11 +316,20 @@ internal static class InspectionGraphPreparation
                 List<int> pageIds = ParserContainers.CreateList<int>(contentMemory, selectedPages.Count, sizeof(int));
                 foreach (InspectionPage page in selectedPages)
                 { governor.NoteOperation(); ParserContainers.AddItem(contentMemory, pageIds, page.Number, sizeof(int)); }
-                memory.Reserve(48L);
-                Content.ContentTransformRequest request = new(plan.CoalesceContents, false, false, null, plan.ExternalizeInlineImages, plan.IiMinBytes);
-                Content.ContentTransforms.ApplyPageTransforms(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
-                if (plan.ExternalizeInlineImages)
-                { Content.ContentTransforms.ExternalizeForms(pool, pageIds, request, null, limits, governor, diagnostics, cancellationToken); }
+                if (plan.CoalesceContents || externalize)
+                {
+                    memory.Reserve(48L);
+                    Content.ContentTransformRequest request = new(plan.CoalesceContents, false, false, null, externalize, plan.IiMinBytes);
+                    Content.ContentTransforms.ApplyPageTransforms(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
+                    if (externalize)
+                    { Content.ContentTransforms.ExternalizeForms(pool, pageIds, request, null, limits, governor, diagnostics, cancellationToken); }
+                }
+                if (plan.OptimizeImages)
+                {
+                    memory.Reserve(64L);
+                    Content.ImageOptimizeRequest request = new(true, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea, plan.KeepInlineImages, plan.JpegQuality);
+                    Content.ImageOptimizer.Apply(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
+                }
             }
             List<List<(PdfRotationMode Mode, int Angle)>?> folds = ResolveRotationFolds(plan.Rotations, selectedPages.Count, governor, limits, memory);
             for (int i = 0; i < selectedPages.Count; i++)

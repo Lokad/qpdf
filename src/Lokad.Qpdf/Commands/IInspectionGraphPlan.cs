@@ -14,4 +14,10 @@ internal interface IInspectionGraphPlan
     bool CoalesceContents { get; }
     bool ExternalizeInlineImages { get; }
     long IiMinBytes { get; }
+    bool OptimizeImages { get; }
+    long OiMinWidth { get; }
+    long OiMinHeight { get; }
+    long OiMinArea { get; }
+    bool KeepInlineImages { get; }
+    int? JpegQuality { get; }
 }

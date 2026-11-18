@@ -318,13 +318,16 @@ Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive
 export and recreation. The primary retains catalog and security policy.
-Coalescing and inline-image externalization, including nested Forms, share the
-ordinary content owners before JSON projection. Prepared direct/repeated pages
+Coalescing, inline-image externalization and eligible image optimization,
+including nested Forms, share the ordinary content owners before JSON projection.
+Optimization uses the caller's JPEG codec, thresholds, quality and inline policy;
+it retains originals when candidates are not smaller or encoding declines.
+Prepared direct/repeated pages
 remain linked from the visible tree; exact source generations and independent
 aliases retain their meaning. Content-only preparation does not claim that all
 inherited resources were pushed.
-Other form/frame transforms remain unavailable. Image optimization, catalog
-removal and authored-label settings currently leave JSON export unchanged;
+Other form/frame transforms remain unavailable. Catalog removal and
+authored-label settings currently leave JSON export unchanged;
 their missing combinations remain in the inventory. PDF serializer settings
 retain their separate native ignore policy.
 
