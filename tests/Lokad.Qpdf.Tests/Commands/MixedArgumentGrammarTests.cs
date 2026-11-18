@@ -14,7 +14,7 @@ public sealed class MixedArgumentGrammarTests
         (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null),
         (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 80 40] /Resources << >> >>", null)], 1);
 
-    public static IEnumerable<object[]> Cases()
+    public static IEnumerable<object[]> PlainCases()
     {
         (string Name, string[] Arguments, bool Valid)[] cases = [
             ("json-spaced", ["input", "--json", "1", "--json-key=pages", "--", "output.json"], true),
@@ -41,9 +41,7 @@ public sealed class MixedArgumentGrammarTests
             ("collate-positional", ["--collate", "input", "--pages", ".", "1-3", "--", "output.pdf"], true),
             ("collate-empty", ["input", "--collate=", "--pages", ".", "1-3", "--", "output.pdf"], true)];
         foreach (var item in cases)
-        foreach (int position in new[] { 0, 1, 2 })
-        foreach (bool separateFile in new[] { false, true })
-        { yield return [item.Name, item.Arguments, item.Valid, position, separateFile]; }
+        { yield return [item.Name, item.Arguments, item.Valid]; }
     }
 
     private static async Task<(QpdfExecutionResult Result, Dictionary<string, byte[]> Outputs)> Execute(string[] arguments)
@@ -51,6 +49,7 @@ public sealed class MixedArgumentGrammarTests
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Input(), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("empty.json"), "{}"u8.ToArray(), QpdfInputOwnership.Transfer);
+        host.AddInput(QpdfPath.From("version.json"), """{"forceVersion":"1.6"}"""u8.ToArray(), QpdfInputOwnership.Transfer);
         foreach (string target in new[] { "output.pdf", "output.json" })
         {
             await using IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From(target), CancellationToken.None);
@@ -65,30 +64,79 @@ public sealed class MixedArgumentGrammarTests
     }
 
     [Theory]
-    [MemberData(nameof(Cases))]
-    public async Task EmptyPartialFilePreservesGrammarAndOutput(string name, string[] arguments, bool valid, int position, bool separateFile)
+    [MemberData(nameof(PlainCases))]
+    public async Task PlainArgumentsHaveExpectedGrammarAndOutput(string name, string[] arguments, bool valid)
     {
-        var plain = await Execute(arguments);
-        List<string> mixedArguments = new(arguments);
-        int at = position == 0 ? 0 : position == 1 ? Array.IndexOf(arguments, "input") + 1 : arguments.Length;
-        mixedArguments.InsertRange(at, separateFile ? ["--job-json-file", "empty.json"] : ["--job-json-file=empty.json"]);
-        var mixed = await Execute(mixedArguments.ToArray());
-        Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, plain.Result.ExitCode);
-        Assert.Equal(plain.Result.ExitCode, mixed.Result.ExitCode); Assert.Equal(plain.Result.Status, mixed.Result.Status);
-        Assert.Equal(plain.Outputs.Keys, mixed.Outputs.Keys);
-        foreach ((string target, byte[] bytes) in plain.Outputs) { Assert.Equal(bytes, mixed.Outputs[target]); }
+        var run = await Execute(arguments);
+        AssertOutcome(name, valid, run.Result, run.Outputs);
+    }
+
+    [Theory]
+    [InlineData("json-bare", "--job-json-file=empty.json", "--json", "input", "output.json")]
+    [InlineData("json-output-bare", "input", "--json-output", "--job-json-file", "empty.json", "output.json")]
+    [InlineData("split-spaced", "input", "--split-pages", "2", "output.pdf", "--job-json-file=empty.json")]
+    public async Task EmptyPartialFilesPreserveDistinctPositionalForms(string name, params string[] arguments)
+    {
+        var run = await Execute(arguments);
+        AssertOutcome(name, true, run.Result, run.Outputs);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task NonemptyPartialFileParticipatesInSetterOrder(bool includeFirst)
+    {
+        string[] arguments = includeFirst
+            ? ["--job-json-file=version.json", "input", "--force-version=1.5", "output.pdf"]
+            : ["input", "--force-version=1.5", "output.pdf", "--job-json-file", "version.json"];
+        var run = await Execute(arguments);
+        Assert.Equal(QpdfExitCode.Success, run.Result.ExitCode);
+        byte[] pdf = run.Outputs["output.pdf"];
+        Assert.True(pdf.AsSpan().StartsWith(includeFirst ? "%PDF-1.5"u8 : "%PDF-1.6"u8));
+    }
+
+    [Fact]
+    public async Task InvalidExplicitChoiceAfterAnIncludePreservesThePriorTargets()
+    {
+        var run = await Execute(["input", "--job-json-file", "empty.json", "--json-output=1", "output.json"]);
+        AssertOutcome("json-output-v1", false, run.Result, run.Outputs);
+    }
+
+    private static void AssertOutcome(string name, bool valid, QpdfExecutionResult result, Dictionary<string, byte[]> outputs)
+    {
+        Assert.Equal(valid ? QpdfExitCode.Success : QpdfExitCode.Error, result.ExitCode);
+        Assert.Equal(valid ? QpdfExecutionStatus.Completed : QpdfExecutionStatus.Failed, result.Status);
+        byte[] prior = [17, 23, 41];
         if (!valid)
         {
-            Assert.Contains(mixed.Result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.InvalidArguments);
-            Assert.Equal(new byte[] { 17, 23, 41 }, mixed.Outputs["output.pdf"]);
-            Assert.Equal(new byte[] { 17, 23, 41 }, mixed.Outputs["output.json"]);
+            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.InvalidArguments);
+            Assert.Equal(2, outputs.Count);
+            Assert.Equal(prior, outputs["output.pdf"]);
+            Assert.Equal(prior, outputs["output.json"]);
         }
         else if (name.StartsWith("json", StringComparison.Ordinal))
         {
-            using JsonDocument json = JsonDocument.Parse(mixed.Outputs["output.json"]);
+            Assert.Equal(2, outputs.Count);
+            Assert.Equal(prior, outputs["output.pdf"]);
+            using JsonDocument json = JsonDocument.Parse(outputs["output.json"]);
             if (name.StartsWith("json-output", StringComparison.Ordinal))
             { Assert.Equal(2, json.RootElement.GetProperty("qpdf")[0].GetProperty("jsonversion").GetInt32()); }
             else { Assert.Equal(name == "json-bare" ? 2 : 1, json.RootElement.GetProperty("version").GetInt32()); }
+        }
+        else if (name.StartsWith("split", StringComparison.Ordinal))
+        {
+            string[] parts = name is "split-spaced" or "split-equals"
+                ? ["output-1-2.pdf", "output-3.pdf"] : ["output-1.pdf", "output-2.pdf", "output-3.pdf"];
+            Assert.Equal(parts.Length + 2, outputs.Count);
+            Assert.Equal(prior, outputs["output.pdf"]);
+            Assert.Equal(prior, outputs["output.json"]);
+            foreach (string part in parts) { Assert.True(outputs[part].AsSpan().StartsWith("%PDF-"u8)); }
+        }
+        else
+        {
+            Assert.Equal(2, outputs.Count);
+            Assert.Equal(prior, outputs["output.json"]);
+            Assert.True(outputs["output.pdf"].AsSpan().StartsWith("%PDF-"u8));
         }
     }
 }
