@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
@@ -55,6 +56,76 @@ public sealed class PublicationAdmissionTests
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status); Assert.Equal(2, host.Committed.Count);
         Assert.Equal(1L, host.PeakHandles); Assert.Equal(host.Operations, result.Counters.HostOperations);
         Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SplitStagingRetiresEachBufferBeforeCreatingTheNextTarget(bool importJson)
+    {
+        using InMemoryQpdfHost storage = new();
+        QpdfPath source = QpdfPath.From("input.pdf");
+        byte[] first = SplitProgram("FIRST");
+        byte[] last = SplitProgram("LAST");
+        storage.AddInput(source, PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),
+            (4, $"<< /Length {first.Length} >>", first),
+            (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 6 0 R >>", null),
+            (6, $"<< /Length {last.Length} >>", last)
+        ], 1), QpdfInputOwnership.Transfer);
+        string[] input = [source.Value];
+        if (importJson)
+        {
+            QpdfJsonResult json = await Qpdf.GetDocumentJsonAsync(storage, source,
+                new QpdfJsonOptions(2, ["qpdf"], "inline", null, [], false), CancellationToken.None);
+            QpdfPath declaration = QpdfPath.From("input.json");
+            storage.AddInput(declaration, Encoding.UTF8.GetBytes(json.Json), QpdfInputOwnership.Transfer);
+            input = [declaration.Value, "--json-input"];
+        }
+
+        using RecordingMemoryBudget budget = new(32L * 1024L * 1024L);
+        using IMemoryScope invocation = budget.CreateScope();
+        SplitAdmissionHost host = new(storage, budget, invocation);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([
+            .. input, "--split-pages=1", "--linearize", "--linearize-pass1=pass1.pdf",
+            "--compress-streams=n", "--static-id", "output.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(new[] { "output-1.pdf", "pass1.pdf", "output-2.pdf", "pass1.pdf" }, host.Stages.Select(stage => stage.Path));
+        for (int index = 1; index < host.Stages.Count; index++)
+        {
+            long retired = host.Stages[index - 1].AdmittedBytes - host.Stages[index].AdmittedBytes;
+            Assert.True(retired >= 32768L, $"Expected a retired buffer before stage {index}, observed {retired} bytes.");
+        }
+        Assert.True(storage.TryGetOutput(QpdfPath.From("output-1.pdf"), out byte[] firstPart));
+        Assert.True(storage.TryGetOutput(QpdfPath.From("output-2.pdf"), out byte[] lastPart));
+        Assert.True(firstPart.AsSpan().IndexOf(first) >= 0);
+        Assert.True(lastPart.AsSpan().IndexOf(last) >= 0);
+        Assert.True(storage.TryGetOutput(QpdfPath.From("pass1.pdf"), out byte[] pass1));
+        Assert.True(pass1.AsSpan().IndexOf(last) >= 0);
+        Assert.True(pass1.AsSpan().IndexOf(first) < 0);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        invocation.Dispose();
+        Assert.Equal(0L, budget.ReservedBytes);
+    }
+
+    private static byte[] SplitProgram(string marker)
+        => Encoding.ASCII.GetBytes("% " + marker + "\n%" + new string('x', 65536) + "\nq Q\n");
+
+    private sealed class SplitAdmissionHost(InMemoryQpdfHost storage, RecordingMemoryBudget budget, IMemoryScope invocation)
+        : IQpdfHost, IQpdfMemoryHost
+    {
+        internal List<(string Path, long AdmittedBytes)> Stages { get; } = [];
+        public IMemoryBudget MemoryBudget => invocation;
+        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
+
+        public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
+        {
+            Stages.Add((path.Value, budget.ReservedWithin(invocation)));
+            return storage.CreateOutputAsync(path, token);
+        }
     }
 
     public static IEnumerable<object[]> Faults()

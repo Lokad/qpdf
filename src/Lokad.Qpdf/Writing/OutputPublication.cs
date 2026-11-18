@@ -445,9 +445,19 @@ internal static class OutputPublication
 
         internal async ValueTask PublishAsync(IQpdfHost host, ResourceGovernor governor, CancellationToken token)
         {
-            await PublishPreparedOutputAsync(host, Path, Main, governor, token).ConfigureAwait(false);
+            using (PreparedOutputSink main = Main)
+            {
+                _main = null;
+                await PublishPreparedOutputAsync(host, Path, main, governor, token).ConfigureAwait(false);
+            }
             if (_pass1 is PreparedOutputSink pass1 && Pass1Path is QpdfPath path)
-            { await PublishPreparedOutputAsync(host, path, pass1, governor, token).ConfigureAwait(false); }
+            {
+                _pass1 = null;
+                using (pass1)
+                {
+                    await PublishPreparedOutputAsync(host, path, pass1, governor, token).ConfigureAwait(false);
+                }
+            }
         }
 
         public void Dispose()

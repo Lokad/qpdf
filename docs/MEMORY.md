@@ -78,8 +78,10 @@ constructors remain caller-managed; fund them as an aggregate when needed.
 5. Await pending work and discard/dispose before refunding abandoned staging.
 
 Multiple targets commit sequentially, so an earlier PDF/sidecar can survive a
-later failure. A post-commit close fault does not undo publication. The built-in
-memory host funds persistent keys and bytes separately from invocation scratch.
+later failure. A post-commit close fault does not undo publication. Split PDFs
+and first-pass captures release their serialized staging after their individual
+transactions close. The built-in memory host funds persistent keys and bytes
+separately from invocation scratch.
 Known output lengths can pre-size staging without changing durable ownership.
 
 ## JPEG codecs
