@@ -18,7 +18,9 @@ function Stop-ReferenceProbeWorker {
     if ($null -eq $state -or $null -eq $state.Process) { return }
     $process = $state.Process
     try {
-        $process.StandardInput.Close()
+        $inputFailure = $null
+        try { $process.StandardInput.Close() }
+        catch [IO.IOException] { $inputFailure = $_ }
         if (-not $process.WaitForExit(30000)) {
             $process.Kill($true)
             $null = $process.WaitForExit(30000)
@@ -26,6 +28,7 @@ function Stop-ReferenceProbeWorker {
         }
         $errorText = $state.ErrorTask.GetAwaiter().GetResult()
         if ($process.ExitCode -ne 0) { throw "Managed probe worker exited $($process.ExitCode): $errorText" }
+        if ($null -ne $inputFailure) { throw $inputFailure }
     } finally {
         $process.Dispose()
         $state.Process = $null
