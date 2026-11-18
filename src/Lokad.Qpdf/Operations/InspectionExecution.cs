@@ -26,11 +26,12 @@ internal static class InspectionExecution
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken,
-        ParserMemoryScope memory)
+        ParserMemoryScope memory,
+        PageImageBindings.Cache? imageCache)
     {
         memory.CheckOwner(governor);
         List<PageImage> images = ParserContainers.CreateList<PageImage>(memory);
-        PageImageBindings bindings = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken);
+        PageImageBindings bindings = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken, imageCache);
         while (bindings.TryReadNext(out PageImageBindings.Binding image))
         {
             PdfReference reference = image.Reference;
@@ -442,6 +443,8 @@ internal static class InspectionExecution
 
     internal static void ShowPages(QpdfDocument document, JobPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
+        using PageImageBindings.Cache? imageCache = plan.WithImages && document.PageCount > 1
+            ? PageImageBindings.Cache.Create(governor, diagnostics) : null;
         int index = 1;
         foreach (Reading.PageLocation location in document.PageReferences)
         {
@@ -456,7 +459,7 @@ internal static class InspectionExecution
             if (plan.WithImages)
             {
                 using ParserMemoryScope imageMemory = ParserMemoryScope.Create(governor);
-                List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken, imageMemory);
+                List<PageImage> images = ListPageImages(document.Engine, location, limits, governor, diagnostics, cancellationToken, imageMemory, imageCache);
                 if (images.Count > 0)
                 {
                     diagnostics.Add(QpdfDiagnosticCode.PageListing, QpdfDiagnosticSeverity.Info, "  images:");

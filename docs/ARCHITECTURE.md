@@ -114,6 +114,9 @@ publication transfers admitted payload backing past reader cleanup through commi
 combined binary payloads use the existing inspection buffer.
 Text and JSON page inspection share sorted image bindings from inherited resources;
 their dimension diagnostics and raw JSON descriptor projections remain distinct.
+Within one inspection, up to eight effective XObject dictionaries can reuse
+their sorted bindings. Entries retain at most 64 image references each.
+Larger results and analyses that emit diagnostics follow the ordinary path.
 Counting, identifier replay and final bytes share `OutputSerialization` format
 dispatch while keeping their transaction and buffer lifetimes separate.
 Job execution translates exceptions once at its enclosing result/presentation

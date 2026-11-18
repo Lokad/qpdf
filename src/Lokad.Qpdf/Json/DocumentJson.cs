@@ -83,7 +83,7 @@ internal static class DocumentJson
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 AppendKey(builder, ref firstKey, "pages");
-                AppendPages(builder, document, outlines, request, labels, limits, governor, inspectionMemory, cancellationToken);
+                AppendPages(builder, document, outlines, request, labels, limits, governor, diagnostics, inspectionMemory, cancellationToken);
             }
 
             if (request.Wants("pagelabels"))
@@ -688,10 +688,12 @@ internal static class DocumentJson
         SortedDictionary<int, QpdfObject> labels,
         QpdfLimits limits,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<PageLocation> pages = document.PageReferences;
+        using PageImageBindings.Cache? imageCache = pages.Count > 1 ? PageImageBindings.Cache.Create(governor, diagnostics) : null;
         GovernedIntDictionary<List<OutlineEntry>>? pageOutlines = null;
         if (outlines.Count > 0)
         {
@@ -726,7 +728,7 @@ internal static class DocumentJson
             }
 
             builder.Append(",\"images\": ");
-            AppendImages(builder, document.Engine, location, request, limits, governor, cancellationToken);
+            AppendImages(builder, document.Engine, location, request, limits, governor, cancellationToken, imageCache);
             builder.Append(",\"contents\": ");
             AppendContents(builder, document.Engine, location.Page, request, governor, limits);
             builder.Append(",\"label\": ");
@@ -763,12 +765,13 @@ internal static class DocumentJson
         JsonRequest request,
         QpdfLimits limits,
         ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PageImageBindings.Cache? imageCache)
     {
         builder.Append((char)91);
         bool first = true;
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        PageImageBindings images = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken);
+        PageImageBindings images = PageImageBindings.Create(engine, location, limits, memory, governor, cancellationToken, imageCache);
         while (images.TryReadNext(out PageImageBindings.Binding detail))
         {
             cancellationToken.ThrowIfCancellationRequested();
