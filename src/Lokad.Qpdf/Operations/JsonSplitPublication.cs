@@ -18,7 +18,8 @@ internal static class JsonSplitPublication
 
     internal static async ValueTask PublishAsync(IQpdfHost host, QpdfPath outputPath, int groupSize,
         JsonImportWriterSettings writer, PdfVersion version, JsonImport.RenumberedModel graph,
-        IReadOnlyList<PageLocation> pages, HashSet<int>? originalPacking, byte[]? originalId,
+        IReadOnlyList<PageLocation> pages, List<(int Index, PdfDictionary Label)>? authoredLabels,
+        HashSet<int>? originalPacking, byte[]? originalId,
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, OutputSecurity? security,
         SplitInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
     {
@@ -31,8 +32,8 @@ internal static class JsonSplitPublication
             Dictionary<int, QpdfObject> pool = graph.Objects;
             PdfDictionary catalog = (PdfDictionary)pool[1];
             PoolResolver resolver = PoolResolver.Create(split, pool);
-            List<(int Index, PdfDictionary Label)> labels = PageLabelMerge.ReadBoundLabels(resolver, catalog,
-                pages.Count, limits, governor, split, token);
+            List<(int Index, PdfDictionary Label)> labels = authoredLabels
+                ?? PageLabelMerge.ReadBoundLabels(resolver, catalog, pages.Count, limits, governor, split, token);
             int maximum = 0;
             foreach (int number in pool.Keys)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); maximum = Math.Max(maximum, number); }

@@ -7050,6 +7050,8 @@
           "LabelTests.SplitSlicesMergedLabels",
           "LabelTests.SetWinsOverMerge",
           "LabelTests.SetWinsUnderSplit",
+          "JsonPublicationTransformTests.AuthoredImportLabelsReplaceTheActiveTreeAndKeepPrivateAliases",
+          "JsonSplitTests.AuthoredLabelsFollowThePatchedOrderAndContinueInLaterParts",
           "ExplicitSplitLabelTests.ExplicitOutputLabelsOverrideSourcesBeforePartitioning",
           "PrefixOnlyLabelTests.AuthoredNoNumberStyleOmitsInactiveStartsAcrossSplitBoundaries",
           "PrefixOnlyLabelTests.PrefixOnlyRunsIgnoreStartsAndKeepIndependentAliases",
@@ -7061,6 +7063,7 @@
         ],
         "negative": [
           "LabelTests.LabelOrderRulesFailCleanly",
+          "JsonSplitTests.InvalidAuthoredLabelRefusesBeforeStagingAnyParts",
           "LabelPrefixValidationTests.TypedLabelsRejectInvalidUtf16BeforePublicationAndRefundPrivateStorage",
           "LabelTests.ArgvLabelFormsFailExplicitly",
           "LabelTests.MalformedLabelTreeFailsExplicitly",

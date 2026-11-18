@@ -46,13 +46,17 @@ function Invoke-ReferenceJsonSplit {
       $code = Invoke-Emit $case (@('emit','--workdir',$case) + $mappings + @('--','inputs/create.json','--json-input','--split-pages=2',"$managed.pdf"))
       $oracle = Invoke-Oracle $case @('inputs/create.json','--json-input','--split-pages=2',$native)
       $expected = @(@('First','Second'),@('Third'))
+      $style = '/D'; $prefix = 'u:Audit-'
     } else {
       $job = "$case/update-job.json"
-      @{ inputFile=$source; updateFromJson='inputs/update.json'; splitPages='2'; outputFile="$managed.pdf" } |
+      @{ inputFile=$source; updateFromJson='inputs/update.json'; splitPages='2'; outputFile="$managed.pdf";
+         setPageLabels=@('1:r/7/NEW-') } |
         ConvertTo-Json | Set-Content -LiteralPath $job -Encoding utf8NoBOM
       $code = Invoke-Emit $case (@('emit-job','--workdir',$case,'--job',$job) + $mappings)
-      $oracle = Invoke-Oracle $case @($source,'--update-from-json=inputs/update.json','--split-pages=2',$native)
+      $oracle = Invoke-Oracle $case @($source,'--update-from-json=inputs/update.json','--split-pages=2',
+          '--set-page-labels','1:r/7/NEW-','--',$native)
       $expected = @(@('Third','First'),@('Second'))
+      $style = '/r'; $prefix = 'u:NEW-'
     }
     if ($code -ne 0 -or $oracle -ne 0) { throw "$tag could not publish both parts." }
     for ($i = 0; $i -lt 2; $i++) {
@@ -68,7 +72,9 @@ function Invoke-ReferenceJsonSplit {
         $view = Get-Content -LiteralPath $viewPath -Raw | ConvertFrom-Json -AsHashtable
         $labels = $view.pagelabels
         if ($labels.Count -ne 1 -or $labels[0].index -ne 0 -or $labels[0].label['/St'] -ne @(7,9)[$i] -or
-            $labels[0].label['/P'] -cne 'u:Audit-') { throw "$tag labels do not continue through $managedSuffix." }
+            $labels[0].label['/S'] -cne $style -or $labels[0].label['/P'] -cne $prefix) {
+          throw "$tag labels do not continue through $managedSuffix."
+        }
         foreach ($page in $view.pages) {
           $node = $view.qpdf[1]['obj:' + $page.object].value
           $box = $node['/MediaBox']

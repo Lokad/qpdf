@@ -176,6 +176,40 @@ public sealed class JsonPublicationTransformTests
     }
 
     [Fact]
+    public async Task AuthoredImportLabelsReplaceTheActiveTreeAndKeepPrivateAliases()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("labels.json");
+        host.AddInput(input, """
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.2"},{
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/PageLabels":"4 0 R","/PrivateLabels":"4 0 R"}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":1,"/Kids":["3 0 R"]}},
+              "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/Resources":{},"/MediaBox":[0,0,10,20]}},
+              "obj:4 0 R":{"value":{"/Nums":[0]}},
+              "trailer":{"value":{"/Root":"1 0 R"}}
+            }]}
+            """u8.ToArray(), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new([input.Value, "--json-input", "--remove-page-labels", "--set-page-labels", "1:r/7/NEW-", "--", Output.Value]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        QpdfPath read = QpdfPath.From("result");
+        host.AddInput(read, bytes, QpdfInputOwnership.Transfer);
+        using JsonDocument report = await Run(host, [read.Value, "--json-output=2"]);
+        JsonElement table = report.RootElement.GetProperty("qpdf")[1];
+        JsonElement catalog = Value(table, table.GetProperty("trailer").GetProperty("value").GetProperty("/Root"));
+        JsonElement numbers = Value(table, catalog.GetProperty("/PageLabels")).GetProperty("/Nums");
+        Assert.Equal(0, numbers[0].GetInt32());
+        JsonElement label = numbers[1];
+        Assert.Equal("/r", label.GetProperty("/S").GetString());
+        Assert.Equal(7, label.GetProperty("/St").GetInt32());
+        Assert.Equal("u:NEW-", label.GetProperty("/P").GetString());
+        Assert.Equal(1, Value(table, catalog.GetProperty("/PrivateLabels")).GetProperty("/Nums").GetArrayLength());
+        Assert.Equal("1.3", report.RootElement.GetProperty("qpdf")[0].GetProperty("pdfversion").GetString());
+    }
+
+    [Fact]
     public async Task ReturnedMetadataPolicyUsesTheSameActiveInfoRole()
     {
         using InMemoryQpdfHost host = Host(Fixture(17, "ordinary"));

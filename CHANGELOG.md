@@ -20,7 +20,7 @@
   values. Support per-source resource pruning, image optimization, coalescing
   and inline-image externalization with the ordinary content policies.
 - Apply document metadata, AcroForm, structure and label removals during JSON
-  export and import. Export can author labels in assembled page order. Command
+  export and import. Commands can author labels in effective page order. Command
   imports can coalesce contents. `--remove-info` retains a live ModDate if present.
 - Return typed JSON without publishing a report. File sidecars require a prefix
   when there is no report target. Typed document opening, checking and JSON

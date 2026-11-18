@@ -440,6 +440,9 @@ Resource-dependent framing across different contexts keeps the content program
 and reports a warning.
 Explicit normalization and compression settings, packing, linearization and
 output protection use the ordinary writer policies.
+Apply `--set-page-labels` / `setPageLabels` to the bound page order.
+Authored labels replace the active tree and preserve independent private aliases.
+When both label options are set, authored labels take precedence.
 Command creation and updates can split the bound page order with
 `--split-pages` / `splitPages`. Each part keeps inherited page attributes,
 continues its labels, and maps references to pages outside the part to null.

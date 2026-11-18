@@ -995,7 +995,6 @@ internal static partial class JobPlanner
             }
 
             if (importJson && (testJsonSchema || preserveUnreferenced
-                || labels.Count > 0
                 || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no") || linearizePass1 is not null
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
@@ -1037,6 +1036,7 @@ internal static partial class JobPlanner
                     SplitPages = splitPages,
                     CompressionState = compressionSettings.State,
                     CoalesceContents = coalesceContents,
+                    Labels = labels,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     MaxStreamFilters = maxStreamFilters,

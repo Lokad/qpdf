@@ -18,11 +18,11 @@ internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
     string ObjectStreams, bool Linearize, QpdfOutputEncryption Encryption,
     DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
-    bool CoalesceContents, int? SplitPages)
+    bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, encryption, new(false, false),
-            null, QdfOptions.Disabled, false, false, null);
+            null, QdfOptions.Disabled, false, false, null, []);
 }
 
 internal static class JsonExecution
@@ -350,7 +350,7 @@ internal static class JsonExecution
             if (splitInputs is null || prepared.Pages is null)
             { throw new InvalidOperationException("Missing bound JSON split preparation."); }
             await JsonSplitPublication.PublishAsync(host, outputPath, groupSize, writer, prepared.Version, prepared.Graph,
-                prepared.Pages, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security, splitInputs,
+                prepared.Pages, prepared.Labels, prepared.PreservedPacking, preparedSecurity.Identifier, originalIds, security, splitInputs,
                 limits, governor, cancellationToken).ConfigureAwait(false);
         }
         else
@@ -364,13 +364,16 @@ internal static class JsonExecution
     }
 
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph,
-        PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking);
+        PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking,
+        List<(int Index, PdfDictionary Label)>? Labels);
 
     private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, JsonImportWriterSettings writer,
         OutputSecurity? security, QpdfLimits limits,
         ParserMemoryScope memory, ParserMemoryScope? splitMemory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        model = ImportedPublication.Apply(model, writer.Publication, limits, memory, governor, token);
+        DocumentPublicationPolicy policy = writer.Labels.Count == 0 ? writer.Publication
+            : writer.Publication with { RemoveLabels = true };
+        model = ImportedPublication.Apply(model, policy, limits, memory, governor, token);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);
@@ -389,6 +392,28 @@ internal static class JsonExecution
             ParserContainers.AddItem(memory, sources, (renumbered.Mapping, model.CompressedObjects), 2L * IntPtr.Size);
         }
         PdfDictionary mappedCatalog = (PdfDictionary)renumbered.Objects[1];
+        List<(int Index, PdfDictionary Label)>? splitLabels = null;
+        if (writer.Labels.Count > 0)
+        {
+            using ParserMemoryScope labelMemory = ParserMemoryScope.Create(governor);
+            List<(int Index, PdfDictionary Label)> labels;
+            try
+            {
+                labels = PageLabelAssembly.ResolveLabelItems(writer.Labels, renumbered.PageCount, governor, splitMemory ?? labelMemory);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            { throw new QpdfParseException(ex.Message, null, null, ex); }
+            if (writer.ForceVersion is null)
+            { IncludeVersionRequirement(ref version, ref extensionLevel, AuthoredVersionFloor(false, false, true), 0, governor); }
+            if (splitMemory is null)
+            {
+                PdfDictionary labelTree = PageLabelAssembly.NumbersDictionary(labels, governor);
+                mappedCatalog = PdfDictionaryRebuild.ReplaceEntry(graph, mappedCatalog, "PageLabels"u8, labelTree);
+                renumbered.Objects[1] = mappedCatalog;
+                renumbered.Model[0] = new(1, mappedCatalog);
+            }
+            else { splitLabels = labels; }
+        }
         int pagesNumber = PageTreeRootNumber(mappedCatalog, governor, token);
         // Generated packing uses the completed flat split graph, including
         // occurrence-local page and widget headers created during splitting.
@@ -445,7 +470,7 @@ internal static class JsonExecution
             foreach (NumberedObject item in output.Model)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
         }
-        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed);
+        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels);
     }
 
 }

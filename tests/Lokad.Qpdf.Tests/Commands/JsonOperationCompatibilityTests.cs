@@ -39,7 +39,6 @@ public sealed class JsonOperationCompatibilityTests
             ("generateAppearances", true, ["--generate-appearances"]), ("optimizeImages", true, ["--optimize-images"]),
             ("oiMinWidth", "17", ["--oi-min-width=17"]), ("keepInlineImages", true, ["--keep-inline-images"]),
             ("jpegQuality", "75", ["--jpeg-quality=75"]),
-            ("setPageLabels", new[] { "1:D/5/Label" }, ["--set-page-labels", "1:D/5/Label", "--"]),
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
             ("linearizePass1", "pass1", ["--linearize-pass1=pass1"]),
@@ -56,7 +55,7 @@ public sealed class JsonOperationCompatibilityTests
         (string Key, string Mode, string Route)[] adapters = [
             ("externalizeInlineImages", "update", "argv"),
             ("normalizeContent", "create", "job"),
-            ("setPageLabels", "update", "mixed"),
+            ("removeUnreferencedResources", "update", "mixed"),
             ("overlay", "create", "job"),
             ("flattenRotation", "inspect", "job"),
             ("flattenAnnotations", "json-output", "mixed"),

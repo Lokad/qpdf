@@ -48,6 +48,38 @@ public sealed class JsonSplitTests
     }
 
     [Fact]
+    public async Task AuthoredLabelsFollowThePatchedOrderAndContinueInLaterParts()
+    {
+        using InMemoryQpdfHost host = new();
+        AddUpdate(host, Source);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"source.pdf","updateFromJson":"graph.json","splitPages":"2","outputFile":"part.pdf",
+             "setPageLabels":["1:r/7/NEW-"]}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await AssertPart(host, First, 7, [2, 0], true, null, "r", "NEW-");
+        await AssertPart(host, Last, 9, [1], false, null, "r", "NEW-");
+    }
+
+    [Fact]
+    public async Task InvalidAuthoredLabelRefusesBeforeStagingAnyParts()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        await SeedOutputs(host.Inner);
+        AddCreation(host.Inner, JsonPath, Body);
+        QpdfExecutionResult result = await Create(host, JsonPath, QpdfLimits.Default, CancellationToken.None,
+            "--set-page-labels", "1:D", "4:r", "--");
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        QpdfDiagnostic diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, diagnostic.Code);
+        Assert.Contains("outside 1..3", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Empty(host.CreatedPaths);
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, First));
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, Last));
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Fact]
     public async Task SharedResourceMemberIsPackedInEachPart()
     {
         using InMemoryQpdfHost host = new();
@@ -320,7 +352,11 @@ public sealed class JsonSplitTests
     private static async Task AssertPart(InMemoryQpdfHost host, QpdfPath path, long start, int[] expected, bool retainsAudit)
         => await AssertPart(host, path, start, expected, retainsAudit, null);
 
-    private static async Task AssertPart(InMemoryQpdfHost host, QpdfPath path, long start, int[] expected, bool retainsAudit, QpdfPassword? password)
+    private static Task AssertPart(InMemoryQpdfHost host, QpdfPath path, long start, int[] expected, bool retainsAudit, QpdfPassword? password)
+        => AssertPart(host, path, start, expected, retainsAudit, password, "D", "Audit-");
+
+    private static async Task AssertPart(InMemoryQpdfHost host, QpdfPath path, long start, int[] expected, bool retainsAudit,
+        QpdfPassword? password, string style, string prefix)
     {
         QpdfPath read = QpdfPath.From("check-" + path.Value);
         host.AddInput(read, Output(host, path), QpdfInputOwnership.Transfer);
@@ -329,7 +365,10 @@ public sealed class JsonSplitTests
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(Resolve(document, Value(document.Engine.Trailer, "Root")));
         PdfDictionary labels = Assert.IsType<PdfDictionary>(Value(catalog, "PageLabels"));
         PdfArray nums = Assert.IsType<PdfArray>(Value(labels, "Nums"));
+        Assert.Equal(0L, Assert.IsType<PdfInteger>(nums[0]).Value);
         PdfDictionary label = Assert.IsType<PdfDictionary>(nums[1]);
+        Assert.Equal(style, Encoding.ASCII.GetString(Assert.IsType<PdfName>(Value(label, "S")).RawSpan));
+        Assert.Equal(prefix, Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Value(label, "P")).ValueSpan));
         Assert.Equal(start, Assert.IsType<PdfInteger>(Value(label, "St")).Value);
         Assert.Equal(retainsAudit, Value(catalog, "AuditPage") is PdfReference);
         for (int i = 0; i < expected.Length; i++)
