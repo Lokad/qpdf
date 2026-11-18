@@ -126,13 +126,13 @@ jobs:
           $oracle = ./tools/install-reference-qpdf.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'lokad-qpdf-oracle')
           "QPDF_EXE=$oracle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $oracle | Out-File artifacts/ci/logs/oracle.log
-      - name: Restore locked dependencies
+      - name: Restore locked reference dependencies
         run: |
-          dotnet restore Lokad.Qpdf.slnx --locked-mode 2>&1 | Tee-Object artifacts/ci/logs/restore.log
+          dotnet restore tools/QpdfProbe/QpdfProbe.csproj --locked-mode 2>&1 | Tee-Object artifacts/ci/logs/restore.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build Release
+      - name: Build Release reference probe
         run: |
-          dotnet build Lokad.Qpdf.slnx -c Release --no-restore 2>&1 | Tee-Object artifacts/ci/logs/build.log
+          dotnet build tools/QpdfProbe/QpdfProbe.csproj -c Release -f net11.0 --no-restore 2>&1 | Tee-Object artifacts/ci/logs/build.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run explicit reference checks with fresh scratch
         timeout-minutes: 35
