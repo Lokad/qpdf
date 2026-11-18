@@ -913,10 +913,7 @@ internal static partial class JsonImport
         }
 
         limits.Validate();
-        if ((long)model.Objects.Count > limits.MaxContainerSize)
-        {
-            throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), model.Objects.Count, limits.MaxContainerSize);
-        }
+        CheckObjectCount(model, limits);
 
         if (model.Trailer.TryGet(PdfName.FromAscii("Encrypt"), out QpdfObject? encrypt) && encrypt is not null && encrypt is not PdfNull)
         {
@@ -1046,6 +1043,12 @@ internal static partial class JsonImport
         int metadata = catalog.TryGet(PdfName.FromAscii("Metadata"), out QpdfObject metadataValue) && metadataValue is PdfReference metadataReference
             ? metadataReference.ObjectNumber : 0;
         return new RenumberedModel(numbered, infoNew, metadata, pages, mapped, renumber);
+    }
+
+    internal static void CheckObjectCount(ImportedModel model, QpdfLimits limits)
+    {
+        if ((long)model.Objects.Count > limits.MaxContainerSize)
+        { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), model.Objects.Count, limits.MaxContainerSize); }
     }
 
     private static void PromoteOutlines(Dictionary<int, QpdfObject> objects, ParserMemoryScope memory,

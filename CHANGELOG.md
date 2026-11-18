@@ -2,6 +2,9 @@
 
 ## Unreleased — 0.2.0-dev.7
 
+- Apply remove-info/remove-metadata during JSON creation and update through the
+  ordinary metadata policy, retaining independent roots and retiring superseded data.
+
 - Omit Info during remove-info when ModDate resolves to null, is missing or has
   a stale generation, while retaining live date references and private aliases.
 

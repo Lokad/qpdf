@@ -280,6 +280,7 @@ internal static class JsonExecution
         string objectStreams,
         bool linearize,
         QpdfOutputEncryption outputEncryption,
+        DocumentMetadataPolicy metadataPolicy,
         QpdfRecoveryMode recovery,
         QpdfLimits limits,
         ResourceGovernor governor,
@@ -301,7 +302,7 @@ internal static class JsonExecution
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, null, null, importMemory,
                 governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, minVersion, forceVersion, objectStreams,
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, metadataPolicy, minVersion, forceVersion, objectStreams,
                 security, limits, importMemory, governor, diagnostics, cancellationToken);
             await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
@@ -323,6 +324,7 @@ internal static class JsonExecution
         bool linearize,
         QpdfPassword? password,
         QpdfOutputEncryption outputEncryption,
+        DocumentMetadataPolicy metadataPolicy,
         QpdfLimits limits,
         QpdfRecoveryMode recovery,
         ResourceGovernor governor,
@@ -350,7 +352,7 @@ internal static class JsonExecution
             var preparedSecurity = await PrepareOutputSecurityAsync(host, outputEncryption, document, TryGetOriginalId(document.Engine),
                 importMemory, governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
             using OutputSecurity? security = preparedSecurity.Security;
-            PreparedImportedOutput prepared = PrepareImportedOutput(model, minVersion, forceVersion, objectStreams,
+            PreparedImportedOutput prepared = PrepareImportedOutput(model, metadataPolicy, minVersion, forceVersion, objectStreams,
                 security, limits, importMemory, governor, diagnostics, cancellationToken);
             await PublishModelAsync(host, prepared.Version, prepared.Output.Model, prepared.Output.ObjectStreams, false, null, prepared.Graph.InfoNumber, preparedSecurity.Identifier,
                 staticId, newlineBeforeEndstream, Writing.QdfOptions.Disabled, null, linearize, null, outputPath, limits, governor, cancellationToken,
@@ -361,10 +363,11 @@ internal static class JsonExecution
 
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph, PreparedOutputModel Output);
 
-    private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model,
+    private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, DocumentMetadataPolicy metadataPolicy,
         string? minVersion, string? forceVersion, string objectStreams, OutputSecurity? security, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
+        model = ImportedMetadata.Apply(model, metadataPolicy, limits, memory, governor, token);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);

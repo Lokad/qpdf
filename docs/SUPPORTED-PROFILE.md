@@ -373,8 +373,12 @@ defaults to preserve. Existing typed overloads stay flat; full overloads accept
 `QpdfJsonImportOptions(objectStreams, linearize)` with explicit output protection
 and limits. Forced versions below 1.5 disable packing; other version/security
 requirements retain the shared writer's rules.
-Page/content/image transforms, splitting, QDF, first-pass capture and
-stream/metadata transforms remain unavailable during import/update.
+Argv/job imports apply remove-info/remove-metadata after reference binding, using
+the ordinary Info/ModDate/XML policy. Fresh catalog/Info roles preserve private
+aliases; superseded metadata retires unless independently rooted. Unrelated
+unreferenced JSON declarations retain their existing preservation policy.
+Page/content/image transforms, splitting, QDF, first-pass capture and stream
+transforms remain unavailable during import/update.
 
 ## Writer profile
 

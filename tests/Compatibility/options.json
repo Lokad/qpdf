@@ -4209,9 +4209,11 @@
           "source": "manual/cli.rst:3771"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Ordinary stream compression and catalog removal (remove-acroform/remove-structure/remove-page-labels) remain unavailable with JSON creation/update."
+      ],
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
@@ -4231,7 +4233,8 @@
           "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
-          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking"
+          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
         ],
         "negative": [
           "JsonImportTests.MalformedJsonFails",
@@ -4243,7 +4246,8 @@
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
-          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput"
+          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
           "JsonImportTests.JobCreateRoundTrip",
@@ -4261,7 +4265,11 @@
           "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
           "JsonSidecarNameTests.FilePayloadRoundtripsKeepUnicodeMultipleStreamsAndExactLengthNames",
           "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
-          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression"
+          "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression",
+          "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
+          "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
+          "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
         ],
         "resource": [
           "JsonImportTests.CreateYieldsToExhaustedBudget",
@@ -4269,7 +4277,9 @@
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput",
           "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry",
           "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
-          "DirectOutlineNormalizationTests.PromotionRetiresOnEveryAdmissionAndPublicationFailure"
+          "DirectOutlineNormalizationTests.PromotionRetiresOnEveryAdmissionAndPublicationFailure",
+          "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
           "diff:json-import",
@@ -6250,21 +6260,29 @@
           "MetadataTests.RemoveInfoKeepsOnlyModDate",
           "MetadataTests.RemoveInfoWithoutModDateDropsInfo",
           "MetadataPolicyTests.ResolvedDatePresenceControlsReducedInfo",
-          "MetadataPolicyTests.InfoContainersResolveBeforeDateSelection"
+          "MetadataPolicyTests.InfoContainersResolveBeforeDateSelection",
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
         ],
         "negative": [
           "MetadataTests.ValuedFlagsFail",
-          "MetadataTests.ValuedFlagsFail"
+          "MetadataTests.ValuedFlagsFail",
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.JobJsonParityHolds",
           "MetadataPolicyTests.PreservesIndependentInfoXmlAndLiveDateAliases",
-          "MetadataPolicyTests.JobProjectsTheSameMetadataPolicy"
+          "MetadataPolicyTests.JobProjectsTheSameMetadataPolicy",
+          "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
+          "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
+          "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
         ],
         "resource": [
           "MetadataTests.MetadataEditsYieldToExhaustedBudget",
-          "MetadataPolicyTests.PreparedMetadataRefundsAndPreservesPriorTargets"
+          "MetadataPolicyTests.PreparedMetadataRefundsAndPreservesPriorTargets",
+          "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
           "diff:remove-info"
@@ -6294,20 +6312,28 @@
       "evidence": {
         "positive": [
           "MetadataTests.RemoveMetadataDropsMetadataKeepsInfo",
-          "MetadataTests.MetadataPreservedByDefault"
+          "MetadataTests.MetadataPreservedByDefault",
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
         ],
         "negative": [
           "MetadataTests.ValuedFlagsFail",
-          "MetadataTests.JobJsonInvalidValuesFail"
+          "MetadataTests.JobJsonInvalidValuesFail",
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.MergeKeepsPrimaryInfo",
           "MetadataTests.SplitGroupsCarryInfo",
-          "MetadataTests.InfoSurvivesObjectStreams"
+          "MetadataTests.InfoSurvivesObjectStreams",
+          "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
+          "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
+          "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
         ],
         "resource": [
-          "MetadataTests.MetadataEditsYieldToExhaustedBudget"
+          "MetadataTests.MetadataEditsYieldToExhaustedBudget",
+          "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
           "diff:remove-metadata"
@@ -7607,7 +7633,8 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Update preparation does not reconstruct page identities introduced by calledgetallpages; pushedinheritedpageresources:true is rejected, including assembled exports. Source page identities must remain stable."
+        "Update preparation does not reconstruct page identities introduced by calledgetallpages; pushedinheritedpageresources:true is rejected, including assembled exports. Source page identities must remain stable.",
+        "Ordinary stream compression and catalog removal (remove-acroform/remove-structure/remove-page-labels) remain unavailable with JSON creation/update."
       ],
       "evidence": {
         "positive": [
@@ -7629,7 +7656,8 @@
           "XrefStreamRoleTests.TypedJsonCreationAndUpdateProtectAuthoredTaggedStreams",
           "JsonLayoutTests.ImportedValuesAndNoncanonicalRootsSurviveIndependentLayouts",
           "JsonLayoutIdentityTests.SourceMembershipFollowsFullPairsAcrossNormalizedAndFinalIds",
-          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking"
+          "DirectOutlineNormalizationTests.JsonCreationAndUpdatePromoteTheCatalogRoleBeforePacking",
+          "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
         ],
         "negative": [
           "JsonImportTests.UpdateCombinationsFail",
@@ -7641,7 +7669,8 @@
           "JsonImportContainerTests.ImportedContainersKeepTheExactBoundaryAndRejectOverflowBeforePublication",
           "JsonImportContainerTests.ContainerChecksPrecedeDecodingInvalidOverflowValues",
           "JsonImportContainerTests.TrailerDictionaryItselfHasTheSameCeiling",
-          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput"
+          "JsonLayoutTests.CombinedLayoutsRequireValidPrimaryAndTemplateCredentialsBeforeOutput",
+          "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
           "JsonImportTests.JobUpdateRoundTrip",
@@ -7660,7 +7689,11 @@
           "JsonLayoutTests.JobAdaptersProjectBothLayoutSettings",
           "JsonLayoutTests.HeaderSettersKeepPackingFloorsAndForcedSuppression",
           "JsonLayoutTests.CommandUpdatesKeepNativeDefaultPacking",
-          "JsonLayoutTests.ExistingTypedOverloadsKeepFlatOutput"
+          "JsonLayoutTests.ExistingTypedOverloadsKeepFlatOutput",
+          "JsonMetadataPolicyTests.JobAndNestedSettingsProjectMetadataPolicies",
+          "JsonMetadataPolicyTests.RetiresOnlySupersededRolesWhilePreservingPrivateRoots",
+          "JsonMetadataPolicyTests.MetadataPolicyUsesTheSharedPhysicalWriter",
+          "JsonMetadataPolicyTests.MetadataRemovalRetainsExplicitCreationAndPreservedProtection"
         ],
         "resource": [
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
@@ -7669,7 +7702,9 @@
           "EncryptedJsonUpdateTests.EveryUpdateAdmissionRefusalRefundsBeforeEncryptedPublication",
           "JsonImportContainerTests.ContainerFailureRefundsItsOwnerAndAllowsRetry",
           "JsonLayoutTests.LayoutPreparationRetiresOnEveryAdmissionAndPublicationFailure",
-          "JsonLayoutIdentityTests.PreservedMembershipRetiresOnEveryAdmissionAndPublicationFailure"
+          "JsonLayoutIdentityTests.PreservedMembershipRetiresOnEveryAdmissionAndPublicationFailure",
+          "JsonMetadataPolicyTests.RetirementCannotHideAnOversizedObjectTable",
+          "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
           "diff:json-update",

@@ -980,14 +980,14 @@ internal static partial class JobPlanner
             if (importJson && (streamData is not null || compressStreams is not null
                 || decodeLevel is not null || maxStreamFilters is not null || testJsonSchema
                 || recompressFlate || compressionLevel is not null || preserveUnreferenced
-                || removeInfo || removeMetadata || removeAcroform || removeStructure || labels.Count > 0 || removeLabels
+                || removeAcroform || removeStructure || labels.Count > 0 || removeLabels
                 || coalesceContents || normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no") || noOriginalObjectIds || linearizePass1 is not null
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
                 || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
             {
-                throw new QpdfParseException("Stream, metadata, content, image and PDF layout settings cannot be combined with JSON import.", 0L, null);
+                throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
             }
 
             if (jsonInput)
@@ -1014,6 +1014,8 @@ internal static partial class JobPlanner
 
                 return new JsonInputPlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
                     MaxContainerSize = maxContainerSize,
                     ParserMaxNesting = parserMaxNesting,
                     ParserMaxErrors = parserMaxErrors,
@@ -1060,6 +1062,8 @@ internal static partial class JobPlanner
 
                 return new JsonUpdatePlan(SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null)), SelectionPlan.CheckedPath(updateFromJson!), SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
                     MaxContainerSize = maxContainerSize,
                     ParserMaxNesting = parserMaxNesting,
                     ParserMaxErrors = parserMaxErrors,

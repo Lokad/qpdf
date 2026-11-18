@@ -8,6 +8,10 @@ internal readonly record struct DocumentMetadataPolicy(bool RemoveInfo, bool Rem
 {
     internal bool KeepXmlMetadata => !RemoveInfo && !RemoveMetadata;
 
+    internal PdfDictionary SelectCatalog(PdfDictionary catalog, OwnedAllocationBatch graph)
+        => !KeepXmlMetadata && PdfDictionaryLookup.TryGet(catalog, "Metadata"u8, graph.Governor, graph.Token, out _)
+            ? PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Metadata"u8) : catalog;
+
     internal QpdfObject? SelectInfo(PdfDictionary trailer, IIndirectResolver resolver, OwnedAllocationBatch graph)
     {
         if (!PdfDictionaryLookup.TryGet(trailer, "Info"u8, graph.Governor, graph.Token, out QpdfObject raw)
