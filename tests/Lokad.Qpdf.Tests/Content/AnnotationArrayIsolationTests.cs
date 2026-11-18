@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -50,18 +51,21 @@ public sealed class AnnotationArrayIsolationTests
         foreach (string alias in new[] { "catalog", "attachment" })
         foreach (bool indirect in new[] { false, true })
         foreach (int pages in new[] { 1, 3 })
-        foreach (string route in new[] { "argv", "job" }) { yield return [kind, alias, indirect, pages, route, false, false]; }
+        { yield return [kind, alias, indirect, pages, "argv", false, false]; }
         foreach (string kind in new[] { "fresh", "button" })
         foreach (string alias in new[] { "catalog", "attachment" })
-        foreach (string route in new[] { "argv", "job" }) { yield return [kind, alias, true, 3, route, true, false]; }
+        { yield return [kind, alias, true, 3, "argv", true, false]; }
         foreach (string alias in new[] { "catalog", "attachment" })
         foreach (bool indirect in new[] { false, true })
-        foreach (string route in new[] { "argv", "job" }) { yield return ["fresh", alias, indirect, 3, route, false, true]; }
+        { yield return ["fresh", alias, indirect, 3, "argv", false, true]; }
         foreach (int pages in new[] { 1, 3 })
-        foreach (string route in new[] { "argv", "job" }) { yield return ["fresh", "none", true, pages, route, false, false]; }
+        { yield return ["fresh", "none", true, pages, "argv", false, false]; }
         foreach (string kind in new[] { "fresh", "existing" })
         foreach (string alias in new[] { "info", "metadata" })
-        foreach (string route in new[] { "argv", "job" }) { yield return [kind, alias, true, 3, route, false, false]; }
+        { yield return [kind, alias, true, 3, "argv", false, false]; }
+        yield return ["fresh", "catalog", false, 1, "job", false, false];
+        yield return ["fresh", "attachment", true, 3, "job", false, false];
+        yield return ["button", "catalog", true, 3, "job", true, false];
     }
 
     [Theory]
@@ -98,7 +102,12 @@ public sealed class AnnotationArrayIsolationTests
         foreach (PageLocation location in reader.PageReferences)
         {
             QpdfObject annots = Get(location.Page, "Annots");
-            if (flatten) { Assert.IsType<PdfNull>(annots); continue; }
+            if (flatten)
+            {
+                Assert.IsType<PdfNull>(annots);
+                AssertFlattenedAppearances(reader, location.Page, kind);
+                continue;
+            }
             if (indirect)
             {
                 PdfReference reference = Assert.IsType<PdfReference>(annots);
@@ -122,6 +131,42 @@ public sealed class AnnotationArrayIsolationTests
         QpdfObject ready = Get(form, "NeedAppearances");
         if (kind == "skip" || selection) { Assert.True(Assert.IsType<PdfBoolean>(ready).Value); }
         else { Assert.True(ready is PdfNull || ready is PdfBoolean flag && !flag.Value); }
+    }
+
+    private static void AssertFlattenedAppearances(QpdfDocument reader, PdfDictionary page, string kind)
+    {
+        QpdfObject contents = Resolve(reader, Get(page, "Contents"));
+        string program = contents is PdfArray array
+            ? string.Join("\n", array.BorrowedItems.Select(item => Program(reader, Assert.IsType<PdfStream>(Resolve(reader, item)))))
+            : Program(reader, Assert.IsType<PdfStream>(contents));
+        MatchCollection calls = Regex.Matches(program, @"/(?<name>[^\s/]+)\s+Do\b");
+        Assert.Equal(2, calls.Count);
+        PdfDictionary resources = Assert.IsType<PdfDictionary>(Resolve(reader, Get(page, "Resources")));
+        PdfDictionary xobjects = Assert.IsType<PdfDictionary>(Resolve(reader, Get(resources, "XObject")));
+        List<string> forms = [];
+        foreach (Match call in calls)
+        {
+            PdfStream form = Assert.IsType<PdfStream>(Resolve(reader, Get(xobjects, call.Groups["name"].Value)));
+            Assert.Equal(PdfName.FromAscii("Form"), Resolve(reader, Get(form.Dictionary, "Subtype")));
+            string paint = Program(reader, form);
+            forms.Add(paint);
+            if (kind == "button")
+            {
+                Assert.Contains("1 0 0 rg 0 0 80 20 re f", paint, StringComparison.Ordinal);
+                continue;
+            }
+            Match font = Regex.Match(paint, @"/(?<name>[^\s/]+)\s+\S+\s+Tf\b");
+            Assert.True(font.Success);
+            PdfDictionary formResources = Assert.IsType<PdfDictionary>(Resolve(reader, Get(form.Dictionary, "Resources")));
+            PdfDictionary fonts = Assert.IsType<PdfDictionary>(Resolve(reader, Get(formResources, "Font")));
+            PdfDictionary bound = Assert.IsType<PdfDictionary>(Resolve(reader, Get(fonts, font.Groups["name"].Value)));
+            Assert.Equal(PdfName.FromAscii("Helvetica"), Resolve(reader, Get(bound, "BaseFont")));
+        }
+        if (kind != "button")
+        {
+            Assert.Single(forms, paint => paint.Contains("Dval", StringComparison.Ordinal));
+            Assert.Single(forms, paint => paint.Contains("Rval", StringComparison.Ordinal));
+        }
     }
 
     private static QpdfObject AttachmentArray(QpdfDocument reader, PdfDictionary catalog)
