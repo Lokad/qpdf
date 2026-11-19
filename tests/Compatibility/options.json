@@ -2788,7 +2788,7 @@
           "ContentTransformsTests.CoalesceJoinsStreams",
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
           "ContentTransformsTests.CoalesceKeepsOpaqueStreams",
-          "CheckTransformationTests.CoalescingChangesThePageListingAndPreservesTheSourceArray",
+          "CheckTransformationTests.CoalescingSurvivesRotationAndPreservesTheSourceArray",
           "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
           "JsonImportContentTests.CreationJoinsVisiblePagesWhileKeepingThePrivateArrayAndDirectKid",
           "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
@@ -7051,6 +7051,9 @@
           "RotationTests.ArgvDifferentRangeKeysRotateTheirPages",
           "CommandRotationTests.CommandSettingsUseExactRangeKeysInOrdinalOrder",
           "CommandRotationTests.TypedRotationListsKeepExplicitOrderAndRepeatedEntries",
+          "CheckTransformationTests.CoalescingSurvivesRotationAndPreservesTheSourceArray",
+          "CheckTransformationTests.ExternalizationListsTheReplacementProgramAndKeepsIneligibleAndPrivateStreams",
+          "CheckTransformationTests.JobImageOptimizationListsTheAcceptedJpegAndPreservesTheSourcePair",
           "RotationTests.ArgvRotateSpansMergeSources",
           "RotationTests.JobRotateRangeMatchesArgv",
           "RotationTests.ArgvRotateAppliesToFileRangeGroups",

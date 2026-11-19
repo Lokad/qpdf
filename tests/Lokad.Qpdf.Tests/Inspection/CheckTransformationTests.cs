@@ -35,7 +35,7 @@ public sealed class CheckTransformationTests
     [Theory]
     [InlineData("argv", false)]
     [InlineData("job", true)]
-    public async Task CoalescingChangesThePageListingAndPreservesTheSourceArray(string route, bool check)
+    public async Task CoalescingSurvivesRotationAndPreservesTheSourceArray(string route, bool check)
     {
         using InMemoryQpdfHost host = Host(CoalescingFixture(false));
         string[] plain = ["--show-pages", "--show-xref", "--show-object=6"];
@@ -43,10 +43,10 @@ public sealed class CheckTransformationTests
         Assert.Equal(QpdfExitCode.Success, original.ExitCode);
         Assert.Equal(["    4 0 R", "    5 0 R"], ListedContents(original));
 
-        string properties = "\"showPages\":\"\",\"showXref\":\"\",\"showObject\":\"6\",\"coalesceContents\":\"\"";
+        string properties = "\"showPages\":\"\",\"showXref\":\"\",\"showObject\":\"6\",\"coalesceContents\":\"\",\"rotate\":[\"+90:1\"]";
         if (check) { properties += ",\"check\":\"\""; }
         QpdfExecutionResult coalesced = await Execute(host, route, properties,
-            [.. plain, "--coalesce-contents"], QpdfLimits.Default);
+            [.. plain, "--coalesce-contents", "--rotate=+90:1"], QpdfLimits.Default);
         Assert.Equal(QpdfExitCode.Success, coalesced.ExitCode);
         Assert.Equal(["    7 0 R"], ListedContents(coalesced));
         Assert.Equal("[ 4 0 R 5 0 R ]", Assert.Single(coalesced.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message);
@@ -55,7 +55,7 @@ public sealed class CheckTransformationTests
         Assert.Equal(0L, coalesced.Counters.TotalOutputBytes);
 
         QpdfExecutionResult joined = await Execute(host, "argv", "",
-            ["--coalesce-contents", "--show-object=7", "--filtered-stream-data"], QpdfLimits.Default);
+            ["--coalesce-contents", "--rotate=+90:1", "--show-object=7", "--filtered-stream-data"], QpdfLimits.Default);
         Assert.Equal(QpdfExitCode.Success, joined.ExitCode);
         Assert.Equal("q Q\nq Q"u8.ToArray(), Assert.IsType<ReadOnlyMemory<byte>>(joined.OutputBytes).ToArray());
         Assert.Equal(0L, host.OpenLeaseCount);
@@ -108,7 +108,7 @@ public sealed class CheckTransformationTests
         byte[] small = [.."q BI /W 1 /H 1 /BPC 8 /CS /G ID "u8, 127, .." EI Q"u8];
         byte[] source = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AuditContents 4 7 R >>", null),
-            (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 /MediaBox [0 0 100 100] /Resources << >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 /MediaBox [0 0 100 100] /Resources << >> /Rotate 90 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /Contents 4 7 R >>", null),
             (4, $"<< /Length {program.Length} >>", program),
             (5, "<< /Type /Page /Parent 2 0 R /Contents 6 0 R >>", null),
@@ -116,15 +116,16 @@ public sealed class CheckTransformationTests
         ], 1, new Dictionary<int, int> { [4] = 7 });
         using InMemoryQpdfHost storage = Host(source);
         TestHost host = new(storage, null);
-        string[] transform = ["--externalize-inline-images", "--ii-min-bytes=3"];
+        string[] transform = ["--externalize-inline-images", "--ii-min-bytes=3", "--rotate=+90:1"];
         ValueTask<QpdfExecutionResult> Run(params string[] args)
             => Qpdf.ExecuteAsync(host, new(["a.pdf", .. transform, .. args]), CancellationToken.None);
 
-        QpdfExecutionResult listing = await Run("--check", "--show-pages", "--with-images", "--show-xref");
+        QpdfExecutionResult listing = await Run("--check", "--show-pages", "--with-images", "--show-xref", "--show-object=3");
         Assert.Equal(QpdfExitCode.Success, listing.ExitCode);
         Assert.Null(listing.OutputBytes);
         Assert.Equal(0L, listing.Counters.TotalOutputBytes);
         Assert.Contains(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("4/7: ", StringComparison.Ordinal));
+        Assert.Contains("/Rotate 180", Assert.Single(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, StringComparison.Ordinal);
         Match image = ImageBinding(listing, 3, 1);
         string[] contents = ContentBindings(listing);
         Assert.Equal(2, contents.Length);
@@ -151,18 +152,19 @@ public sealed class CheckTransformationTests
         host.AddInput(QpdfPath.From("a.pdf"), ImageOptimizeTests.BuildImagePage(200, 200, "DeviceGray", 8, "", samples),
             QpdfInputOwnership.Transfer);
         QpdfExecutionResult listing = await Qpdf.ExecuteJobAsync(host, """
-            {"inputFile":"a.pdf","showPages":"","withImages":"","optimizeImages":"","jpegQuality":"50","keepInlineImages":""}
+            {"inputFile":"a.pdf","showPages":"","withImages":"","optimizeImages":"","jpegQuality":"50","keepInlineImages":"","rotate":["+90:1"],"showObject":"3"}
             """, CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, listing.ExitCode);
         Assert.Null(listing.OutputBytes);
         Assert.Equal(0L, listing.Counters.TotalOutputBytes);
+        Assert.Contains("/Rotate 90", Assert.Single(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, StringComparison.Ordinal);
         Match image = ImageBinding(listing, 200, 200);
         string selector = Selector(image);
         Assert.Equal("/Im0", image.Groups[1].Value);
         Assert.NotEqual("5,0", selector);
         Assert.Equal("4,0", Assert.Single(ContentBindings(listing)));
 
-        string[] options = ["--optimize-images", "--jpeg-quality=50", "--keep-inline-images"];
+        string[] options = ["--optimize-images", "--jpeg-quality=50", "--keep-inline-images", "--rotate=+90:1"];
         byte[] jpeg = StreamBytes(await Execute(host, "argv", "", [.. options, "--show-object=" + selector,
             "--raw-stream-data"], QpdfLimits.Default));
         Assert.InRange(jpeg.Length, 4, samples.Length - 1);

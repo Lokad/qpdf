@@ -404,7 +404,8 @@ internal static partial class InspectionGraphPreparation
                 governor.CheckCancellation();
                 if (folds[i] is not { Count: > 0 } specifications) { continue; }
                 InspectionPage selected = selectedPages[i];
-                PdfDictionary page = selected.Page;
+                PdfDictionary page = pool.CopiedObjects[selected.Number] as PdfDictionary
+                    ?? throw new QpdfParseException("Selected page was removed from the graph.", null, selected.Number);
                 QpdfObject? inherited = PageInheritance.Find(document.Engine, new PageLocation(new PdfReference(selected.Number, selected.Generation), page),
                     InspectionRotate, limits, governor, cancellationToken);
                 if (inherited is not null)

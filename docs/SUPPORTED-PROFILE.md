@@ -325,7 +325,8 @@ inspections. Page-tree transforms and physical-layout listings are unavailable h
 
 Text inspection of a PDF applies content coalescing, inline-image
 externalization, image optimization, document-role removals and authored
-page labels before checking or listing the effective graph. Image thresholds
+page labels before checking or listing the effective graph. Header rotation
+preserves earlier edits to page content and resources. Image thresholds
 and codec requirements follow the [content profile](#page-content-profile).
 Attachment edits follow the same active catalog policy.
 Selecting the source catalog's exact object pair displays the active catalog
