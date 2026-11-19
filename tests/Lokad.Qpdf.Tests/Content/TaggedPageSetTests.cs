@@ -90,6 +90,25 @@ public sealed class TaggedPageSetTests
         Assert.True(Assert.IsType<PdfBoolean>(Read(document, mark, "Suspects")).Value);
     }
 
+    [Theory]
+    [InlineData("1,2", true, 1, 2)]
+    [InlineData("2,1", false, 2, 1)]
+    [InlineData("2", false, 2)]
+    public async Task RecreatedPageReportsKeepTagsOnlyForTheOriginalSequence(string range, bool tagged, params int[] pages)
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("input.pdf"), report = QpdfPath.From("report.json"), output = QpdfPath.From("output.pdf");
+        host.AddInput(input, Fixture(), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new([input.Value, "--pages", ".", range, "--", "--json-output", "--json-stream-data=inline"]), CancellationToken.None);
+        Assert.Equal(tagged ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
+        Assert.Equal(tagged ? 0 : 1, result.Diagnostics.Count(item => item.Code == QpdfDiagnosticCode.PageStructureWarning));
+        host.AddInput(report, System.Text.Encoding.UTF8.GetBytes(result.OutputText ?? throw new InvalidOperationException()), QpdfInputOwnership.Transfer);
+        await Qpdf.CreatePdfFromJsonAsync(host, report, output, CancellationToken.None);
+        await Verify(host, output, tagged, true, pages);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private static async Task Verify(InMemoryQpdfHost host, QpdfPath output, bool active, bool hasPrivateRole, int[] pages)
     {
         Assert.True(host.TryGetOutput(output, out byte[] bytes));

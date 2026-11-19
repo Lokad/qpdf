@@ -5892,6 +5892,7 @@
           "CatalogPreservationTests.JobSelectionPreservesStructureForOrdinary",
           "TaggedPageSetTests.TagActivationFollowsTheRetainedPageSet",
           "TaggedPageSetTests.NonTaggingMarkInformationSurvivesASubset",
+          "TaggedPageSetTests.RecreatedPageReportsKeepTagsOnlyForTheOriginalSequence",
           "PrintPageRangeTests.SelectionProjectsPrimaryPrintPositions",
           "PrintPageRangeTests.CollationCountsSecondarySlotsWithoutInheritingTheirPreset",
           "PrintPageRangeTests.AssembledJsonReportsTheSameProjectedPreset",

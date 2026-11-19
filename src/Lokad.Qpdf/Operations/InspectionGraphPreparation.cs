@@ -145,7 +145,7 @@ internal static partial class InspectionGraphPreparation
                 document.Engine.InspectionCalledAllPages = false;
                 document.Engine.InspectionPushedInheritedResources = false;
                 if (publication)
-                { ApplyInspectionPublication(document, pool, plan, lifetime, memory, governor, cancellationToken); }
+                { ApplyInspectionPublication(document, pool, plan, false, lifetime, memory, governor, diagnostics, cancellationToken); }
                 if (editAttachments)
                 { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
                 return lifetime;
@@ -237,6 +237,7 @@ internal static partial class InspectionGraphPreparation
             List<int> counts = ParserContainers.CreateList<int>(memory);
             foreach (List<InspectionPage> group in groups) { ParserContainers.AddItem(memory, counts, group.Count, sizeof(int)); }
             List<(int Source, int Slot)> order = CollatePageOrder(counts, plan.Collation, governor, memory);
+            bool changesTagTopology = order.Count != original.Count || plan.FlattenAnnotations is not null;
             List<InspectionPage> selectedPages = ParserContainers.CreateList<InspectionPage>(memory);
             List<int>? pruneIds = null;
             HashSet<int> used = ParserContainers.CreateSet<int>(memory);
@@ -275,6 +276,11 @@ internal static partial class InspectionGraphPreparation
                     if (!ReferenceEquals(pageOwner, pool)) { StoreInspectionObject(pageOwner, id, duplicate); }
                 }
                 if (catalogAssembly is not null || plan.FlattenRotation) { hasBeads |= Content.ArticleThreads.HasPageBeads(page.Page); }
+                if (!changesTagTopology)
+                {
+                    InspectionPage sourcePage = original[selectedPages.Count];
+                    changesTagTopology = page.Number != sourcePage.Number || page.Generation != sourcePage.Generation;
+                }
                 ParserContainers.AddItem(memory, selectedPages, page, 16L);
                 if (pruneGroups?[source] == true && pruningMemory is not null)
                 {
@@ -489,8 +495,8 @@ internal static partial class InspectionGraphPreparation
                 ParserContainers.AddItem(memory, transformed, new PageLocation(new PdfReference(selected.Number, selected.Generation), page), 16L);
             }
             document.SetInspectionPages(transformed);
-            if (publication)
-            { ApplyInspectionPublication(document, pool, plan, lifetime, memory, governor, cancellationToken); }
+            if (publication || changesTagTopology)
+            { ApplyInspectionPublication(document, pool, plan, changesTagTopology, lifetime, memory, governor, diagnostics, cancellationToken); }
             if (editAttachments)
             { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
             return lifetime;

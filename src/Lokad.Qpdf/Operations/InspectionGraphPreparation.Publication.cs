@@ -138,7 +138,8 @@ internal static partial class InspectionGraphPreparation
     }
 
     private static void ApplyInspectionPublication(QpdfDocument document, GraphCopier pool, IInspectionGraphPlan plan,
-        InspectionGraph lifetime, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        bool changesTagTopology, InspectionGraph lifetime, ParserMemoryScope memory, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
     {
         DocumentPublicationPolicy policy = plan.PublicationPolicy;
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
@@ -148,6 +149,8 @@ internal static partial class InspectionGraphPreparation
             && CatalogCopy.ResolveDictionary(root, resolver, governor, token) is PdfDictionary catalog)
         {
             PdfDictionary selected = policy.SelectCatalog(catalog, graph);
+            if (changesTagTopology && !policy.RemoveStructure)
+            { selected = CatalogCopy.WithoutActiveStructure(selected, resolver, memory, governor, diagnostics, token); }
             if (plan.Labels.Count > 0)
             {
                 PdfDictionary labels = PageLabelAssembly.BuildPageLabels(plan.Labels, document.PageCount, governor)
