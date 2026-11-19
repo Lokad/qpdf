@@ -247,12 +247,6 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 
 internal readonly record struct InspectionObjectSelector(bool Trailer, int Number, int Generation);
 
-/// <summary>Validated object inspection.</summary>
-internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, InspectionObjectSelector Selector) : JobPlan(Input)
-{
-    public QpdfPath? Output { get; init; }
-}
-
 /// <summary>Validated encryption-status predicate.</summary>
 internal sealed record SecurityPlan(QpdfPath Input, QpdfRecoveryMode Recovery, bool RequiresPassword,
     QpdfPassword? Password) : JobPlan(Input);
@@ -277,6 +271,8 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
     public string? AttachmentKey { get; init; }
 
     public QpdfPath? PayloadOutput { get; init; }
+
+    internal bool PublishesObjectStream => PayloadOutput.HasValue && AttachmentKey is null;
 
     public bool ShowNpages { get; init; }
 

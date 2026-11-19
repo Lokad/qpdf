@@ -65,10 +65,8 @@ internal static partial class JobPlanner
             List<int>? collationSizes = null;
             bool seenCollate = false;
             List<OutputRotation> rotations = new();
-            bool seenRotate = false;
             List<PageLabelSpec> labels = new();
             bool seenLabels = false;
-            bool seenRemoveLabels = false;
             bool removeLabels = false;
             string? minVersion = null;
             bool seenMin = false;
@@ -97,9 +95,7 @@ internal static partial class JobPlanner
             bool verbose = false;
             bool progress = false;
             bool rawStreamData = false;
-            bool seenRawStreamData = false;
             bool filteredStreamData = false;
-            bool seenFilteredStreamData = false;
             bool testJsonSchema = false;
             bool seenTestJsonSchema = false;
             long? parserMaxNesting = null;
@@ -115,21 +111,15 @@ internal static partial class JobPlanner
             bool suppressRecovery = false;
             QpdfRecoveryMode recovery = QpdfRecoveryMode.BoundedRepair;
             bool removeInfo = false;
-            bool seenRemoveInfo = false;
             bool removeAcroform = false;
             bool removeStructure = false;
             bool removeMetadata = false;
-            bool seenRemoveMetadata = false;
             bool coalesceContents = false;
-            bool seenCoalesceContents = false;
             bool externalizeInlineImages = false;
-            bool seenExternalizeInlineImages = false;
             long iiMinBytes = 1024L;
-            bool seenIiMinBytes = false;
             bool normalizeContent = false;
             bool seenNormalizeContent = false;
             string? removeUnreferencedResources = null;
-            bool seenRemoveUnreferencedResources = false;
             List<AttachmentAdd> attachmentsToAdd = new();
             bool seenAddAttachment = false;
             List<AttachmentCopy> attachmentsToCopy = new();
@@ -137,9 +127,7 @@ internal static partial class JobPlanner
             List<string> attachmentsToRemove = new();
             bool seenRemoveAttachment = false;
             List<OverlaySpec> overlays = new();
-            bool seenOverlay = false;
             List<OverlaySpec> underlays = new();
-            bool seenUnderlay = false;
             bool flattenRotation = false;
             bool seenFlattenRotation = false;
             string? flattenAnnotations = null;
@@ -314,7 +302,6 @@ internal static partial class JobPlanner
                         collationSizes = ArgvParser.ParseCollateValue(collate, 0L, textStorage.Collation ?? throw new InvalidOperationException("Missing collation owner."));
                         break;
                     case "rotate":
-                        seenRotate = true;
                         foreach (OutputRotation rotation in ParseRotateArray(property.Value, textStorage))
                         {
                             rotations.Add(rotation);
@@ -326,7 +313,6 @@ internal static partial class JobPlanner
                         labels.AddRange(ParseLabelArray(property.Value, textStorage));
                         break;
                     case "removePageLabels":
-                        seenRemoveLabels = true;
                         if (property.Value.ValueKind != JsonValueKind.True && property.Value.ValueKind != JsonValueKind.False)
                         {
                             throw new QpdfParseException("Job \"removePageLabels\" must be a boolean.", 0L, null);
@@ -422,15 +408,12 @@ internal static partial class JobPlanner
                         CompressionRequest.ParseLevel(compressionLevel, "compressionLevel");
                         break;
                     case "removeInfo":
-                        seenRemoveInfo = true;
                         removeInfo = RequireBareFlag(property.Value, "removeInfo", textStorage);
                         break;
                     case "removeMetadata":
-                        seenRemoveMetadata = true;
                         removeMetadata = RequireBareFlag(property.Value, "removeMetadata", textStorage);
                         break;
                     case "coalesceContents":
-                        seenCoalesceContents = true;
                         coalesceContents = RequireBareFlag(property.Value, "coalesceContents", textStorage);
                         break;
                     case "normalizeContent":
@@ -438,15 +421,12 @@ internal static partial class JobPlanner
                         normalizeContent = RequireNormalizeContent(property.Value, textStorage);
                         break;
                     case "externalizeInlineImages":
-                        seenExternalizeInlineImages = true;
                         externalizeInlineImages = RequireBareFlag(property.Value, "externalizeInlineImages", textStorage);
                         break;
                     case "iiMinBytes":
-                        seenIiMinBytes = true;
                         iiMinBytes = RequireIiMinBytes(property.Value, textStorage);
                         break;
                     case "removeUnreferencedResources":
-                        seenRemoveUnreferencedResources = true;
                         removeUnreferencedResources = RequireString(property.Value, "removeUnreferencedResources", textStorage);
                         if (removeUnreferencedResources != "auto" && removeUnreferencedResources != "yes" && removeUnreferencedResources != "no")
                         {
@@ -463,11 +443,9 @@ internal static partial class JobPlanner
 
                         break;
                     case "overlay":
-                        seenOverlay = true;
                         overlays.AddRange(ParseOverlayArray(property.Value, "overlay", textStorage));
                         break;
                     case "underlay":
-                        seenUnderlay = true;
                         underlays.AddRange(ParseOverlayArray(property.Value, "underlay", textStorage));
                         break;
                     case "flattenRotation":
@@ -598,11 +576,9 @@ internal static partial class JobPlanner
                         ValidateKeepFilesOpenThreshold(property.Value, textStorage);
                         break;
                     case "rawStreamData":
-                        seenRawStreamData = true;
                         rawStreamData = RequireBareFlag(property.Value, "rawStreamData", textStorage);
                         break;
                     case "filteredStreamData":
-                        seenFilteredStreamData = true;
                         filteredStreamData = RequireBareFlag(property.Value, "filteredStreamData", textStorage);
                         break;
                     case "testJsonSchema":
@@ -773,11 +749,20 @@ internal static partial class JobPlanner
 
             bool wantAttachments = listAttachments || showAttachment is not null;
             bool attachmentTarget = showAttachment is not null && output is not null;
+            bool objectTarget = showObject is not null && output is not null && (rawStreamData || filteredStreamData) && !attachmentTarget;
             bool importJson = jsonInput || seenUpdateFromJson;
-            if (check || showEncryption || attachmentTarget || (output is null && (showAttachment is not null || showObject is not null
+            if (check || showEncryption || attachmentTarget || objectTarget || (output is null && (showAttachment is not null || showObject is not null
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
-                if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
+                if (objectTarget && (check || showEncryption || seenShowNpages || seenShowPages || seenShowXref
+                    || seenCheckLinearization || seenShowLinearization || seenListAttachments
+                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline || seenPreserveUnreferenced
+                    || seenObjectStreams || seenStreamData || seenCompressStreams || seenDecodeLevel
+                    || seenRecompressFlate || seenCompressionLevel || seenQdf || seenLinearize || seenNoOriginalObjectIds))
+                {
+                    throw new QpdfParseException("Named object-stream output requires a stream inspection without other reports or PDF layout settings.", 0L, null);
+                }
+                if (output is not null && !attachmentTarget && !objectTarget || seenReplaceInput || seenSplitPages
                     || importJson && (seenLabels || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight
                         || seenOiMinArea || seenKeepInlineImages || seenJpegQuality || seenFlattenAnnotations)
                     || seenFlattenRotation || seenGenerateAppearances
@@ -840,7 +825,7 @@ internal static partial class JobPlanner
                     Overlays = overlays,
                     Underlays = underlays,
                     AttachmentKey = showAttachment,
-                    PayloadOutput = attachmentTarget ? SelectionPlan.CheckedPath(output ?? throw new InvalidOperationException("Missing attachment output.")) : null,
+                    PayloadOutput = output is not null ? SelectionPlan.CheckedPath(output) : null,
                     RawStreamData = rawStreamData,
                     FilteredStreamData = filteredStreamData,
                     ShowNpages = showNpages,
@@ -909,50 +894,9 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
             }
 
-            if (showObject is InspectionObjectSelector selector)
+            if (showObject is not null)
             {
-                if (hasPages || (output is not null && !seenRawStreamData && !seenFilteredStreamData)
-                    || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
-                    || seenRotate || seenLabels || seenRemoveLabels
-                    || seenMin || seenForce || seenDeterministic || seenStatic || seenNewline
-                    || seenObjectStreams || seenPreserveUnreferenced
-                    || seenStreamData || seenCompressStreams || seenDecodeLevel || seenTestJsonSchema || seenRecompressFlate || seenCompressionLevel
-                    || seenRemoveInfo || seenRemoveMetadata
-                    || seenCoalesceContents || seenRemoveUnreferencedResources || seenExternalizeInlineImages || seenIiMinBytes
-                    || seenOverlay || seenUnderlay
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
-                    || seenQdf || seenLinearize || seenNoOriginalObjectIds
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput || seenJsonInput || seenUpdateFromJson
-                    || seenCheckLinearization || seenShowLinearization || seenShowNpages || seenShowPages || seenShowXref
-                    || seenListAttachments || showAttachment is not null)
-                {
-                    throw new QpdfParseException("Job showObject cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
-                }
-
-                (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showObject");
-                return new ShowObjectPlan(inspectionInput, recovery, selector)
-                {
-                    TransformationPassword = password,
-                    PasswordFiles = passwordFiles,
-                    EmptyDocument = emptyDocument,
-                    WarningExitZero = warningExit0,
-                    ReportMemoryUsage = reportMemoryUsage,
-                    Verbose = verbose,
-                    Progress = progress,
-                    IgnoreXrefStreams = ignoreXrefStreams,
-                    NoWarn = noWarn,
-                    Output = output is null ? null : SelectionPlan.CheckedPath(output),
-                    RawStreamData = rawStreamData,
-                    FilteredStreamData = filteredStreamData,
-                    NormalizeContent = normalizeContent,
-                    MaxStreamFilters = maxStreamFilters,
-                    ParserMaxNesting = parserMaxNesting,
-                    MaxContainerSize = maxContainerSize,
-                    MaxContainerSizeDamaged = maxContainerSizeDamaged,
-                    ParserMaxErrors = parserMaxErrors,
-                    NoDefaultLimits = noDefaultLimits,
-                };
+                throw new QpdfParseException("The output file is only used for stream data.", 0L, null);
             }
 
             if (showXref)

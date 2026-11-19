@@ -7464,10 +7464,14 @@
           "ImportedCheckTests.BoundCatalogRemovalsApplyBeforeCheckedListing",
           "ImportedCheckTests.BoundInfoAndLabelRemovalsKeepStoredAliases",
           "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent",
-          "ImportedCheckTests.StandaloneObjectStreamReturnsTheExactDeclaredPayload"
+          "ImportedCheckTests.StandaloneObjectStreamReturnsTheExactDeclaredPayload",
+          "BoundContentInspectionTests.NamedObjectTargetPublishesPreparedBoundContentsAfterInputCloses",
+          "BoundContentInspectionTests.NamedJobObjectTargetRequiresThePatchedGeneration",
+          "CheckTransformationTests.NamedObjectTargetPublishesTheTransformedPhysicalStream"
         ],
         "resource": [
-          "ShowObjectTests.FailsOnExhaustedInputBudget"
+          "ShowObjectTests.FailsOnExhaustedInputBudget",
+          "BoundContentInspectionTests.NamedObjectTargetRejectsAClosedPatchAlias"
         ],
         "oracle": [
           "diff:show-object",

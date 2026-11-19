@@ -22,7 +22,7 @@ public sealed class InspectionOptionBoundaryTests
     }
 
     [Theory]
-    [InlineData("\"removeInfo\":false")]
+    [InlineData("\"linearize\":false")]
     [InlineData("\"showXref\":false")]
     public async Task BinaryExtractionRejectsConflictingSettersEvenWhenFalse(string setter)
     {

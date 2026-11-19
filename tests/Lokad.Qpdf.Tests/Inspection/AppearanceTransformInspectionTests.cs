@@ -33,7 +33,15 @@ public sealed class AppearanceTransformInspectionTests
         Assert.Equal("4,3", contents[1]);
         Assert.Equal("q\n"u8.ToArray(), await Stream(host, contents[0]));
         Assert.Equal(PageContent, await Stream(host, contents[1]));
-        Assert.Contains("1 0 0 1 10 20 cm\n/Fxo1 Do\n", Encoding.ASCII.GetString(await Stream(host, contents[2])), StringComparison.Ordinal);
+        QpdfPath placementPath = QpdfPath.From("placement");
+        QpdfExecutionResult published = await Qpdf.ExecuteAsync(host,
+            new(["input", "--flatten-annotations=all", "--show-object=" + contents[2], "--filtered-stream-data", placementPath.Value]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, published.ExitCode);
+        Assert.True(host.TryGetOutput(placementPath, out byte[] placement));
+        Assert.Contains("1 0 0 1 10 20 cm\n/Fxo1 Do\n", Encoding.ASCII.GetString(placement), StringComparison.Ordinal);
+        Assert.Null(published.OutputBytes);
+        Assert.Equal(placement.Length, published.Counters.TotalOutputBytes);
         Assert.Equal(Appearance, await Stream(host, appearance));
         string catalog = Listing(await Qpdf.ExecuteAsync(host,
             new(["input", "--flatten-annotations=all", "--remove-metadata", "--show-object=1"]), CancellationToken.None));

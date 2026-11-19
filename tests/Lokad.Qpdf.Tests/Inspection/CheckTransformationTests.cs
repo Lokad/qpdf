@@ -63,6 +63,20 @@ public sealed class CheckTransformationTests
     }
 
     [Fact]
+    public async Task NamedObjectTargetPublishesTheTransformedPhysicalStream()
+    {
+        using InMemoryQpdfHost host = Host(CoalescingFixture(true));
+        QpdfExecutionResult result = await Execute(host, "argv", "",
+            ["--coalesce-contents", "--show-object=7", "--filtered-stream-data", "payload"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("payload"), out byte[] bytes));
+        Assert.Equal("q Q\nq Q"u8.ToArray(), bytes);
+        Assert.Equal(bytes.Length, result.Counters.TotalOutputBytes);
+        Assert.Null(result.OutputBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
     public async Task PhysicalHintsStillDescribeTheAcquiredFileWhenCheckingCoalescedPages()
     {
         using InMemoryQpdfHost source = Host(CoalescingFixture(false));

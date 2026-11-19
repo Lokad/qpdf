@@ -197,7 +197,7 @@ internal static class JobExecution
             ValidatePublicationInputs(plan, configurationInputs, argumentInputs, governor, cancellationToken);
             if (plan is not (WholeFilePlan or SelectionPlan or MergePlan or JsonImportPlan
                 or JsonPlan { Output: not null } or JsonPlan { Version: 2, StreamDataMode: "file" }
-                or ShowObjectPlan { Output: not null } or CheckPlan { PayloadOutput: not null }))
+                or CheckPlan { PayloadOutput: not null }))
             {
                 governor.PublicationInputs?.Dispose();
             }
@@ -237,12 +237,6 @@ internal static class JobExecution
         if (plan is CheckPlan check)
         {
             return await RunCheckPlanAsync(host, check, suppliedPassword is null ? check.Password : suppliedPassword.Password,
-                limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (plan is ShowObjectPlan showObject)
-        {
-            return await ShowObjectCoreAsync(host, showObject, suppliedPassword is null ? showObject.TransformationPassword : suppliedPassword.Password,
                 limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 

@@ -54,22 +54,44 @@ public sealed class BoundContentInspectionTests
     }
 
     [Fact]
+    public async Task NamedObjectTargetPublishesPreparedBoundContentsAfterInputCloses()
+    {
+        QpdfLimits limits = QpdfLimits.Default with { MaxOpenHandles = 1 };
+        InMemoryQpdfHost storage = new(limits);
+        storage.AddInput(Input, CreateGraph(), QpdfInputOwnership.Transfer);
+        byte[] prior = await SeedTargetAsync(storage);
+        using RecordingJobHost host = new(storage, "write", Output, "success", true);
+        Task<QpdfExecutionResult> operation = Qpdf.ExecuteAsync(host,
+            new(["input", "--json-input", "--coalesce-contents", "--remove-metadata", "--show-object=72",
+                "--raw-stream-data", "report"]), new(limits), CancellationToken.None).AsTask();
+        try
+        {
+            Task first = await Task.WhenAny(host.Entered, operation).WaitAsync(TimeSpan.FromSeconds(10));
+            if (first == operation)
+            {
+                QpdfExecutionResult premature = await operation;
+                Assert.Fail(string.Join(", ", premature.Diagnostics.Select(d => d.Message)));
+            }
+            Assert.Equal(1L, storage.OpenLeaseCount);
+            Assert.Equal("q\nQ\n"u8.ToArray(), host.PendingWrite.ToArray());
+            Assert.True(storage.TryGetOutput(Output, out byte[] beforeCommit));
+            Assert.Equal(prior, beforeCommit);
+        }
+        finally { host.Resume(); }
+        QpdfExecutionResult result = await operation;
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(storage.TryGetOutput(Output, out byte[] published));
+        Assert.Equal("q\nQ\n"u8.ToArray(), published);
+        Assert.Null(result.OutputBytes);
+        Assert.Equal(4L, result.Counters.TotalOutputBytes);
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Fact]
     public async Task NamedJobReportCoalescesPatchedProgramAndKeepsItsIndependentSourceEdges()
     {
         using InMemoryQpdfHost host = new();
-        host.AddInput(Input, PdfTestDocument.Assemble([
-            (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R >>", null),
-            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 30 30] /Resources << >> /Contents 6 0 R >>", null),
-            (4, "<< /Length 2 >>", "q\n"u8.ToArray()),
-            (5, "<< /Length 2 >>", "Q\n"u8.ToArray()),
-            (6, "[4 7 R 5 0 R]", null)], 1, new Dictionary<int, int> { [4] = 7 }, "1.4", ""),
-            QpdfInputOwnership.Transfer);
-        byte[] changed = "q 1 0 0 1 7 8 cm\n"u8.ToArray();
-        string data = Convert.ToBase64String(changed);
-        host.AddInput(QpdfPath.From("patch"), System.Text.Encoding.UTF8.GetBytes($$$$"""
-            {"qpdf":[{"jsonversion":2},{"obj:4 7 R":{"stream":{"dict":{},"data":"{{{{data}}}}"}}}]}
-            """), QpdfInputOwnership.Transfer);
+        byte[] changed = PreparePatchedContents(host);
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
             {"inputFile":"input","updateFromJson":"patch","coalesceContents":"","jsonOutput":"2","outputFile":"report"}
             """, CancellationToken.None);
@@ -88,18 +110,80 @@ public sealed class BoundContentInspectionTests
     }
 
     [Fact]
+    public async Task NamedJobObjectTargetRequiresThePatchedGeneration()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        byte[] changed = PreparePatchedContents(host.Inner);
+        byte[] prior = await SeedTargetAsync(host.Inner);
+        QpdfExecutionResult stale = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"input","updateFromJson":"patch","showObject":"4,0","filteredStreamData":"","outputFile":"report"}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Error, stale.ExitCode);
+        Assert.Contains(stale.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments);
+        Assert.Empty(host.CreatedPaths);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] original));
+        Assert.Equal(prior, original);
+        Assert.Equal(0L, stale.Counters.OpenHandles);
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+        long calls = host.HostCalls;
+        Assert.Equal(calls, stale.Counters.HostOperations);
+        QpdfExecutionResult live = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"input","updateFromJson":"patch","showObject":"4,7","filteredStreamData":"","outputFile":"report"}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, live.ExitCode);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] published));
+        Assert.Equal(changed, published);
+        Assert.Equal(changed.Length, live.Counters.TotalOutputBytes);
+        Assert.Equal(0L, live.Counters.OpenHandles);
+        Assert.Equal(host.HostCalls - calls, live.Counters.HostOperations);
+        ExecutionJobFixtures.AssertClosed(host, null);
+    }
+
+    [Fact]
+    public async Task NamedObjectTargetRejectsAClosedPatchAlias()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        _ = PreparePatchedContents(host.Inner);
+        byte[] prior = await SeedTargetAsync(host.Inner);
+        IQpdfHost alias = new OutputAliasHost(host, Output, QpdfPath.From("patch"));
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(alias,
+            new(["input", "--update-from-json=patch", "--show-object=4,7", "--raw-stream-data", "report"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments
+            && item.Message.Contains("aliases an input", StringComparison.Ordinal));
+        Assert.Empty(host.CreatedPaths);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] retained));
+        Assert.Equal(prior, retained);
+        Assert.Equal(0L, result.Counters.TotalOutputBytes);
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    private static byte[] PreparePatchedContents(InMemoryQpdfHost host)
+    {
+        host.AddInput(Input, PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Audit 6 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 30 30] /Resources << >> /Contents 6 0 R >>", null),
+            (4, "<< /Length 2 >>", "q\n"u8.ToArray()),
+            (5, "<< /Length 2 >>", "Q\n"u8.ToArray()),
+            (6, "[4 7 R 5 0 R]", null)], 1, new Dictionary<int, int> { [4] = 7 }, "1.4", ""),
+            QpdfInputOwnership.Transfer);
+        byte[] changed = "q 1 0 0 1 7 8 cm\n"u8.ToArray();
+        string data = Convert.ToBase64String(changed);
+        host.AddInput(QpdfPath.From("patch"), System.Text.Encoding.UTF8.GetBytes($$$$"""
+            {"qpdf":[{"jsonversion":2},{"obj:4 7 R":{"stream":{"dict":{},"data":"{{{{data}}}}"}}}]}
+            """), QpdfInputOwnership.Transfer);
+        return changed;
+    }
+
+    [Fact]
     public async Task GeneratedIdentityRefusalPrecedesNamedReportStaging()
     {
         using RecordingJobHost host = new(null, null, "success", true);
         byte[] input = System.Text.Encoding.UTF8.GetBytes(
             System.Text.Encoding.UTF8.GetString(CreateGraph()).Replace("71 2 R", "2147483647 2 R", StringComparison.Ordinal));
         host.Inner.AddInput(Input, input, QpdfInputOwnership.Transfer);
-        byte[] prior = [17, 23, 41];
-        await using (IQpdfOutputTransaction seed = await host.Inner.CreateOutputAsync(Output, CancellationToken.None))
-        {
-            await seed.WriteAsync(prior, CancellationToken.None);
-            await seed.CommitAsync(CancellationToken.None);
-        }
+        byte[] prior = await SeedTargetAsync(host.Inner);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new(["input", "--json-input", "--json-output=2", "--coalesce-contents", "report"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
@@ -109,6 +193,15 @@ public sealed class BoundContentInspectionTests
         Assert.True(host.Inner.TryGetOutput(Output, out byte[] stored));
         Assert.Equal(prior, stored);
         ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    private static async ValueTask<byte[]> SeedTargetAsync(InMemoryQpdfHost host)
+    {
+        byte[] prior = [17, 23, 41];
+        await using IQpdfOutputTransaction seed = await host.CreateOutputAsync(Output, CancellationToken.None);
+        await seed.WriteAsync(prior, CancellationToken.None);
+        await seed.CommitAsync(CancellationToken.None);
+        return prior;
     }
 
     private static byte[] ReadStream(JsonElement table, string reference)
