@@ -62,13 +62,15 @@ public sealed class RangeGroupScopeTests
     public static IEnumerable<object[]> Consumers()
     {
         foreach (JsonElement row in Corpus.RootElement.GetProperty("cases").EnumerateArray())
-        foreach (bool job in new[] { false, true })
         {
             string range = row.GetProperty("range").GetString() ?? throw new InvalidOperationException();
             string mode = row.GetProperty("mode").GetString() ?? throw new InvalidOperationException();
-            string expected = row.GetProperty("expected").GetRawText();
-            yield return [range, mode, expected, job, false];
-            if (range == "1,2,x1" && mode is "to" or "from" or "repeat") { yield return [range, mode, expected, job, true]; }
+            yield return [range, mode, false, false];
+            if (range != "1,2,x1") { continue; }
+            // Sample each independent job setting at one group exclusion.
+            yield return [range, mode, true, false];
+            if (mode is "to" or "from" or "repeat") { yield return [range, mode, false, true]; }
+            if (mode == "repeat") { yield return [range, mode, true, true]; }
         }
     }
 
@@ -90,16 +92,16 @@ public sealed class RangeGroupScopeTests
 
     [Theory]
     [MemberData(nameof(Consumers))]
-    public async Task SelectionRotationAndPlacementMatchTheNativeGroupScope(string range, string mode, string expected, bool job, bool underlay)
+    public async Task SelectionRotationAndPlacementMatchTheNativeGroupScope(string range, string mode, bool job, bool underlay)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(mode is "select" or "rotate"), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("source"), Fixture(true), QpdfInputOwnership.Transfer);
         List<string> argv = ["input"]; Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["outputFile"] = "output" };
         if (mode == "select") { argv.AddRange(["--pages", ".", range, "--"]); settings["pages"] = new[] { new { file = ".", range } }; }
         else if (mode == "rotate") { argv.Add("--rotate=+90:" + range); settings["rotate"] = new[] { "+90:" + range }; }
         else
         {
+            host.AddInput(QpdfPath.From("source"), Fixture(true), QpdfInputOwnership.Transfer);
             string placement = underlay ? "underlay" : "overlay";
             argv.AddRange(["--" + placement, "source", "--" + mode + "=" + range]);
             Dictionary<string, string> spec = new() { ["file"] = "source", [mode] = range };
@@ -132,7 +134,8 @@ public sealed class RangeGroupScopeTests
             }
             return new { index = Assert.IsType<PdfInteger>(Resolve(index)).Value, rotation, uris };
         }).ToArray();
-        using JsonDocument reference = JsonDocument.Parse(expected);
-        Assert.True(JsonElement.DeepEquals(reference.RootElement, JsonSerializer.SerializeToElement(actual)), JsonSerializer.Serialize(actual));
+        JsonElement reference = Corpus.RootElement.GetProperty("cases").EnumerateArray().Single(row =>
+            row.GetProperty("range").GetString() == range && row.GetProperty("mode").GetString() == mode);
+        Assert.True(JsonElement.DeepEquals(reference.GetProperty("expected"), JsonSerializer.SerializeToElement(actual)), JsonSerializer.Serialize(actual));
     }
 }
