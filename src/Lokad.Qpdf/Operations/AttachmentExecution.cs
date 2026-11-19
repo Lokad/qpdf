@@ -137,7 +137,10 @@ internal static class AttachmentExecution
         await document.DisposeAsync().ConfigureAwait(false);
         await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, outputPath,
             null, "Binary", cancellationToken).ConfigureAwait(false);
+        using ParserMemoryScope staging = ParserMemoryScope.Create(governor);
+        staging.ReserveHostMemory(data.Length);
         await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
+        GovernedHost.PrepareOutputCapacity(transaction, data.Length, cancellationToken);
         TransactionSink sink = new(transaction, governor);
         await sink.AppendAsync(data, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);

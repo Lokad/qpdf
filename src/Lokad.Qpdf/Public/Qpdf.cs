@@ -863,7 +863,7 @@ public static partial class Qpdf
                 }
 
                 await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
-                TransactionSink sink = new(transaction, governor);
+                TransactionSink sink = new(transaction, governor, working, limits);
                 try
                 {
                     QdfRepair repair = QdfRepair.Create(governor, sink, working);
@@ -964,8 +964,10 @@ public static partial class Qpdf
                     ? FlateFilter.Encode(bytes, options.CompressionLevel, limits, governor)
                     : DecodeZlibFlate(bytes, limits, governor, cancellationToken);
                 working.AdoptReserved(output.Length == 0 ? 0L : checked(output.LongLength + GovernedBufferStream.ArrayOverheadBytes));
+                working.ReserveHostMemory(output.LongLength);
 
                 await using IQpdfOutputTransaction transaction = await GovernedHost.CreateOutputAsync(host, outputPath, governor, cancellationToken).ConfigureAwait(false);
+                GovernedHost.PrepareOutputCapacity(transaction, output.LongLength, cancellationToken);
                 TransactionSink sink = new(transaction, governor);
                 await sink.AppendAsync(output, cancellationToken).ConfigureAwait(false);
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);

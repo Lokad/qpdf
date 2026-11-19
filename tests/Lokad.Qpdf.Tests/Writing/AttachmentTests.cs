@@ -39,6 +39,42 @@ public sealed class AttachmentTests
         return Convert.ToHexStringLower(MD5.HashData(data));
     }
 
+    [Fact]
+    public async Task TypedExtractionAdmitsHostStagingBeforeReplacingTheTarget()
+    {
+        byte[] payload = Enumerable.Range(0, 1 << 20).Select(index => (byte)(index % 251)).ToArray();
+        QpdfPath input = QpdfPath.From("source.pdf"), output = QpdfPath.From("payload.bin");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(input, PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 4 0 R] >> >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
+            (4, "<< /Type /Filespec /F (payload.bin) /EF << /F 5 0 R >> >>", null),
+            (5, $"<< /Type /EmbeddedFile /Length {payload.Length} >>", payload)
+        ], 1), QpdfInputOwnership.Transfer);
+        byte[] prior = "prior"u8.ToArray();
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, CancellationToken.None))
+        {
+            await transaction.WriteAsync(prior, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = 1_600_000 };
+        QpdfLimitException refusal = await Assert.ThrowsAsync<QpdfLimitException>(() => Qpdf.ExtractAttachmentAsync(host,
+            input, "payload", output, null, QpdfRecoveryMode.Strict, tight, CancellationToken.None).AsTask());
+        Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes), refusal.LimitName);
+        Assert.True(host.TryGetOutput(output, out byte[] unchanged));
+        Assert.Equal(prior, unchanged);
+        Assert.Equal(0L, host.OpenLeaseCount);
+
+        QpdfAttachmentExtraction result = await Qpdf.ExtractAttachmentAsync(host, input, "payload", output, null,
+            QpdfRecoveryMode.Strict, QpdfLimits.Default, CancellationToken.None);
+        Assert.Equal(payload.LongLength, result.Counters.TotalOutputBytes);
+        Assert.True(host.TryGetOutput(output, out byte[] extracted));
+        Assert.Equal(payload, extracted);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     internal static byte[] BuildPdf(string catalogExtra, string trailerExtra, List<(string Dict, byte[]? StreamData)> extras)
     {
         List<string> bodies = new()

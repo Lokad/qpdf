@@ -68,6 +68,39 @@ public sealed class QdfBinaryTests
     }
 
     [Fact]
+    public async Task RepairAdmitsGrowingHostStagingBeforeReplacingTheTarget()
+    {
+        byte[] payload = new byte[1 << 20];
+        Array.Fill(payload, (byte)17);
+        byte[] qdf = await QdfRepairFixtures.Emit(QdfRepairFixtures.Image(payload), false);
+        QpdfPath input = QpdfPath.From("input"), output = QpdfPath.From("output");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(input, qdf, QpdfInputOwnership.Transfer);
+        byte[] prior = "prior"u8.ToArray();
+        await using (IQpdfOutputTransaction transaction = await host.CreateOutputAsync(output, CancellationToken.None))
+        {
+            await transaction.WriteAsync(prior, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = 1_200_000 };
+        QpdfExecutionResult refusal = await Qpdf.FixQdfAsync(host, input, output, tight, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, refusal.Status);
+        Assert.Contains(refusal.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded
+            && item.Message.Contains(nameof(QpdfLimits.MaxMemoryBytes), StringComparison.Ordinal));
+        Assert.True(host.TryGetOutput(output, out byte[] unchanged));
+        Assert.Equal(prior, unchanged);
+        Assert.Equal(0L, refusal.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+
+        QpdfExecutionResult completed = await Qpdf.FixQdfAsync(host, input, output, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, completed.ExitCode);
+        Assert.True(host.TryGetOutput(output, out byte[] repaired));
+        Assert.Equal(qdf, repaired);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
     public async Task BinaryXrefCarriagesDoNotPreventASecondRepair()
     {
         byte[] first = await Repair(QdfRepairFixtures.ObjectStream(24, 0));

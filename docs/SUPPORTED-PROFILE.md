@@ -582,6 +582,8 @@ old catalog/page/container structure. Numbering and compressed bytes may differ 
 ## Attachments profile
 
 Raw name-tree keys and filespec graphs are authoritative; listings are projections.
+Named extraction accounts for both the payload and transaction staging under the
+invocation memory limit.
 Attachment JSON lists stream entries under every `/EF` name, sorted by raw name
 bytes. Filename preference uses UF/F/Unix/DOS/Mac. Null values, non-stream values
 and optional entries with unreadable syntax are omitted.
@@ -638,6 +640,7 @@ page streams by their shared identities by default. Resource-dependent framing
 across incompatible contexts keeps the original program and warns.
 Fix-QDF repairs consistent LF-framed, sequentially numbered input; ambiguous framing
 rejects. Zlib-flate stops at the first complete frame and rejects truncation/checksum errors.
+Both operations account for host staging under the invocation memory limit.
 
 Linearization uses two passes and page, shared and outline hints. Checking
 validates physical layout and available hints. `--linearize-pass1` /
