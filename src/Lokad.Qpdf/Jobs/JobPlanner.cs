@@ -791,7 +791,7 @@ internal static partial class JobPlanner
                 }
 
                 if (importJson && (empty
-                    || hasPages || seenCollate || coalesceContents || externalizeInlineImages
+                    || hasPages || seenCollate || externalizeInlineImages
                     || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
                     || checkLinearization || showLinearization || showXref))
                 {
@@ -1010,7 +1010,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
             }
 
-            if (importJson && (hasPages || (wantJsonOutput && (empty || coalesceContents || labels.Count > 0))))
+            if (importJson && (hasPages || (wantJsonOutput && (empty || labels.Count > 0))))
             {
                 throw new QpdfParseException("These page transformations cannot be combined with bound JSON inspection or import.", 0L, null);
             }

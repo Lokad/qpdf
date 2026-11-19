@@ -330,7 +330,8 @@ private references retain their stored values.
 Optional `--check` validates the effective page tree, reachable streams, page
 content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
-inspections. Page-tree transforms and physical-layout listings are unavailable here.
+inspections. `--coalesce-contents` joins page programs after binding and before
+checking or listing. Physical-layout listings require a PDF input.
 
 Text inspection of a PDF applies content coalescing, inline-image externalization,
 image optimization, annotation flattening, document-role removals and authored
@@ -397,9 +398,9 @@ JSON export applies Info, XML metadata, AcroForm, structure and page-label
 removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
 JSON export applies `--rotate` to the effective page order. PDF-to-JSON export
-composes rotation with content transforms. Bound export rotates the order
-established by the authored graph and patch. Edited page occurrences can gain
-identities.
+composes rotation with content transforms. Bound export applies coalescing and
+rotation to the authored or patched graph. Joined programs gain new object
+identities. Source objects remain available in the report.
 PDF-to-JSON export can flatten stored annotations. The effective page program
 includes their placed appearances, and the active form retains surviving fields.
 Rotation baking and appearance generation remain unavailable.

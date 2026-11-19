@@ -14,7 +14,7 @@ internal sealed record ImportedModel(PdfVersion HeaderVersion, Dictionary<int, Q
     PdfDictionary Trailer, HashSet<int>? CompressedObjects)
 {
     internal const long AllocationBytes = 64L;
-    internal IReadOnlyDictionary<(int Number, int Generation), int>? OriginalPairs { get; init; }
+    internal Dictionary<(int Number, int Generation), int>? OriginalPairs { get; init; }
     internal HashSet<int>? DetachedRootExclusions { get; init; }
     internal bool CalledAllPages { get; init; }
     internal bool PushedInheritedResources { get; init; }

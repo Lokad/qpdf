@@ -2790,6 +2790,7 @@
           "ContentTransformsTests.CoalesceSingleStreamIsUnchanged",
           "ContentTransformsTests.CoalesceKeepsOpaqueStreams",
           "CheckTransformationTests.CoalescingSurvivesRotationAndPreservesTheSourceArray",
+          "BoundContentInspectionTests.CheckedListingAndRawExtractionResolveNewAndDeclaredPairs",
           "JsonContentTransformTests.CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays",
           "JsonImportContentTests.CreationJoinsVisiblePagesWhileKeepingThePrivateArrayAndDirectKid",
           "JsonImportContentTests.JobUpdateCoalescesThePatchedPayloadBeforeQdfPublication"
@@ -2808,6 +2809,7 @@
           "ResourcePruningRoleTests.PruningRedirectsResourceRolesAndKeepsOriginalFormAliases",
           "AppearanceResourceScopeTests.RetainedAppearancesKeepTheirOwnPageScopeAndAvoidPlacementNames",
           "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "BoundContentInspectionTests.NamedJobReportCoalescesPatchedProgramAndKeepsItsIndependentSourceEdges",
           "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
           "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
@@ -2815,6 +2817,7 @@
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
           "CheckTransformationTests.PageContentTransformsChargeDecodeWorkBeforeAnOtherwiseStandaloneCount",
+          "BoundContentInspectionTests.GeneratedIdentityRefusalPrecedesNamedReportStaging",
           "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules",
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
           "JsonImportContentTests.DecodeRefusalLeavesThePriorTargetAndOpensNoTransaction"
