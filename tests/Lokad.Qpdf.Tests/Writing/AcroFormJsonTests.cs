@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Json;
@@ -256,6 +257,111 @@ public sealed class AcroFormJsonTests
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
         Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] bytes)); Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
         Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SharedTerminalKeepsLocalOverridesAndAnnotationOccurrences(bool cyclic)
+    {
+        string groupParent = cyclic ? "/Parent 6 4 R" : "";
+        byte[] source = PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /Q 2 >> >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] /Annots [7 0 R 8 0 R] >>", null),
+            (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] /Annots [9 0 R 10 0 R 11 0 R] >>", null),
+            (5, "<< /T (root) /FT /Ch /Ff 3 /V (inherited) /DV (default) /Opt [(one) (two)] " + groupParent + " >>", null),
+            (6, "<< /T (terminal) /Parent 5 0 R /TU (short) /TM (map) >>", null),
+            (7, "<< /Subtype /Widget /Parent 6 4 R /AS /First /F 4 >>", null),
+            (8, "<< /Subtype /Widget /Parent 6 4 R /AS /Second /F 20 /T 12 0 R /V null >>", null),
+            (9, "<< /Subtype /Widget /Parent 6 4 R /T (local) /V (override) /Q /Invalid >>", null),
+            (10, "<< /Subtype /Widget /Parent 6 4 R /AS /Later >>", null),
+            (11, "<< /Subtype /Widget /Parent 6 0 R /AS /Stale >>", null),
+            (12, "null", null)], 1, new Dictionary<int, int> { [6] = 4 });
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), source, QpdfInputOwnership.Transfer);
+        QpdfJsonResult result = await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), new QpdfJsonOptions(2, ["acroform"]), CancellationToken.None);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        using JsonDocument report = JsonDocument.Parse(result.Json);
+        JsonElement[] fields = report.RootElement.GetProperty("acroform").GetProperty("fields").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "6 4 R", "6 4 R", "9 0 R", "6 4 R", "11 0 R" }, fields.Select(field => field.GetProperty("object").GetString()));
+        Assert.Equal(new[] { 1, 1, 2, 2, 2 }, fields.Select(field => field.GetProperty("pageposfrom1").GetInt32()));
+        Assert.Equal(new[] { "7 0 R", "8 0 R", "9 0 R", "10 0 R", "11 0 R" },
+            fields.Select(field => field.GetProperty("annotation").GetProperty("object").GetString()));
+        Assert.Equal("/First", fields[0].GetProperty("annotation").GetProperty("appearancestate").GetString());
+        Assert.Equal("/Second", fields[1].GetProperty("annotation").GetProperty("appearancestate").GetString());
+        Assert.Equal(20, fields[1].GetProperty("annotation").GetProperty("annotationflags").GetInt32());
+        foreach (int index in new[] { 0, 1, 3 })
+        {
+            JsonElement field = fields[index];
+            Assert.Equal("root.terminal", field.GetProperty("fullname").GetString());
+            Assert.Equal("short", field.GetProperty("alternativename").GetString());
+            Assert.Equal("map", field.GetProperty("mappingname").GetString());
+            Assert.Equal("u:inherited", field.GetProperty("value").GetString());
+            Assert.Equal("u:default", field.GetProperty("defaultvalue").GetString());
+            Assert.Equal(new[] { "one", "two" }, field.GetProperty("choices").EnumerateArray().Select(choice => choice.GetString()));
+        }
+        Assert.Equal("root.terminal.local", fields[2].GetProperty("fullname").GetString());
+        Assert.Equal("u:override", fields[2].GetProperty("value").GetString());
+        Assert.Equal(2, fields[2].GetProperty("quadding").GetInt32());
+        Assert.Equal(JsonValueKind.Null, fields[4].GetProperty("value").ValueKind);
+    }
+
+    [Fact]
+    public async Task DeepSharedTerminalsNeedLessWorkThanEqualIndependentTerminals()
+    {
+        FieldInfo notifications = typeof(ResourceGovernor).GetField("_operationsSinceCheck", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Missing work notification counter");
+        long shared = await MeasureAsync(true);
+        long independent = await MeasureAsync(false);
+        Assert.True(shared * 2 < independent, $"Shared work {shared}, independent work {independent}");
+
+        async Task<long> MeasureAsync(bool sharedParent)
+        {
+            const int depth = 64;
+            const int count = 16;
+            int firstTerminal = 4 + depth;
+            int firstWidget = firstTerminal + count;
+            string[] widgets = Enumerable.Range(firstWidget, count).Select(number => $"{number} 0 R").ToArray();
+            List<(int, string, byte[]?)> objects = [
+                (1, $"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>", null),
+                (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] /Annots [" + string.Join(' ', widgets) + "] >>", null),
+                (4, "<< /T (root) /FT /Tx /V (value) >>", null)];
+            for (int number = 5; number < firstTerminal; number++)
+            { objects.Add((number, $"<< /Parent {number - 1} 0 R >>", null)); }
+            for (int index = 0; index < count; index++)
+            {
+                objects.Add((firstTerminal + index, $"<< /T (leaf) /Parent {firstTerminal - 1} 0 R >>", null));
+                int parent = sharedParent ? firstTerminal : firstTerminal + index;
+                objects.Add((firstWidget + index, $"<< /Subtype /Widget /Parent {parent} 0 R >>", null));
+            }
+
+            using InMemoryQpdfHost host = new();
+            host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble(objects, 1), QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("input"), CancellationToken.None);
+            for (int number = 1; number < firstWidget + count; number++) { document.GetObject(number); }
+            _ = document.PageReferences;
+            QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = long.MaxValue };
+            ResourceGovernor governor = new(limits, CancellationToken.None);
+            using (PreparedJsonOutput output = PreparedJsonOutput.Create(governor))
+            using (DisplayBuffer projection = DocumentJson.WriteDocument(document, new(2, ["acroform"], "none", "none", null, [], false), output,
+                limits, governor, new(governor), CancellationToken.None))
+            using (GovernedText text = projection.Finish())
+            using (JsonDocument report = JsonDocument.Parse(text.Value))
+            {
+                JsonElement[] fields = report.RootElement.GetProperty("acroform").GetProperty("fields").EnumerateArray().ToArray();
+                Assert.Equal(count, fields.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    Assert.Equal($"{(sharedParent ? firstTerminal : firstTerminal + i)} 0 R", fields[i].GetProperty("object").GetString());
+                    Assert.Equal("root.leaf", fields[i].GetProperty("fullname").GetString());
+                    Assert.Equal("u:value", fields[i].GetProperty("value").GetString());
+                }
+            }
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            return (long)(notifications.GetValue(governor) ?? throw new InvalidOperationException());
+        }
     }
 
     internal static byte[] DeepFixture(int ancestors)
