@@ -28,8 +28,7 @@ def main():
     spec = importlib.util.spec_from_file_location("comparison", repo / "tools/compare-linux-performance.py")
     comparison = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(comparison)
-    if comparison.run([qpdf, "--version"]).decode().splitlines()[0] != "qpdf version 12.4.2":
-        raise ValueError("Require pinned native qpdf 12.4.2")
+    comparison.check_native_version(qpdf)
     root.mkdir(parents=True, exist_ok=False)
     shutil.copytree(inputs / "inputs", root / "inputs")
     cases = json.loads((inputs / "workloads.json").read_text())

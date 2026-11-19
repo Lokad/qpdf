@@ -1,4 +1,4 @@
-"""Finite Linux process comparison; generated inputs and warmed managed results."""
+"""Prepare benchmark inputs or measure whole-process Linux jobs."""
 
 import argparse
 import base64
@@ -31,6 +31,13 @@ def run(argv, input_bytes=None):
         raise RuntimeError(f"Command failed ({result.returncode}): {argv}\n"
                            f"{result.stdout.decode(errors='replace')}\n{result.stderr.decode(errors='replace')}")
     return result.stdout
+
+
+def check_native_version(qpdf):
+    version = run([qpdf, "--version"]).decode()
+    if version.partition("\n")[0].rstrip("\r") != f"qpdf version {REFERENCE_PIN['version']}":
+        raise ValueError(f"Expected pinned native qpdf {REFERENCE_PIN['version']}")
+    return version.strip()
 
 
 def page_texts(dotnet, probe, paths):
@@ -126,6 +133,12 @@ def prepare_incremental(qpdf, root):
             f"<< /Size {number + 1} /Root {trailer['/Root']} /Info {number} 0 R /Prev {previous} >>\n"
             f"startxref\n{position + len(obj)}\n%%EOF\n").encode()
     (root / "inputs/X100-incremental.pdf").write_bytes(blob + obj + tail)
+
+
+def prepare_inputs(dotnet, benchmark, qpdf, root):
+    root.mkdir(parents=True, exist_ok=False)
+    run([dotnet, benchmark, "--comparison-inputs", root])
+    prepare_incremental(qpdf, root)
 
 
 def commands(case, engine, destination, root, dotnet, probe, qpdf):
@@ -296,22 +309,27 @@ def main():
     parser.add_argument("--repo", required=True, type=Path)
     parser.add_argument("--dotnet", required=True, type=Path)
     parser.add_argument("--qpdf", required=True, type=Path)
-    parser.add_argument("--native-build", required=True, type=Path)
-    parser.add_argument("--native-source", required=True, type=Path)
+    parser.add_argument("--native-build", type=Path)
+    parser.add_argument("--native-source", type=Path)
     parser.add_argument("--work-root", required=True, type=Path)
-    parser.add_argument("--skip-warmed", action="store_true", help="Debugging only; not a complete comparison")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--prepare-only", action="store_true", help="Generate inputs and workload manifest without timing")
+    mode.add_argument("--skip-warmed", action="store_true", help="Measure whole-process jobs without BenchmarkDotNet")
     args = parser.parse_args()
-    if platform.system() != "Linux":
-        parser.error("Use Linux (WSL is supported)")
     repo, dotnet, qpdf, root = (p.resolve() for p in (args.repo, args.dotnet, args.qpdf, args.work_root))
-    native_source, native_build = args.native_source.resolve(), args.native_build.resolve()
-    root.mkdir(parents=True, exist_ok=False)
-    os.chdir(root)
     probe = repo / "tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll"
     benchmark = repo / "benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll"
-    version = run([qpdf, "--version"]).decode().strip()
-    if version.splitlines()[0] != f"qpdf version {REFERENCE_PIN['version']}":
-        raise ValueError(f"Expected pinned native qpdf {REFERENCE_PIN['version']}")
+    if args.prepare_only:
+        check_native_version(qpdf)
+        prepare_inputs(dotnet, benchmark, qpdf, root)
+        print("Prepared inputs:", root)
+        return
+    if platform.system() != "Linux":
+        parser.error("Use Linux for measurements (WSL is supported)")
+    if args.native_source is None or args.native_build is None:
+        parser.error("Measurements require --native-source and --native-build")
+    native_source, native_build = args.native_source.resolve(), args.native_build.resolve()
+    version = check_native_version(qpdf)
     actual_pin = run(["git", "-C", native_source, "rev-parse", "HEAD"]).decode().strip()
     if actual_pin != PIN or run(["git", "-C", native_source, "status", "--porcelain"]):
         raise ValueError("Native source must be clean at the pinned commit")
@@ -320,8 +338,8 @@ def main():
         raise ValueError("Native build must be Release")
     if not qpdf.is_relative_to(native_build) or f"CMAKE_HOME_DIRECTORY:INTERNAL={native_source}\n" not in cache:
         raise ValueError("Native executable/build must belong to the pinned source")
-    run([dotnet, benchmark, "--comparison-inputs", root])
-    prepare_incremental(qpdf, root)
+    prepare_inputs(dotnet, benchmark, qpdf, root)
+    os.chdir(root)
     cases = json.loads((root / "workloads.json").read_text())
     inputs = {p.name: {"bytes": p.stat().st_size, "sha256": sha(p)} for p in sorted((root / "inputs").glob("*.pdf"))}
     sources = {}

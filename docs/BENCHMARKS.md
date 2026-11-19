@@ -15,8 +15,8 @@ claims. Timing thresholds stay outside CI.
 
 ## Native comparison and validation
 
-Use a quiet Linux VM with Python 3, GNU time, a C++ toolchain, CMake, zlib/JPEG
-development libraries and the .NET SDKs. Place a full, clean qpdf 12.4.2 checkout
+Use a quiet Linux VM with Python 3, a C++ toolchain, CMake, zlib/JPEG
+development libraries and the .NET SDKs. Place a full, clean qpdf checkout
 under `external/qpdf` at the pinned commit.
 The static warm driver links to the built-in native crypto provider. Commands
 run from the repository root. [Reference pin](https://github.com/Lokad/qpdf/blob/master/tools/reference-pin.json)
@@ -38,8 +38,7 @@ cmake -S "$native_source" -B "$native_build" -DCMAKE_BUILD_TYPE=Release \
 cmake --build "$native_build" --parallel
 
 python3 tools/compare-linux-performance.py --repo "$PWD" --dotnet "$cli" --qpdf "$oracle" \
-  --native-source "$native_source" --native-build "$native_build" \
-  --work-root "$run/prepared" --skip-warmed
+  --work-root "$run/prepared" --prepare-only
 python3 tools/test-performance-validation.py --repo "$PWD" --dotnet "$cli" --probe "$probe" \
   --qpdf "$oracle" --input-root "$run/prepared" --work-root "$run/validation" --file-input
 python3 tools/compare-warm-performance.py --repo "$PWD" --dotnet "$cli" --qpdf "$oracle" \
@@ -48,11 +47,12 @@ python3 tools/compare-warm-performance.py --repo "$PWD" --dotnet "$cli" --qpdf "
   --file-input --samples 7 --sample-seconds 0.35 --warmup-seconds 2
 ```
 
-The preparation command produces a workload manifest, fixtures, and
-whole-process samples. The validation command tests page and object semantics
-before warmed timing. It also rejects a wrong output-free expectation, a
-marker-only object-stream claim and a no-op checker. Use the validation command
-on an existing prepared root to repeat the controls independently.
+The preparation command generates fixtures and the workload manifest. Reuse
+that root across experiments. The validation command checks page and object
+semantics and runs the negative controls. The warmed runner checks its own
+worker outputs before collecting samples. To measure whole-process time and
+RSS, run the Linux comparison without `--prepare-only` and supply the native
+source and build directories. That mode also requires GNU time.
 
 For same-build A/A, use a fresh warm work root, add `--baseline-probe "$probe"`
 and select the corresponding `--workload` entries. For job JSON, use
