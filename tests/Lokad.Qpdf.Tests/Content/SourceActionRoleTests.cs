@@ -177,9 +177,14 @@ public sealed class SourceActionRoleTests
             PdfDictionary action = Assert.IsType<PdfDictionary>(Read(widget, "A"));
             Assert.Equal("https://source.test/base/item.pdf", Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(Read(action, "URI")).ValueSpan));
             PdfArray chain = Assert.IsType<PdfArray>(Read(action, "Next"));
-            PdfArray destination = Assert.IsType<PdfArray>(Read(Assert.IsType<PdfDictionary>(Resolve(chain[1])), "D"));
-            if (index == 1) { Assert.Equal(Assert.Single(document.PageReferences).Source, destination[0]); }
-            else { Assert.IsType<PdfNull>(destination[0]); }
+            Assert.Same(action, Resolve(chain[0]));
+            if (index == 1)
+            {
+                Assert.Equal(2, chain.Count);
+                PdfArray destination = Assert.IsType<PdfArray>(Read(Assert.IsType<PdfDictionary>(Resolve(chain[1])), "D"));
+                Assert.Equal(Assert.Single(document.PageReferences).Source, destination[0]);
+            }
+            else { Assert.Single(chain.Items); }
         }
     }
 

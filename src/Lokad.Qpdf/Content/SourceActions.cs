@@ -8,7 +8,7 @@ using Lokad.Qpdf.Writing;
 namespace Lokad.Qpdf.Content;
 
 /// <summary>Preserves retained action meaning across source contexts and baked page frames.</summary>
-internal static class SourceActions
+internal static partial class SourceActions
 {
     [Flags]
     private enum Role
@@ -18,6 +18,7 @@ internal static class SourceActions
         Annotations = 512, Fields = 1024, Actions = 2048,
         Form = 4096, Names = 8192, DestinationIndex = 16384, DestinationTree = 32768,
         DestinationTrees = 65536, DestinationPairs = 131072, Destination = 262144, OpenAction = 524288,
+        Catalog = 1048576,
     }
 
     // Equal PDF contents are not graph identity. One identity can also carry
@@ -125,18 +126,20 @@ internal static class SourceActions
             { binding.AddProjectionPage(page, dictionary); }
         }
         binding.Add(form, Role.Form, null);
-        if (!maximum.HasValue)
-        {
-            int last = reservedNumber;
-            foreach (int number in pool.Keys)
-            {
-                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                last = Math.Max(last, number);
-            }
-            maximum = last;
-        }
-        Dictionary<int, QpdfObject> objects = binding.ApplyProjection(maximum.Value, limits);
+        int last = ProjectionMaximum(pool, ref maximum, reservedNumber, governor, token);
+        Dictionary<int, QpdfObject>? objects = binding.ApplyProjection(last, limits);
         return ((PdfDictionary?)binding.Map(form, Role.Form), objects);
+    }
+
+    internal static int ProjectionMaximum(IReadOnlyDictionary<int, QpdfObject> pool, ref int? maximum,
+        int reservedNumber, ResourceGovernor governor, CancellationToken token)
+    {
+        if (maximum.HasValue) { return maximum.Value; }
+        int last = reservedNumber;
+        foreach (int id in pool.Keys)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); last = Math.Max(last, id); }
+        maximum = last;
+        return last;
     }
 
     internal static PdfDictionary? ProjectOutputForm(PdfDictionary? form, Dictionary<int, QpdfObject> pool,
@@ -201,7 +204,7 @@ internal static class SourceActions
     // This temporary walk follows only concrete PDF roles. It records incoming
     // role edges so changed cycles can receive identities before rebuilding.
     // Independent raw graph edges continue to refer to the original objects.
-    private sealed class Binding : IDisposable
+    private sealed partial class Binding : IDisposable
     {
         private readonly DocumentEngine? _source;
         private readonly GraphCopier? _sourceCopier;
@@ -218,7 +221,7 @@ internal static class SourceActions
         private readonly Dictionary<int, PdfReference>? _widgetPages;
         private OwnedAllocationBatch? _graph;
         private NamedDestinations? _destinations;
-        internal PoolResolver Resolver { get; }
+        internal IIndirectResolver Resolver { get; }
         private OwnedAllocationBatch Graph => _graph ??= OwnedAllocationBatch.Create(_governor, _token);
 
         internal Binding(DocumentEngine source, GraphCopier sourceCopier, GraphCopier copier, PdfDictionary catalog,
@@ -242,7 +245,7 @@ internal static class SourceActions
             catch { _scratch.Dispose(); throw; }
         }
 
-        private Binding(PoolResolver resolver, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        private Binding(IIndirectResolver resolver, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
         {
             Resolver = resolver;
             _governor = governor; _ownership = ownership; _token = token;
@@ -333,14 +336,20 @@ internal static class SourceActions
 
         private Role CatalogRole(ReadOnlySpan<byte> key)
             => key.SequenceEqual("AA"u8) ? Role.DocumentEvents
-                : key.SequenceEqual("OpenAction"u8) ? _frames is null ? Role.Action : Role.OpenAction
+                : key.SequenceEqual("OpenAction"u8) ? _frames is null && _splitPages is null ? Role.Action : Role.OpenAction
                 : _frames is null ? Role.None : key.SequenceEqual("Names"u8) ? Role.Names
                 : key.SequenceEqual("Dests"u8) ? Role.DestinationIndex : Role.None;
 
         private Role ChildRole(Node node, ReadOnlySpan<byte> key)
         {
             Role roles = node.Roles, result = Role.None;
-            if ((_frames is not null || _fieldKids is not null) && (roles & Role.Form) != 0
+            if (roles == Role.Catalog)
+            {
+                if (key.SequenceEqual("Outlines"u8)) { return Role.Outline; }
+                if (key.SequenceEqual("AcroForm"u8)) { return Role.Form; }
+                return CatalogRole(key);
+            }
+            if ((_frames is not null || _fieldKids is not null || _splitPages is not null) && (roles & Role.Form) != 0
                 && (key.SequenceEqual("Fields"u8) || key.SequenceEqual("CO"u8))) { result |= Role.Fields; }
             if (_frames is not null)
             {
@@ -423,6 +432,7 @@ internal static class SourceActions
                     using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
                     while (entries.MoveNext(_governor, _token)) { Add(entries.Current.Value, ChildRole(node, entries.Current.Key.RawSpan), node); }
                     BindLeaves(node, dictionary);
+                    if (_splitPages is not null) { ProjectNavigation(node, dictionary); }
                 }
                 else if (node.Original is PdfArray array)
                 {
@@ -433,6 +443,7 @@ internal static class SourceActions
                             PdfArray result = DestinationCoordinates.Transform(array, matrix, Resolver, Graph);
                             if (!ReferenceEquals(result, array)) { node.Edited = result; }
                         }
+                        if (_splitPages is not null && IsStaleDestination(array)) { node.Edited = PdfNull.Instance; }
                         continue;
                     }
                     Role role = ItemRole(node.Roles);
@@ -473,21 +484,22 @@ internal static class SourceActions
             if (_pending.Count > 0) { copier.MarkChangedRoots(); }
         }
 
-        internal Dictionary<int, QpdfObject> ApplyProjection(int maximum, QpdfLimits limits)
+        internal Dictionary<int, QpdfObject>? ApplyProjection(int maximum, QpdfLimits limits)
         {
             PrepareChanges();
+            if (_pending.Count == 0) { return null; }
             Dictionary<int, QpdfObject> result = ParserContainers.CreateDictionary<int, QpdfObject>(_ownership);
             foreach (Node node in _pending)
             {
                 Check();
-                if (node.Number == 0 || (node.Roles & Role.Page) != 0) { continue; }
+                if (node.Number == 0 || (node.Roles & Role.Page) != 0 || node.Edited is PdfNull) { continue; }
                 _ownership.Reserve(32L);
                 node.Reference = new PdfReference(checked(++maximum), 0);
             }
             foreach (Node node in _pending)
             {
                 Check();
-                if (node.Number == 0) { continue; }
+                if (node.Number == 0 || node.Edited is PdfNull) { continue; }
                 ParserContainers.EnsureEntryCapacity(_ownership, result, IntPtr.Size, (int)Math.Min(int.MaxValue, limits.MaxContainerSize));
                 result.Add(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0));
             }
@@ -504,7 +516,8 @@ internal static class SourceActions
         internal QpdfObject? Map(QpdfObject? raw, Role role)
         {
             Check(); Node? node = Find(raw, role);
-            return node is not { Changed: true } ? raw : node.Reference ?? (node.Number != 0 ? raw : Build(node, 0));
+            return node is not { Changed: true } ? raw : node.Edited is PdfNull ? PdfNull.Instance
+                : node.Reference ?? (node.Number != 0 ? raw : Build(node, 0));
         }
 
         private QpdfObject Build(Node node, int depth)
@@ -516,10 +529,13 @@ internal static class SourceActions
             QpdfObject Remap(QpdfObject value, Role role)
             {
                 Node? child = Find(value, role);
-                return child is not { Changed: true } ? value : child.Reference ?? (child.Number != 0 ? value : Build(child, depth + 1));
+                return child is not { Changed: true } ? value : child.Edited is PdfNull ? PdfNull.Instance
+                    : child.Reference ?? (child.Number != 0 ? value : Build(child, depth + 1));
             }
             if (original is PdfArray array)
             {
+                if (_splitPages is not null && node.Roles == Role.Actions)
+                { return node.Result = BuildActionArray(array, depth); }
                 long bytes = checked(64L + IntPtr.Size * (long)array.Count); Graph.Memory.Reserve(bytes);
                 QpdfObject[] values = new QpdfObject[array.Count]; Graph.Add(bytes);
                 Role role = ItemRole(node.Roles);
@@ -537,6 +553,7 @@ internal static class SourceActions
                     QpdfObject value = source.Current.Value;
                     Role role = ChildRole(node, source.Current.Key.RawSpan);
                     if (role != Role.None) { value = Remap(value, role); }
+                    if (_splitPages is not null && !ReferenceEquals(source.Current.Value, value) && value is PdfNull) { continue; }
                     entries.Assign(Graph.Memory, _governor, source.Current.Key, value, _token);
                 }
                 if (IsSubtype(node, "Widget"u8) && _widgetPages?.TryGetValue(node.Number, out PdfReference? page) == true)

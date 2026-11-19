@@ -116,6 +116,35 @@ internal static class SplitAssembly
             ref maximum, reservedNumber, limits, governor, memory, token);
     }
 
+    internal static (PdfDictionary Catalog, Dictionary<int, QpdfObject>? Edits) ProjectSplitNavigation(
+        PdfDictionary catalog, IReadOnlyDictionary<int, QpdfObject> pool, ReadOnlySpan<PdfReference> pages,
+        IReadOnlySet<int> groupPages, Dictionary<int, QpdfObject>? fieldEdits, ref int? maximum, int reservedNumber,
+        QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        int last = Content.SourceActions.ProjectionMaximum(pool, ref maximum, reservedNumber, governor, token);
+        if (fieldEdits is not null)
+        {
+            foreach (int id in fieldEdits.Keys)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); last = Math.Max(last, id); }
+        }
+        memory.Reserve(48L);
+        // Destination membership is interpreted by the active roles. Other
+        // traversals still use the original objects unless a role was edited.
+        SplitResolver source = new(pool, groupPages, groupPages, fieldEdits);
+        (PdfDictionary projected, Dictionary<int, QpdfObject>? edits) = Content.SourceActions.ProjectSplitNavigation(
+            catalog, source, pages, groupPages, last, limits, memory, governor, token);
+        if (edits is null || edits.Count == 0) { return (projected, fieldEdits); }
+        if (fieldEdits is null) { return (projected, edits); }
+        foreach ((int id, QpdfObject value) in edits)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!fieldEdits.ContainsKey(id))
+            { ParserContainers.EnsureEntryCapacity(memory, fieldEdits, IntPtr.Size, (int)Math.Min(int.MaxValue, limits.MaxContainerSize)); }
+            fieldEdits[id] = value;
+        }
+        return (projected, fieldEdits);
+    }
+
     internal static PdfArray? FindSplitDetachedRoots(IReadOnlyDictionary<int, QpdfObject> pool,
         IReadOnlyList<PdfReference> pages, PdfArray sharedRoots, PdfDictionary? form, QpdfObject? labels,
         HashSet<int>? candidates, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)

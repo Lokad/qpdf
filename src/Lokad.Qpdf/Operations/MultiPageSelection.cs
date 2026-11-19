@@ -692,95 +692,43 @@ internal static class MultiPageSelection
                 ParserContainers.AddSetItem(groupMemory, groupPageNumbers, kids[slot].ObjectNumber, sizeof(int));
             }
 
-            var (groupAcroForm, fieldEdits) = ProjectSplitForm(multiCombined, pool,
-                CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1), pruneUnreachableFields,
+            ReadOnlySpan<PdfReference> partPages = CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1);
+            var (groupAcroForm, fieldEdits) = ProjectSplitForm(multiCombined, pool, partPages, pruneUnreachableFields,
                 ref projectionMaximum, 2, limits, groupMemory, governor, cancellationToken);
             if (multiGenerated) { groupAcroForm = ClearNeedAppearances(groupAcroForm, governor, cancellationToken); }
 
-            PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last, governor);
-            ParserContainers.AddItem(groupMemory, roots, sharedRoots);
-            if (groupAcroForm is not null) { ParserContainers.AddItem(groupMemory, roots, groupAcroForm); }
-            if (slicedLabels is not null) { ParserContainers.AddItem(groupMemory, roots, slicedLabels); }
+            PdfDictionary catalog = NewCatalog(new CatalogContents
+            {
+                PageLabels = SlicePageLabels(labelItems, first, last, governor),
+                Metadata = primaryMetadata, Names = multiAttached.NamesRef,
+                PageMode = primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null),
+                Outlines = primaryOutlines, AcroForm = groupAcroForm, Structure = primaryStructTree,
+                MarkInfo = primaryMarkInfo, OptionalContent = optionalContent,
+            }, effective, extensionLevel, pool, governor, cancellationToken);
+            (catalog, Dictionary<int, QpdfObject>? edits) = ProjectSplitNavigation(catalog, pool, partPages, groupPageNumbers,
+                fieldEdits, ref projectionMaximum, 2, limits, groupMemory, governor, cancellationToken);
+            ParserContainers.AddItem(groupMemory, roots, catalog);
+            if (primaryInfo is not null) { ParserContainers.AddItem(groupMemory, roots, primaryInfo); }
             if (detachedRoots is not null) { ParserContainers.AddItem(groupMemory, roots, detachedRoots); }
 
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             groupMemory.Reserve(48L);
-            SplitResolver resolver = new(pool, pageNumbers, groupPageNumbers, fieldEdits);
+            SplitResolver resolver = new(pool, pageNumbers, groupPageNumbers, edits);
             HashSet<int> reachable = GraphReachability.Find(resolver, roots, reachabilityMemory, governor);
             GroupNumbers numbers = NumberGroup(reachable, 0, 2, groupMemory, governor, cancellationToken);
             Dictionary<int, int> renumber = numbers.Map;
-            List<PdfReference> renumberedKids = MapKids(CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1),
-                renumber, groupMemory, governor, cancellationToken);
-
-            PdfReference? groupMetadata = null;
-            if (primaryMetadata is not null && renumber.TryGetValue(primaryMetadata.ObjectNumber, out int mappedMetadata))
-            {
-                groupMetadata = new PdfReference(mappedMetadata, 0);
-            }
-
-            PdfReference? groupNames = null;
-            if (multiAttached.NamesRef is not null && renumber.TryGetValue(multiAttached.NamesRef.ObjectNumber, out int mappedNames))
-            {
-                groupNames = new PdfReference(mappedNames, 0);
-            }
-            PdfReference? groupOutlines = null;
-            if (primaryOutlines is not null && renumber.TryGetValue(primaryOutlines.ObjectNumber, out int mappedOutlines))
-            {
-                groupOutlines = new PdfReference(mappedOutlines, 0);
-            }
-
-            PdfReference? groupStructTree = null;
-            if (primaryStructTree is not null && renumber.TryGetValue(primaryStructTree.ObjectNumber, out int mappedStruct))
-            {
-                groupStructTree = new PdfReference(mappedStruct, 0);
-            }
-
-            QpdfObject? groupMarkInfo = primaryMarkInfo;
-            if (primaryMarkInfo is PdfReference markRef && !renumber.ContainsKey(markRef.ObjectNumber))
-            {
-                groupMarkInfo = null;
-            }
-            else if (primaryMarkInfo is PdfReference markRef2 && renumber.TryGetValue(markRef2.ObjectNumber, out int mappedMark))
-            {
-                groupMarkInfo = new PdfReference(mappedMark, 0);
-            }
-
-            int? groupInfo = null;
-            if (primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo))
-            {
-                groupInfo = mappedInfo;
-            }
-
-            PdfDictionary? remappedAcroForm = null;
-            if (groupAcroForm is not null)
-            {
-                if (Writing.ObjectRemap.RemapSplit(groupAcroForm, renumber, pageNumbers, groupMemory, governor, cancellationToken) is not PdfDictionary remapped)
-                {
-                    throw new QpdfException("Split publication rebuilt a non-dictionary form entry.");
-                }
-
-                remappedAcroForm = remapped;
-            }
-            QpdfObject? remappedLabels = null;
-            if (slicedLabels is not null)
-            {
-                if (Writing.ObjectRemap.RemapSplit(slicedLabels, renumber, pageNumbers, groupMemory, governor, cancellationToken) is not PdfDictionary remappedLabelsDictionary)
-                {
-                    throw new QpdfException("Split publication rebuilt a non-dictionary label tree.");
-                }
-
-                remappedLabels = remappedLabelsDictionary;
-            }
-            QpdfObject? groupOptionalContent = optionalContent is null ? null
-                : Writing.ObjectRemap.RemapSplit(optionalContent, renumber, pageNumbers, groupMemory, governor, cancellationToken);
+            List<PdfReference> renumberedKids = MapKids(partPages, renumber, groupMemory, governor, cancellationToken);
+            int? groupInfo = primaryInfo is not null && renumber.TryGetValue(primaryInfo.ObjectNumber, out int mappedInfo)
+                ? mappedInfo : null;
             List<NumberedObject> sub = ParserContainers.CreateList<NumberedObject>(groupMemory);
-            NumberedObject groupCatalog = new(1, NewCatalog(new CatalogContents { PageLabels = remappedLabels, Metadata = groupMetadata, Names = groupNames, PageMode = primaryPageMode as PdfName ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = groupOutlines, AcroForm = remappedAcroForm, Structure = groupStructTree, MarkInfo = groupMarkInfo, OptionalContent = groupOptionalContent }, effective, extensionLevel, pool, governor, cancellationToken));
+            NumberedObject groupCatalog = new(1, Writing.ObjectRemap.RemapSplit(catalog, renumber, pageNumbers,
+                groupMemory, governor, cancellationToken));
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
             AppendGroupObjects(sub, resolver, numbers, pageNumbers, groupMemory, governor, cancellationToken);
             QpdfPath path = QpdfPath.From(names[g]);
-            HashSet<int> groupCompressed = multiStreamMode == "generate" && fieldEdits is not null
+            HashSet<int> groupCompressed = multiStreamMode == "generate" && edits is not null
                 ? ResolveGeneratedCompressedSet(sub, groupMemory, governor, cancellationToken)
                 : RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
             Dictionary<int, (int Number, int Generation)>? groupOriginalIds =
@@ -792,7 +740,7 @@ internal static class MultiPageSelection
             PreparedSplitPublication publication = await PreparePresentationOutputAsync(effective, preparedModel.Model, preparedModel.ObjectStreams, multiCompress,
                 multiLevel, groupInfo, originalId1, settings.StaticId, settings.NewlineBeforeEndstream, settings.Qdf, groupOriginalIds,
                 settings.Linearize, settings.LinearizePass1, path, limits, governor, cancellationToken,
-                groupSecurity, preparedModel.EncryptionObject, groupMetadata?.ObjectNumber ?? 0).ConfigureAwait(false);
+                groupSecurity, preparedModel.EncryptionObject, primaryMetadata is null ? 0 : renumber.GetValueOrDefault(primaryMetadata.ObjectNumber)).ConfigureAwait(false);
             preparation.Add(publication);
         }
 

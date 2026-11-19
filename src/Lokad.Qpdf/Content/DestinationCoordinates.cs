@@ -1,12 +1,13 @@
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Content;
 
 /// <summary>Projects one explicit local destination through an already baked page frame.</summary>
 internal static class DestinationCoordinates
 {
-    internal static PdfArray Transform(PdfArray source, double[] matrix, PoolResolver resolver, OwnedAllocationBatch graph)
+    internal static PdfArray Transform(PdfArray source, double[] matrix, IIndirectResolver resolver, OwnedAllocationBatch graph)
     {
         QpdfObject? Resolve(QpdfObject raw) => CatalogCopy.ResolveValue(raw, resolver, graph.Governor, graph.Token);
         if (source.Count < 2 || Resolve(source[1]) is not PdfName name) { throw Malformed(); }

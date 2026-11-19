@@ -272,6 +272,11 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.
+- Split link annotations and bookmarks omit direct destinations to absent pages.
+  Local GoTo actions without a continuation are removed for those targets.
+  Remote actions and private aliases remain subject to ordinary split remapping.
+  Physical splits omit the catalog OpenAction. Bound splits retain destinations
+  aimed at retained pages.
 - When selection, splitting or flattening removes some widgets from a field,
   the active form keeps its surviving branches and their calculation order.
   Surviving widgets point to their page and projected field. Private references

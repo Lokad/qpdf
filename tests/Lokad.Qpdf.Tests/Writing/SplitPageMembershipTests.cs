@@ -105,9 +105,16 @@ public sealed class SplitPageMembershipTests
                 PdfDictionary page = doc.PageReferences[index].Page;
                 PdfArray annotations = Assert.IsType<PdfArray>(Resolve(doc, Get(page, "Annots")));
                 PdfDictionary link = Assert.IsType<PdfDictionary>(Resolve(doc, annotations[0]));
-                PdfDictionary action = shape == "action" ? Assert.IsType<PdfDictionary>(Resolve(doc, Get(link, "A"))) : link;
-                PdfArray destination = Assert.IsType<PdfArray>(Resolve(doc, Get(action, shape == "action" ? "D" : "Dest")));
-                CheckTarget(doc, destination[0], shape == "shared" ? 3 : selected[index] % 3 + 1, selected);
+                bool action = shape == "action";
+                int target = shape == "shared" ? 3 : selected[index] % 3 + 1;
+                QpdfObject navigation = Get(link, action ? "A" : "Dest");
+                if (!selected.Contains(target)) { Assert.IsType<PdfNull>(navigation); }
+                else
+                {
+                    if (action) { navigation = Get(Assert.IsType<PdfDictionary>(Resolve(doc, navigation)), "D"); }
+                    PdfArray destination = Assert.IsType<PdfArray>(Resolve(doc, navigation));
+                    CheckTarget(doc, destination[0], target, selected);
+                }
                 if (form)
                 {
                     PdfDictionary widget = Assert.IsType<PdfDictionary>(Resolve(doc, annotations[1]));

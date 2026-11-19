@@ -61,7 +61,7 @@ internal static class JsonSplitPublication
                 (int first, int last) = groups[group];
                 SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, form, detachedRoots, first, last,
                     ref projectionMaximum, limits, groupMemory, governor, token);
-                HashSet<int> packing = originalPacking is null && part.ProjectedForm
+                HashSet<int> packing = originalPacking is null && part.ProjectedGraph
                     ? ObjectStreamPreparation.ResolveGeneratedCompressedSet(part.Objects, groupMemory, governor, token)
                     : ObjectStreamPreparation.RemapCompressedSet(compressed, part.Numbers.Map, groupMemory, governor, token);
                 IReadOnlyDictionary<int, (int Number, int Generation)>? ids = MapOriginalIds(originalIds, part.Numbers,
@@ -159,7 +159,7 @@ internal static class JsonSplitPublication
         return AcroFormCopy.CombineRegistrations(registrations, governor, memory, token);
     }
 
-    private readonly record struct SplitPart(List<NumberedObject> Objects, GroupNumbers Numbers, int? Info, int Metadata, bool ProjectedForm);
+    private readonly record struct SplitPart(List<NumberedObject> Objects, GroupNumbers Numbers, int? Info, int Metadata, bool ProjectedGraph);
 
     private static SplitPart PreparePart(JsonImport.RenumberedModel graph, PdfDictionary catalog, List<PdfReference> kids,
         HashSet<int> pageNumbers, int pagesNumber, List<(int Index, PdfDictionary Label)> labels, CopiedForm? form,
@@ -183,6 +183,8 @@ internal static class JsonSplitPublication
         var (groupForm, fieldEdits) = ProjectSplitForm(form, graph.Objects, group, true,
             ref projectionMaximum, pagesNumber, limits, memory, governor, token);
         catalog = WithRole(headers, catalog, "AcroForm"u8, groupForm);
+        (catalog, Dictionary<int, QpdfObject>? edits) = ProjectSplitNavigation(catalog, graph.Objects, group, groupPages,
+            fieldEdits, ref projectionMaximum, pagesNumber, limits, memory, governor, token);
         ParserContainers.AddItem(memory, roots, catalog, IntPtr.Size);
         if (graph.InfoNumber is int info)
         {
@@ -200,7 +202,7 @@ internal static class JsonSplitPublication
 
         using ParserMemoryScope walk = ParserMemoryScope.Create(governor);
         memory.Reserve(48L);
-        SplitResolver resolver = new(graph.Objects, pageNumbers, groupPages, fieldEdits);
+        SplitResolver resolver = new(graph.Objects, pageNumbers, groupPages, edits);
         HashSet<int> reachable = GraphReachability.Find(resolver, roots, walk, governor);
         GroupNumbers numbers = NumberGroup(reachable, 1, pagesNumber, memory, governor, token);
         List<NumberedObject> objects = ParserContainers.CreateList<NumberedObject>(memory);
@@ -213,7 +215,7 @@ internal static class JsonSplitPublication
         headers.Memory.TransferTo(memory, headers.Bytes);
         int? mappedInfo = graph.InfoNumber is int originalInfo && numbers.Map.TryGetValue(originalInfo, out int infoNumber)
             ? infoNumber : null;
-        return new(objects, numbers, mappedInfo, numbers.Map.GetValueOrDefault(graph.MetadataNumber), fieldEdits is not null);
+        return new(objects, numbers, mappedInfo, numbers.Map.GetValueOrDefault(graph.MetadataNumber), edits is not null);
     }
 
     private static PdfDictionary WithRole(OwnedAllocationBatch headers, PdfDictionary catalog, ReadOnlySpan<byte> key,
