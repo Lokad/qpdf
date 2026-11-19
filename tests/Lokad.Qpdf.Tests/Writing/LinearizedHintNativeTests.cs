@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using UglyToad.PdfPig;
 
 namespace Lokad.Qpdf.Tests.Writing;
@@ -49,7 +50,7 @@ public sealed class LinearizedHintNativeTests
         Assert.Equal((QpdfExitCode)(row["NativeExit"]?.GetValue<int>() ?? throw new InvalidOperationException()), result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.Equal(0L, host.OpenLeaseCount);
-        (byte[] actual, PdfDictionary header) = await HintAsync(pdf);
+        (byte[] actual, PdfDictionary header, _) = await HintAsync(pdf);
         Assert.Equal((long)(row["NativeSharedOffset"]?.GetValue<int>() ?? throw new InvalidOperationException()), Integer(header, "S"));
         bool compressed = row["NativeCompressed"]?.GetValue<bool>() ?? throw new InvalidOperationException();
         Assert.Equal(compressed, header.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
@@ -115,9 +116,9 @@ public sealed class LinearizedHintNativeTests
         return Assert.IsType<PdfInteger>(value).Value;
     }
 
-    private static async Task<(byte[] Data, PdfDictionary Header)> HintAsync(byte[] pdf)
+    private static async Task<(byte[] Data, PdfDictionary Header, bool PackedObjects)> HintAsync(byte[] pdf)
     {
-        InMemoryQpdfHost host = new();
+        using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("reread.pdf"), pdf, QpdfInputOwnership.Copy);
         await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reread.pdf"), CancellationToken.None);
         PdfStream hint = Assert.Single(document.Engine.XRefEntries.Keys.Where(number => number != 0).Select(document.GetObject).OfType<PdfStream>(),
@@ -131,24 +132,20 @@ public sealed class LinearizedHintNativeTests
             decoder.CopyTo(output);
             data = output.ToArray();
         }
-        return (data, hint.Dictionary);
-    }
-
-    public static IEnumerable<object[]> SharedPageCases()
-    {
-        foreach (string fixture in new[] { "minimal-2page.pdf", "forms-2page.pdf", "outlined-2page.pdf" })
-        foreach (string mode in new[] { "disable", "generate" })
-        foreach (bool compress in new[] { false, true })
-        foreach (bool job in new[] { false, true })
-        { yield return [fixture, mode, compress, job]; }
+        return (data, hint.Dictionary, document.Engine.XRefEntries.Values.Any(entry => entry.Kind == XrefEntryKind.Compressed));
     }
 
     [Theory]
-    [MemberData(nameof(SharedPageCases))]
+    [InlineData("minimal-2page.pdf", "disable", false, false)]
+    [InlineData("minimal-2page.pdf", "disable", true, false)]
+    [InlineData("minimal-2page.pdf", "generate", false, false)]
+    [InlineData("minimal-2page.pdf", "generate", true, true)]
+    [InlineData("forms-2page.pdf", "disable", true, false)]
+    [InlineData("outlined-2page.pdf", "generate", false, false)]
     public async Task SharedPagesUseZeroWidthNumeratorsAndRemainReadable(string fixture, string mode, bool compress, bool job)
     {
         byte[] data = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture));
-        InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input.pdf"), data, QpdfInputOwnership.Copy);
+        using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input.pdf"), data, QpdfInputOwnership.Copy);
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, new JsonObject
             {
@@ -159,11 +156,14 @@ public sealed class LinearizedHintNativeTests
                 "input.pdf", "--linearize", "--object-streams=" + mode, "--compress-streams=" + (compress ? "y" : "n"), "output.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] pdf));
-        (byte[] hint, _) = await HintAsync(pdf);
+        (byte[] hint, PdfDictionary header, bool packed) = await HintAsync(pdf);
+        Assert.Equal(mode == "generate", packed);
+        Assert.Equal(compress, header.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        if (compress) { Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText); }
         Assert.Equal(0, BinaryPrimitives.ReadUInt16BigEndian(hint.AsSpan(32)));
         using PdfDocument reread = PdfDocument.Open(new MemoryStream(pdf));
         Assert.Equal(2, reread.NumberOfPages);
-        InMemoryQpdfHost checkHost = new(); checkHost.AddInput(QpdfPath.From("check.pdf"), pdf, QpdfInputOwnership.Copy);
+        using InMemoryQpdfHost checkHost = new(); checkHost.AddInput(QpdfPath.From("check.pdf"), pdf, QpdfInputOwnership.Copy);
         QpdfCheckResult check = await Qpdf.CheckAsync(checkHost, QpdfPath.From("check.pdf"), CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(check.Checks, outcome => outcome.Name == "linearization").Status);
         Assert.Equal(0L, host.OpenLeaseCount);

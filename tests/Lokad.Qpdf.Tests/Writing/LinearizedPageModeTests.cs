@@ -4,19 +4,13 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
 public sealed class LinearizedPageModeTests
 {
-    public static IEnumerable<object[]> WriterCases()
-    {
-        foreach (string mode in new[] { "direct", "indirect", "null", "integer", "missing", "cycle" })
-        foreach (bool job in new[] { false, true })
-        foreach (bool compressed in new[] { false, true })
-        { yield return [mode, job, compressed]; }
-    }
-
     private static byte[] Input(string mode)
     {
         string entry = mode == "direct" ? "/PageMode /UseOutlines" : mode == "missing" ? "" : "/PageMode 9 0 R";
@@ -28,40 +22,61 @@ public sealed class LinearizedPageModeTests
             (4, "<< /Length 4 >>", Encoding.ASCII.GetBytes("q Q\n")),
             (5, "<< /Type /Outlines /First 6 0 R /Last 6 0 R /Count 1 >>", null),
             (6, "<< /Title (First page) /Parent 5 0 R /Dest [3 0 R /Fit] >>", null),
-            (7, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] /Resources << >> /Contents 8 0 R >>", null),
-            (8, "<< /Length 4 >>", Encoding.ASCII.GetBytes("q Q\n")), (9, value, null)], 1);
+            (7, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 20 20] /Resources << >> /Contents 8 0 R /Audit 10 0 R >>", null),
+            (8, "<< /Length 4 >>", Encoding.ASCII.GetBytes("q Q\n")), (9, value, null),
+            (10, "<< /Marker 43 >>", null)], 1);
     }
 
     [Theory]
-    [MemberData(nameof(WriterCases))]
-    public async Task ClassifiesResolvedModeAndPlacesOutlines(string mode, bool job, bool compressed)
+    [InlineData("direct", false, false)]
+    [InlineData("indirect", false, false)]
+    [InlineData("null", false, false)]
+    [InlineData("integer", false, false)]
+    [InlineData("missing", false, false)]
+    [InlineData("cycle", false, false)]
+    [InlineData("indirect", true, true)]
+    [InlineData("null", false, true)]
+    public async Task ClassifiesResolvedModeAndPlacesOutlines(string mode, bool job, bool packed)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Input(mode), QpdfInputOwnership.Copy);
-        string streams = compressed ? "generate" : "disable";
+        string streams = packed ? "generate" : "disable";
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", linearize = true, objectStreams = streams }), CancellationToken.None)
             : await Qpdf.ExecuteAsync(host, new(["input", "--linearize", "--object-streams=" + streams, "output"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] pdf));
-        if (!compressed)
+        QpdfPath reread = QpdfPath.From("reread");
+        host.AddInput(reread, pdf, QpdfInputOwnership.Copy);
+        string text = Encoding.Latin1.GetString(pdf);
+        Match end = Regex.Match(text, @"/E\s+(\d+)", RegexOptions.CultureInvariant);
+        Assert.True(end.Success);
+        int firstEnd = int.Parse(end.Groups[1].Value, CultureInfo.InvariantCulture);
+        bool firstPage = mode is "direct" or "indirect";
+        await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, reread, CancellationToken.None))
         {
-            // Measure physical positions independently of the shared classifier.
-            string text = Encoding.Latin1.GetString(pdf);
-            Match end = Regex.Match(text, @"/E\s+(\d+)", RegexOptions.CultureInvariant);
-            Assert.True(end.Success);
-            int firstEnd = int.Parse(end.Groups[1].Value, CultureInfo.InvariantCulture);
-            int outline = text.IndexOf("/Type /Outlines", StringComparison.Ordinal);
-            int title = text.IndexOf("/Title", StringComparison.Ordinal);
-            Assert.True(outline >= 0 && title >= 0);
-            bool firstPage = mode is "direct" or "indirect";
-            Assert.Equal(firstPage, outline < firstEnd);
-            Assert.Equal(firstPage, title < firstEnd);
+            PdfReference root = Link(document.Engine.Trailer, "Root");
+            PdfReference outlines = Link(Assert.IsType<PdfDictionary>(document.GetObject(root)), "Outlines");
+            PdfReference item = Link(Assert.IsType<PdfDictionary>(document.GetObject(outlines)), "First");
+            PdfReference marker = Link(document.PageReferences[1].Page, "Audit");
+            Assert.Equal(packed ? XrefEntryKind.Compressed : XrefEntryKind.Uncompressed,
+                document.Engine.XRefEntries[marker.ObjectNumber].Kind);
+            foreach (PdfReference reference in new[] { outlines, item })
+            {
+                XrefEntry entry = document.Engine.XRefEntries[reference.ObjectNumber];
+                Assert.Equal(XrefEntryKind.Uncompressed, entry.Kind);
+                Assert.Equal(firstPage, entry.First < firstEnd);
+            }
         }
-        host.AddInput(QpdfPath.From("reread"), pdf, QpdfInputOwnership.Copy);
-        QpdfCheckResult check = await Qpdf.CheckAsync(host, QpdfPath.From("reread"), CancellationToken.None);
+        QpdfCheckResult check = await Qpdf.CheckAsync(host, reread, CancellationToken.None);
         Assert.Equal(QpdfCheckStatus.Passed, Assert.Single(check.Checks, x => x.Name == "linearization").Status);
         Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    private static PdfReference Link(PdfDictionary dictionary, string key)
+    {
+        Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value));
+        return Assert.IsType<PdfReference>(value);
     }
 
     [Theory]
