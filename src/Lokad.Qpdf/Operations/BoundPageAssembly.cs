@@ -12,7 +12,8 @@ internal static class BoundPageAssembly
     private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
 
     internal static List<PdfReference> PreparePages(IReadOnlyList<PageLocation> pages, Dictionary<int, QpdfObject> pool,
-        IIndirectResolver resolver, int pagesNumber, int reservedCatalog, ref int maximum, HashSet<int> pageNumbers,
+        IIndirectResolver resolver, int pagesNumber, int reservedCatalog, IReadOnlySet<int>? prepared,
+        ref int maximum, HashSet<int> pageNumbers,
         ref Dictionary<int, PdfReference>? articleAliases, ref bool changesTagTopology, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
@@ -30,6 +31,12 @@ internal static class BoundPageAssembly
             { number = checked(++maximum); changesTagTopology = true; }
             changesTagTopology |= location.Source is null;
             ParserContainers.AddSetItem(memory, pageNumbers, number, sizeof(int));
+            if (prepared?.Contains(number) == true && location.Source is PdfReference existing)
+            {
+                PageAssembly.RequireMediaBox(location.Page);
+                kids.Add(existing);
+                continue;
+            }
             PageInheritance.InheritedValues inherited = ancestry?.Find(location) ?? PageInheritance.FindAncestors(resolver, location,
                 PageAssembly.WriterInherited, limits, governor, token);
             PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(headers, out long allocation);

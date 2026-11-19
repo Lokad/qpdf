@@ -5957,6 +5957,7 @@
         "negative": [
           "BoundPageSelectionTests.OutOfRangeBoundSelectionPreservesTheNamedDestination",
           "BoundPageSelectionTests.BoundSelectionProtectsTheNamedSecondaryFromPublication",
+          "BoundPageSelectionTests.BoundSelectionReportsAnUnresolvedSecondaryResourceOnce",
           "AdapterTests.ArgvRangeErrorsFail",
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
           "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing",

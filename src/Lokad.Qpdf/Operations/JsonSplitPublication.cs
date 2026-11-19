@@ -49,7 +49,7 @@ internal static class JsonSplitPublication
             CopiedForm? form = AcroFormCopy.ReadBoundForm(catalog, resolver, pool, ref maximum, false, split, governor, token);
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             Dictionary<int, PdfReference>? articleAliases = null;
-            List<PdfReference> kids = BoundPageAssembly.PreparePages(pages, pool, resolver, pagesNumber, 1, ref maximum, pageNumbers,
+            List<PdfReference> kids = BoundPageAssembly.PreparePages(pages, pool, resolver, pagesNumber, 1, null, ref maximum, pageNumbers,
                 ref articleAliases, ref changesTagTopology, limits, split, governor, diagnostics, token);
             if (changesTagTopology)
             { catalog = CatalogCopy.WithoutActiveStructure(catalog, resolver, split, governor, diagnostics, token); }

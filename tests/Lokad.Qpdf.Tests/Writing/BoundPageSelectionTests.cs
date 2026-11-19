@@ -188,6 +188,29 @@ public sealed class BoundPageSelectionTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    [Fact]
+    public async Task BoundSelectionReportsAnUnresolvedSecondaryResourceOnce()
+    {
+        using InMemoryQpdfHost host = new();
+        await AddAuthoredGraphAsync(host, TwoPages());
+        byte[] content = "/Missing Do\n"u8.ToArray();
+        host.AddInput(QpdfPath.From("donor"), PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
+            (4, $"<< /Length {content.Length} >>", content)], 1), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult report = await Qpdf.ExecuteAsync(host, new(["graph", "--json-input",
+            "--pages", "donor", "1", "--", "--json-output", "--json-stream-data=inline"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Warning, report.ExitCode);
+        QpdfDiagnostic warning = Assert.Single(report.Diagnostics, item => item.Code == QpdfDiagnosticCode.PageStructureWarning);
+        Assert.Contains("cannot be resolved", warning.Message, StringComparison.Ordinal);
+        using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(report.OutputText));
+        JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+        Assert.Contains(table.EnumerateObject(), item => item.Value.TryGetProperty("stream", out JsonElement stream)
+            && stream.GetProperty("data").GetBytesFromBase64().SequenceEqual(content));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     private static async Task AddAuthoredGraphAsync(InMemoryQpdfHost host, byte[] source)
     {
         host.AddInput(QpdfPath.From("input"), source, QpdfInputOwnership.Transfer);

@@ -145,12 +145,15 @@ internal static class BoundPageSelection
         List<(int Source, int Slot)> order = PageAssembly.CollatePageOrder(counts, collation, governor, scratch);
         List<Occurrence> ordered = ParserContainers.CreateList<Occurrence>(scratch, order.Count, 40L);
         List<PageLocation> pageHeaders = ParserContainers.CreateList<PageLocation>(scratch, order.Count, 16L);
+        HashSet<int>? prepared = imports.Count == 0 ? null : ParserContainers.CreateSet<int>(scratch);
         bool changesTopology = order.Count != original.Count;
         foreach ((int group, int slot) in order)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             Occurrence occurrence = perGroup[group][slot];
             pageHeaders.Add(occurrence.Page); ordered.Add(occurrence);
+            if (prepared is not null && !ReferenceEquals(occurrence.Owner, primary) && occurrence.Page.Source is PdfReference imported)
+            { ParserContainers.AddSetItem(scratch, prepared, imported.ObjectNumber, sizeof(int)); }
             if (!changesTopology && (!ReferenceEquals(occurrence.Owner, primary) || occurrence.SourcePage != ordered.Count))
             { changesTopology = true; }
         }
@@ -160,7 +163,7 @@ internal static class BoundPageSelection
         last = primary.NextId - 1;
         HashSet<int> selectedPages = ParserContainers.CreateSet<int>(scratch);
         List<PdfReference> kids = BoundPageAssembly.PreparePages(pageHeaders, model.Objects, resolver, pagesNumber,
-            0, ref last, selectedPages, ref articleAliases, ref changesTopology, limits, memory, governor, diagnostics, token);
+            0, prepared, ref last, selectedPages, ref articleAliases, ref changesTopology, limits, memory, governor, diagnostics, token);
         primary.AdvanceNextId(checked(last + 1));
         foreach (GraphCopier imported in imports) { imported.UseOutputPool(model.Objects, token); }
         List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(scratch, kids.Count, 16L);
