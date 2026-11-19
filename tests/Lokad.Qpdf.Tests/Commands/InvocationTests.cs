@@ -500,11 +500,12 @@ public sealed class InvocationTests
     [InlineData("--copyright")]
     [InlineData("--job-json-help")]
     [InlineData("--json-help")]
+    [InlineData("--json-help=1")]
     [InlineData("--completion-bash")]
     [InlineData("--completion-zsh")]
     public async Task IdentityRequestsIgnoreExhaustedOutputBudget(string flag)
     {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "minimal-1page.pdf");
+        using InMemoryQpdfHost host = new();
         QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = 1L };
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(
             host,
@@ -513,6 +514,45 @@ public sealed class InvocationTests
             CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(1L, result.Counters.DiagnosticCount);
+        Assert.Equal(0L, result.Counters.HostOperations);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HelpFitsTheDiagnosticByteCeiling(bool responseFile)
+    {
+        using InMemoryQpdfHost host = new();
+        if (responseFile)
+        { host.AddInput(QpdfPath.From("help-args"), "--help\n"u8.ToArray(), QpdfInputOwnership.Transfer); }
+        QpdfCommandInvocation command = new([responseFile ? "@help-args" : "--help"]);
+        QpdfExecutionResult baseline = await Qpdf.ExecuteAsync(host, command, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, baseline.Status);
+        QpdfDiagnostic message = Assert.Single(baseline.Diagnostics);
+        Assert.Equal(QpdfDiagnosticCode.HelpText, message.Code);
+        long bytes = Encoding.UTF8.GetByteCount(message.Message);
+        Assert.True(bytes > 1);
+
+        QpdfExecutionOptions exact = new(QpdfLimits.Default with { MaxDiagnosticBytes = bytes, MaxOutputBytes = 1 });
+        QpdfExecutionResult accepted = await Qpdf.ExecuteAsync(host, command, exact, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Completed, accepted.Status);
+        Assert.Equal(message, Assert.Single(accepted.Diagnostics));
+        Assert.Equal(1L, accepted.Counters.DiagnosticCount);
+
+        QpdfExecutionOptions shortBudget = new(QpdfLimits.Default with { MaxDiagnosticBytes = bytes - 1 });
+        QpdfExecutionResult refused = await Qpdf.ExecuteAsync(host, command, shortBudget, CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, refused.Status);
+        Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, SingleError(refused).Code);
+        Assert.Equal(0L, refused.Counters.DiagnosticCount);
+        Assert.Equal(responseFile, refused.Counters.HostOperations > 0);
+        Assert.Equal(0L, host.OpenLeaseCount);
+
+        QpdfExecutionResult canceled = await Qpdf.ExecuteAsync(host, command, exact, new CancellationToken(true));
+        Assert.Equal(QpdfExecutionStatus.Canceled, canceled.Status);
+        Assert.Empty(canceled.Diagnostics);
+        Assert.Equal(0L, canceled.Counters.HostOperations);
     }
 
     private static InMemoryQpdfHost HostWith(string name, byte[] bytes)

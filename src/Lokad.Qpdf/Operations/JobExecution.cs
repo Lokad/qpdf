@@ -18,58 +18,23 @@ internal static class JobExecution
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
 
-        if (HelpText.TryMatchCrypto(expanded, out string crypto))
+        if (HelpText.TryMatchCrypto(expanded, out string text)
+            || HelpText.TryMatchHelp(expanded, out text)
+            || HelpText.TryMatchVersion(expanded, out text)
+            || HelpText.TryMatchCopyright(expanded, out text)
+            || HelpText.TryMatchJobJsonHelp(expanded, out text)
+            || HelpText.TryMatchJsonHelp(expanded, out text)
+            || HelpText.TryMatchCompletionBash(expanded, out text)
+            || HelpText.TryMatchCompletionZsh(expanded, out text))
         {
-            diagnostics.Add(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, crypto);
+            diagnostics.Add(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, text);
             return ExecutionOutcome.Completed(diagnostics.Entries);
-        }
-
-        if (HelpText.TryMatchHelp(expanded, out string help))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, help)]);
-        }
-
-        if (HelpText.TryMatchVersion(expanded, out string version))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, version)]);
-        }
-
-        if (HelpText.TryMatchCopyright(expanded, out string copyright))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, copyright)]);
-        }
-
-        if (HelpText.TryMatchJobJsonHelp(expanded, out string jobJsonHelp))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jobJsonHelp)]);
-        }
-
-        if (HelpText.TryMatchJsonHelp(expanded, out string jsonHelp))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, jsonHelp)]);
-        }
-
-        if (HelpText.TryMatchCompletionBash(expanded, out string completionBash))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionBash)]);
-        }
-
-        if (HelpText.TryMatchCompletionZsh(expanded, out string completionZsh))
-        {
-            return ExecutionOutcome.Completed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.HelpText, QpdfDiagnosticSeverity.Info, completionZsh)]);
         }
 
         if (HelpText.TryMatchZopfli(expanded, out string zopfli))
         {
-            return ExecutionOutcome.Failed(
-                [new QpdfDiagnostic(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli)]);
+            diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Error, zopfli);
+            return ExecutionOutcome.Failed(diagnostics.Entries);
         }
 
         JobJsonLoader.LoadedJob loaded;
