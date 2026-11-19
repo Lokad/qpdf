@@ -46,7 +46,8 @@ internal static partial class SourceActions
             if (destination is PdfName or PdfByteString && _catalog is PdfDictionary catalog)
             {
                 _destinations ??= NamedDestinations.Create(Resolver, catalog, _scratch, _governor, _token);
-                destination = _destinations.Find(destination);
+                try { destination = _destinations.Find(destination); }
+                catch (QpdfParseException) { return false; } // Keep an opaque malformed optional index.
             }
             return destination is PdfArray explicitDestination && IsStaleDestination(explicitDestination);
         }
@@ -183,14 +184,14 @@ internal static partial class SourceActions
 
         private QpdfObject? Next(Node node) => Read((PdfDictionary)node.Original, "Next"u8, _governor, _token);
 
-        private QpdfObject BuildActionArray(PdfArray array, int depth)
+        private PdfArray BuildProjectedArray(PdfArray array, Role itemRole, int depth)
         {
             List<QpdfObject> items = ParserContainers.CreateList<QpdfObject>(Graph.Memory, array.Count, IntPtr.Size);
             for (int index = 0; index < array.Count; index++)
             {
                 Check();
                 QpdfObject raw = array[index];
-                Node? child = Find(raw, Role.Action);
+                Node? child = Find(raw, itemRole);
                 if (child is { Edited: PdfNull }) { continue; }
                 items.Add(child is { Changed: true } ? child.Reference ?? Build(child, depth + 1) : raw);
             }

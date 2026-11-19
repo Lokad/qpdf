@@ -338,7 +338,7 @@ internal static partial class SourceActions
         private Role CatalogRole(ReadOnlySpan<byte> key)
             => key.SequenceEqual("AA"u8) ? Role.DocumentEvents
                 : key.SequenceEqual("OpenAction"u8) ? _frames is null && _splitPages is null ? Role.Action : Role.OpenAction
-                : _frames is null ? Role.None : key.SequenceEqual("Names"u8) ? Role.Names
+                : _frames is null && _splitPages is null ? Role.None : key.SequenceEqual("Names"u8) ? Role.Names
                 : key.SequenceEqual("Dests"u8) ? Role.DestinationIndex : Role.None;
 
         private Role ChildRole(Node node, ReadOnlySpan<byte> key)
@@ -352,15 +352,15 @@ internal static partial class SourceActions
             }
             if ((_frames is not null || _fieldKids is not null || _splitPages is not null) && (roles & Role.Form) != 0
                 && (key.SequenceEqual("Fields"u8) || key.SequenceEqual("CO"u8))) { result |= Role.Fields; }
-            if (_frames is not null)
+            if (_frames is not null || _splitPages is not null)
             {
                 if ((roles & Role.Names) != 0 && key.SequenceEqual("Dests"u8)) { result |= Role.DestinationTree; }
+                if ((roles & Role.DestinationTree) != 0 && key.SequenceEqual("Kids"u8)) { result |= Role.DestinationTrees; }
+            }
+            if (_frames is not null)
+            {
                 if ((roles & Role.DestinationIndex) != 0) { result |= Role.Destination; }
-                if ((roles & Role.DestinationTree) != 0)
-                {
-                    if (key.SequenceEqual("Kids"u8)) { result |= Role.DestinationTrees; }
-                    if (key.SequenceEqual("Names"u8)) { result |= Role.DestinationPairs; }
-                }
+                if ((roles & Role.DestinationTree) != 0 && key.SequenceEqual("Names"u8)) { result |= Role.DestinationPairs; }
                 if ((roles & Role.Destination) != 0 && key.SequenceEqual("D"u8)) { result |= Role.Destination; }
                 if (key.SequenceEqual("Dest"u8) && ((roles & Role.Outline) != 0
                     || (roles & Role.Annotation) != 0 && IsSubtype(node, "Link"u8))) { result |= Role.Destination; }
@@ -452,6 +452,7 @@ internal static partial class SourceActions
                     { if (node.Roles != Role.DestinationPairs || (item & 1) != 0) { Add(array[item], role, node); } }
                 }
             }
+            if (_splitPages is not null) { PrepareDestinationIndexes(); }
             if (_hasStaleContinuations) { PrepareActionContinuations(); }
             _pending.Clear();
             foreach (Node node in _nodes.Values)
@@ -536,8 +537,8 @@ internal static partial class SourceActions
             }
             if (original is PdfArray array)
             {
-                if (_splitPages is not null && node.Roles == Role.Actions)
-                { return node.Result = BuildActionArray(array, depth); }
+                if (_splitPages is not null && node.Roles is Role.Actions or Role.DestinationTrees)
+                { return node.Result = BuildProjectedArray(array, ItemRole(node.Roles), depth); }
                 long bytes = checked(64L + IntPtr.Size * (long)array.Count); Graph.Memory.Reserve(bytes);
                 QpdfObject[] values = new QpdfObject[array.Count]; Graph.Add(bytes);
                 Role role = ItemRole(node.Roles);
@@ -561,7 +562,7 @@ internal static partial class SourceActions
                     entries.Assign(Graph.Memory, _governor, source.Current.Key, value, _token);
                 }
                 if (node.PromotedNext is PdfArray next)
-                { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "Next"u8), BuildActionArray(next, depth), _token); }
+                { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "Next"u8), BuildProjectedArray(next, Role.Action, depth), _token); }
                 if (IsSubtype(node, "Widget"u8) && _widgetPages?.TryGetValue(node.Number, out PdfReference? page) == true)
                 { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "P"u8), page, _token); }
                 node.Result = PdfDictionaryRebuild.Complete(Graph, entries, bytes);

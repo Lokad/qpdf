@@ -277,7 +277,8 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   run in their original order.
   Remote actions and private aliases remain subject to ordinary split remapping.
   Physical splits omit the catalog OpenAction. Bound splits retain destinations
-  aimed at retained pages.
+  aimed at retained pages and filter both named destination indexes. Surviving
+  name-tree limits follow the kept keys. Other name categories remain available.
 - When selection, splitting or flattening removes some widgets from a field,
   the active form keeps its surviving branches and their calculation order.
   Surviving widgets point to their page and projected field. Private references
