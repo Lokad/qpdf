@@ -121,10 +121,15 @@ public sealed class AttachmentConstructionTests
         ResourceGovernor governor = new(limits, CancellationToken.None); Dictionary<int, QpdfObject> pool = [];
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            long allocated = GC.GetAllocatedBytesForCurrentThread();
-            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => Assemble(host, pool, new(adds, [], []),
-                new(StringComparer.Ordinal) { ["already"] = new(new PdfByteString("already"u8.ToArray(), false), new PdfReference(7, 0)) }, false, limits, governor, memory, CancellationToken.None));
-            Assert.True(GC.GetAllocatedBytesForCurrentThread() - allocated < 65536L);
+            AttachmentEdits edits = new(adds, [], []);
+            SortedDictionary<string, AttachmentReference> existing = new(StringComparer.Ordinal)
+            { ["already"] = new(new PdfByteString("already"u8.ToArray(), false), new PdfReference(7, 0)) };
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Task operation = Assemble(host, pool, edits, existing, false, limits, governor, memory, CancellationToken.None);
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.True(operation.IsCompleted);
+            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => operation);
+            Assert.InRange(allocated, 0L, 65535L);
             Assert.Equal("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key. (offset 0).", failure.Message);
             Assert.Equal(1, host.Opens); Assert.Equal(1, host.Closes); Assert.Single(pool.Values.OfType<PdfStream>());
         }

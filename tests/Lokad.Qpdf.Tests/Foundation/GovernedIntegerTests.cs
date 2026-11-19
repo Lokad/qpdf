@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Foundation;
@@ -101,13 +102,45 @@ public sealed class GovernedIntegerTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         GovernedIntSet set = GovernedIntSet.Create(memory, governor, CancellationToken.None);
         for (int key = 0; key < 32; key++) { set.Add(memory, key * 32); }
-        for (int warm = 0; warm < 256; warm++) { foreach (int key in set) { set.Contains(key); } }
+        for (int warm = 0; warm < 32; warm++)
+        {
+            _ = CountLookups(set);
+            _ = SumEnumeratedKeys(set);
+        }
         long before = GC.GetAllocatedBytesForCurrentThread();
-        int found = 0;
-        for (int iteration = 0; iteration < 128; iteration++) { foreach (int key in set) { if (set.Contains(key)) { found++; } } }
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        int found = CountLookups(set);
+        long lookupBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        before = GC.GetAllocatedBytesForCurrentThread();
+        int keySum = SumEnumeratedKeys(set);
+        long enumerationBytes = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.Equal(128 * 32, found);
-        Assert.Equal(0L, allocated);
+        Assert.Equal(128 * 32 * (32 * 31 / 2), keySum);
+        Assert.Equal(0L, lookupBytes);
+        Assert.Equal(0L, enumerationBytes);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int CountLookups(GovernedIntSet set)
+    {
+        int found = 0;
+        for (int iteration = 0; iteration < 128; iteration++)
+        for (int key = 0; key < 32; key++)
+        {
+            if (set.Contains(key * 32)) { found++; }
+        }
+        return found;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int SumEnumeratedKeys(GovernedIntSet set)
+    {
+        int sum = 0;
+        for (int iteration = 0; iteration < 128; iteration++)
+        foreach (int key in set)
+        {
+            sum += key;
+        }
+        return sum;
     }
 
     [Fact]
