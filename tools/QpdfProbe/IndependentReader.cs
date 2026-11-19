@@ -19,6 +19,21 @@ internal static class IndependentReader
         Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(pages));
     }
 
+    internal static void WritePaintedImages(string inputPdf)
+    {
+        using PdfDocument document = PdfDocument.Open(inputPdf);
+        var images = Enumerable.Range(1, document.NumberOfPages)
+            .SelectMany(page => document.GetPage(page).GetImages().Select(image => new
+            {
+                Page = page,
+                Width = image.WidthInSamples,
+                Height = image.HeightInSamples,
+                Inline = image.IsInlineImage,
+                EncodedSha256 = Convert.ToHexString(SHA256.HashData(image.RawMemory.Span)),
+            })).ToArray();
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(images));
+    }
+
     internal static IndependentResult Read(string inputPdf, bool allowEmpty)
     {
         if (string.IsNullOrWhiteSpace(inputPdf))

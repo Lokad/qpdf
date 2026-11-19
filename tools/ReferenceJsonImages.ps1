@@ -17,10 +17,12 @@ function Get-JsonImageProjection {
   if ($objects -is [string]) { $objects = $table['obj:' + $objects].value }
   $images = [Collections.Generic.List[object]]::new()
   if ($null -ne $objects) {
-    foreach ($reference in $objects.Values) {
+    foreach ($entry in $objects.GetEnumerator()) {
+      $reference = $entry.Value
       $stream = $table['obj:' + $reference].stream
       $bytes = [Convert]::FromBase64String($stream.data)
-      $images.Add([pscustomobject]@{ Filter=$stream.dict['/Filter']; Bytes=$bytes; Width=$stream.dict['/Width']; Height=$stream.dict['/Height'] })
+      $images.Add([pscustomobject]@{ Name=$entry.Key; Pair=$reference; Filter=$stream.dict['/Filter']; Bytes=$bytes
+        Width=$stream.dict['/Width']; Height=$stream.dict['/Height'] })
     }
   }
   $private = [Convert]::FromBase64String($table['obj:' + $catalog['/PrivateImage']].stream.data)
@@ -97,11 +99,61 @@ function Invoke-ReferenceJsonImages {
     $control = if ($row.Count -gt 0) { 'altered image payloads reject' } else { 'no image payload to alter' }
     Write-Output "[json-image-optimization/$name] image effects, private payload and flags agree; recreation passes; $control."
   }
-  Assert-BoundJsonImages $case $pixelHash $optimize
+  Assert-BoundJsonImages $case $pixels $pixelHash $optimize
+}
+
+function Read-PaintedImages([string]$Case, [string]$Pdf) {
+  $result = Invoke-ReferenceProbeRequest -WorkingDirectory $Case -Arguments @('page-images', '--input', $Pdf)
+  if ($result.ExitCode -ne 0) { throw "Independent image inspection failed: $Pdf. See $($result.StandardError)." }
+  [IO.File]::ReadAllText($result.StandardOutput) | ConvertFrom-Json
+}
+
+function Read-ReferenceImageBytes([string]$Case, [string]$Pdf, [string]$Pair, [bool]$Decode) {
+  $id = $Pair -split ' '
+  $mode = if ($Decode) { '--filtered-stream-data' } else { '--raw-stream-data' }
+  $job = Start-ReferenceProcess -FilePath $QpdfExe -WorkingDirectory $Case -NoNewWindow -Wait -PassThru `
+    -ArgumentList @($Pdf, "--show-object=$($id[0]),$($id[1])", '--decode-level=all', $mode) `
+    -RedirectStandardOutput "$Case/image-samples.bin" -RedirectStandardError "$Case/image-samples.txt"
+  if ($job.ExitCode -ne 0) { throw "Native image stream inspection failed: $Pdf $Pair." }
+  return ,([IO.File]::ReadAllBytes("$Case/image-samples.bin"))
+}
+
+function Assert-BoundImagePainting([string]$Case, [string]$Pdf, $Image, [bool]$Encoded, [byte[]]$Pixels) {
+  $drawn = @(Read-PaintedImages $Case $Pdf)
+  $raw = Read-ReferenceImageBytes $Case $Pdf $Image.Pair $false
+  $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($raw))
+  if ($drawn.Count -ne 1 -or $drawn[0].Page -ne 1 -or $drawn[0].Inline -or
+      $drawn[0].Width -ne $Image.Width -or $drawn[0].Height -ne $Image.Height -or $drawn[0].EncodedSha256 -cne $hash) {
+    throw "The expected image resource was not painted on page 1: $Pdf $($Image.Name)."
+  }
+  if (!$Encoded) { return }
+  $decoded = Read-ReferenceImageBytes $Case $Pdf $Image.Pair $true
+  if ($decoded.Length -ne $Pixels.Length) { throw "Decoded image sample count differs: $Pdf." }
+  for ($i = 0; $i -lt $decoded.Length; $i++) {
+    if ([Math]::Abs([int]$decoded[$i] - [int]$Pixels[$i]) -gt 4) {
+      throw "Decoded JPEG sample $i differs from the original solid color: $Pdf."
+    }
+  }
+}
+
+function Assert-CommentedImageIsNotPainted([string]$Case, $View, [string]$Pair, [string]$Operator) {
+  $stream = $View.qpdf[1]['obj:' + $Pair].stream
+  $program = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($stream.data))
+  $mutated = $program.Replace($Operator, "% $Operator`n", [StringComparison]::Ordinal)
+  if ($mutated -ceq $program) { throw 'Comment control did not replace an image draw.' }
+  $stream.data = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($mutated))
+  $View | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath "$Case/commented-image.json"
+  $pdf = "$Case/commented-image.pdf"
+  if ((Invoke-Oracle $Case @('--json-input', "$Case/commented-image.json", '--stream-data=preserve', $pdf)) -ne 0 -or
+      (Invoke-Oracle $Case @('--check', $pdf)) -ne 0) {
+    throw 'Cannot create a valid commented-image control.'
+  }
+  if (@(Read-PaintedImages $Case $pdf).Count -ne 0) { throw 'A commented image draw was reported as painted.' }
+  Write-Output '[json-bound-images/commented-image] valid PDF keeps the image resource and paints no image.'
 }
 
 function Assert-BoundJsonImages {
-  param([string]$Case, [string]$PixelHash, [string[]]$Optimize)
+  param([string]$Case, [byte[]]$Pixels, [string]$PixelHash, [string[]]$Optimize)
   foreach ($shape in 'inline','xobject') {
     $model = Get-Content -LiteralPath "$Case/$shape.json" -Raw | ConvertFrom-Json -AsHashtable
     $table = $model.qpdf[1]
@@ -140,18 +192,22 @@ function Assert-BoundJsonImages {
           '--json-stream-data=inline','--decode-level=generalized',$report)) -ne 0) { throw "$tag graph is unavailable." }
       $view = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json -AsHashtable
       $projection = Get-JsonImageProjection $view
-      if (-not (Test-JsonImageProjection $projection 1 $row.Encoded $projection.Called $PixelHash)) {
+      if (-not (Test-JsonImageProjection $projection 1 $row.Encoded $true $PixelHash)) {
         throw "$tag/$pdf image filters, samples or private payload differ."
       }
       $pair = $view.pages[0].contents[0]
-      $body = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($view.qpdf[1]['obj:'+$pair].stream.data))
-      $operator = if ($row.Name -eq 'xobject-optimize') { '/Im Do' } else { '/IIm1 Do' }
-      if (!$body.Contains($operator, [StringComparison]::Ordinal) -or
-          ($row.Name -eq 'patched-optimize' -and !$body.Contains('% patched inline image', [StringComparison]::Ordinal))) {
-        throw "$tag changed the expected page program."
+      $name = if ($row.Name -eq 'xobject-optimize') { '/Im' } else { '/IIm1' }
+      if ($projection.Images[0].Name -cne $name) { throw "$tag changed the expected resource name." }
+      Assert-BoundImagePainting $Case $pdf $projection.Images[0] $row.Encoded $Pixels
+      if ($row.Name -eq 'patched-optimize') {
+        $body = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($view.qpdf[1]['obj:'+$pair].stream.data))
+        if (!$body.Contains('% patched inline image', [StringComparison]::Ordinal)) { throw "$tag discarded the patch marker." }
+      }
+      if ($row.Name -eq 'inline-optimize' -and $pdf -eq $lib) {
+        Assert-CommentedImageIsNotPainted $Case $view $pair "$name Do"
       }
     }
-    Write-Output "[$tag] page operator, image filter and private payload agree."
+    Write-Output "[$tag] painted resource, image samples and independent private payload agree."
   }
   if (Compare-Object $inputs @(Get-ChildItem -LiteralPath "$Case/inputs" -File | Get-FileHash) -Property Path,Hash) {
     throw 'Bound image processing changed an input.'

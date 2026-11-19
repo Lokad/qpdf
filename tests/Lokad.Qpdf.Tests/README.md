@@ -54,6 +54,8 @@ coverage boundaries are:
 | Argument previews | `ArgumentErrorMemoryTests` covers bounded terminal errors and range previews. Adapter samples cover configuration admission and prior targets. |
 
 Reference inspection compares ordered native listings and exact payloads.
+Bound image controls verify painted XObjects with PdfPig and decoded JPEG
+samples with the pinned native reader.
 Native target checks preseed the path passed to qpdf. Recording-host tests
 observe managed transaction calls and prior-target contents.
 
