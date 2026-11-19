@@ -51,7 +51,9 @@ function Assert-Rejection {
     $output = & pwsh -NoProfile -File $ToolPath -PackagePath $ArtifactPath @ExtraArguments 2>&1 | Out-String
     $code = $LASTEXITCODE
     [System.IO.File]::WriteAllText((Join-Path $testRoot ($Name + '.log')), $output)
-    if ($code -eq 0 -or $output -notmatch $ExpectedPattern -or
+    # PowerShell wraps exception text at the terminal width and adds a gutter.
+    $message = $output -replace '\r?\n[ \t]*\|[ \t]*', ' '
+    if ($code -eq 0 -or $message -notmatch $ExpectedPattern -or
         $output.Contains('Fresh consumer evidence:') -or $output.Contains('CONSUMER SMOKE PASSED')) {
         throw "$Name did not reject as expected (exit $code). See its saved log."
     }
