@@ -23,7 +23,7 @@ not establish implemented behavior. Development changes are in the
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
 | Host effects | Logical paths, inputs, descriptors, environment and publication require host capabilities. Fileless results replace ambient stdout. |
-| Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container and nesting ceilings also apply to JSON imports, where native can ignore them. Memory admission bounds an estimated working set, not CLR heap or process RSS. See [ownership](MEMORY.md). |
+| Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container and nesting ceilings also apply to JSON imports, where native can ignore them. [Memory admission](MEMORY.md) |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
 
 The inventory covers 140 flags in 157 context entries, plus the fix-qdf and zlib-flate
@@ -114,17 +114,11 @@ rotation refusals above. [ISO 32000-1, 12.3.2.2 and Table 151](https://opensourc
 
 ## Resource APIs
 
-The typed count and standalone `--show-npages` / `showNpages` share bounded
-acquisition. Their count policies differ as described above.
-[Counting](SUPPORTED-PROFILE.md#inspection-profile) · [Acquisition bounds](MEMORY.md#engine-guarantees-and-limits)
-
-`QpdfExecutionCounters.HostOperations` counts actual opens, reads and writes.
-Hosts can supply deadline tokens alongside structural, decoded-byte, memory and
-handle limits. Nesting or container exhaustion raises `QpdfLimitException`
+Nesting or container exhaustion raises `QpdfLimitException`
 (`BudgetExceeded`). Required malformed source contexts raise `QpdfParseException`
 (`InvalidArguments`), unsupported binding yields `UnsupportedFeature`, and host
 failures yield `HostOperationFailed`.
-[Input leases](MEMORY.md#input-leases) · [Caller ownership](MEMORY.md#escaped-values-and-results) · [JPEG codecs](MEMORY.md#jpeg-codecs)
+[Acquisition bounds, counters and cancellation](MEMORY.md#engine-guarantees-and-limits)
 
 ## How compatibility is verified
 

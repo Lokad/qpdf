@@ -109,20 +109,17 @@ Zopfli compression is unavailable. [Supported profile](docs/SUPPORTED-PROFILE.md
 
 ## Build from source
 
-Use the .NET 11 SDK pinned in `global.json`, with the .NET 10
-SDK installed for its targeting packs and runtime:
+Use the .NET 11 SDK pinned in `global.json` and install the .NET 10 SDK
+for its targeting packs and runtime.
 
 ```sh
 dotnet restore Lokad.Qpdf.slnx --locked-mode
 dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
-dotnet pack src/Lokad.Qpdf/Lokad.Qpdf.csproj -c Release --no-build --no-restore
 ```
 
-The package is written to `artifacts/nuget`. Ordinary builds and tests require no
-native qpdf or other external PDF tools. See the contributor checks and the
-full reference and visual commands.
-[Build and checks](https://github.com/Lokad/qpdf/blob/master/AGENTS.md#build-and-checks) ·
+Ordinary builds and tests require no external PDF tools.
+[Package build and checks](https://github.com/Lokad/qpdf/blob/master/AGENTS.md#build-and-checks) ·
 [Reference and visual checks](docs/COMPATIBILITY.md#how-compatibility-is-verified)
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.

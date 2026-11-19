@@ -140,7 +140,7 @@ warnings keep only exit-status history. Result/diagnostic state is prepared befo
 publication so formatting/admission failure cannot follow a successful commit.
 
 Structural/cycle/decompression limits and cooperative cancellation remain
-independent of memory admission. There is no cumulative CPU fuel or host-call
-quota; host-operation counters observe actual opens, reads and writes. Hosts can
-supply deadline tokens. See [resource APIs](COMPATIBILITY.md#resource-apis)
-and [benchmark methodology](BENCHMARKS.md) for measurement details.
+independent of memory admission. `QpdfExecutionCounters.HostOperations` counts
+actual opens, reads and writes. Hosts can supply deadline tokens. The engine has
+no cumulative CPU fuel or host-call quota.
+[Resource failures](COMPATIBILITY.md#resource-apis) · [Benchmark methodology](BENCHMARKS.md)

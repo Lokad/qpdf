@@ -52,30 +52,18 @@ catalog, attachments and document protection follow their own policies. Failed
 copies roll back their new objects and mappings. Final-root reachability retires
 superseded graphs.
 
-The page graph supplies inherited attributes, labels and visible page identity to
-selection, transforms and inspection. Single- and multi-source selection share
-appearance processing once source bindings are established. Page content and
-Form operations share decoding, geometry and resource owners. Each operation
-retains its policy for malformed or unsupported values. Placement and clipping
-rebuild appearance dictionaries through the same traversal and own their
-stream transforms and caches.
+The page graph supplies inherited attributes, labels and page identity across
+selection, transforms and inspection. Page content, Forms and appearances share
+decoding, geometry and resource owners. Placement and clipping share appearance
+traversal and own their stream transforms and caches.
 
-JSON export can assemble the selected page graph before projecting it. Page and
-object reports share the assembled graph and preserve source pair provenance.
-The writer can project a bound JSON graph with its original pairs. Physical
-source edges resolve against their xrefs. The export graph detaches
-after serialization and sidecar copying, before host publication.
-
-JSON creation and update bind declarations against complete pairs. An update
-authenticates the source first and applies any declared page preparation before
-binding. A create-and-patch job binds both sets of declarations and applies the
-patch to the in-memory graph. Original PDF edges must match live xrefs.
-Sidecars can share admitted bytes by logical path while
-retaining separate headers. Output packing carries original object-stream
-membership through renumbering.
-Command imports use the shared coalescer during bound page-tree traversal.
-Joining changes the active contents link while reachability retains private
-aliases and retires replaced-only objects.
+JSON reports preserve declared or source pairs from the effective graph. Imports
+bind complete pairs, and physical source edges resolve against live xrefs.
+Updates authenticate and prepare source pages before binding the patch. Sidecars
+can share admitted bytes while retaining separate headers. The export graph
+detaches after serialization and sidecar copying, before publication.
+[JSON export](SUPPORTED-PROFILE.md#json-export) ·
+[JSON import and update](SUPPORTED-PROFILE.md#json-import-and-update)
 
 During publication, signature discovery follows each field's Parent/Kids
 component and preserves unrelated fields and private aliases. Former widgets
@@ -84,25 +72,17 @@ become static stamps using their stored appearances.
 
 ## Inspection and publication
 
-The structural checker shares page-tree, stream, content and form analysis
-across ordinary and bound JSON graphs. Physical header, offsets and
-linearization require physical input. Output-free JSON checking reports those
-stages as skipped. A job shares one hint analysis across its structural check
-and linearization reports. Standalone and checked listings share the bound graph and
-declared pairs. Attachment inspection uses the same name-tree walker on bound
-and physical graphs. Text and JSON page reports share inherited image lookup
-and retain their distinct descriptor and diagnostic policies.
+Checking and listing use the same effective graph. Physical checks use the
+acquired file. A job shares hint analysis across its structural check and
+linearization reports. Attachment reports share a name-tree walker, and page
+reports share inherited image lookup.
+[Inspection profile](SUPPORTED-PROFILE.md#inspection-profile)
 
-JSON imports and ordinary PDF operations share catalog and version policy.
-Whole-file command imports compact the published numbers after stream
-preparation. Original pairs still identify QDF comments, and packing and
-encryption use the final numbers.
-Split imports partition the bound page tree after applying patches and stream
-preparation. They reuse the ordinary split numbering and publication owners.
-`OutputModelPreparation` finalizes reachability, encryption numbering,
-ordering and object-stream grouping. Direct outline roots gain an indirect
-identity for layout. Two-pass linearization classifies page and shared
-dependencies before writing hints and keeps the outline closure outside packed objects.
+JSON imports and ordinary writes share catalog, version and split policies.
+`OutputModelPreparation` finalizes reachability, numbering and object-stream
+membership after stream preparation. QDF comments use original pairs. Packing
+and encryption use final numbers. Two-pass linearization assigns page and shared
+dependencies to hint spans and keeps outline objects outside object streams.
 
 `OutputSerialization` dispatches counting, identifier replay and final
 emission. Writers share identifier validation, byte encoding and bounded
