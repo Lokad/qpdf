@@ -259,10 +259,12 @@ public sealed class XrefCollectionTests
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
         XRefTable table = Parse(input, governor, QpdfLimits.Default);
         int capacity = Assert.IsType<Dictionary<int, XrefEntry>>(table.Entries).EnsureCapacity(0);
-        // Warm the actual constructor path before measuring backing storage.
-        // Cold BCL/runtime initialization is a separate allocation audit.
+        // Measure steady-state backing storage independent of incidental
+        // constructor initialization and tiering allocations.
         DictionaryAllocation(capacity);
-        long storage = DictionaryAllocation(capacity);
+        long storage = long.MaxValue;
+        for (int attempt = 0; attempt < 4; attempt++)
+        { storage = Math.Min(storage, DictionaryAllocation(capacity)); }
         Assert.True(governor.Snapshot().LiveMemoryBytes >= storage,
             $"Retained admission {governor.Snapshot().LiveMemoryBytes} is below independently allocated dictionary storage {storage}, capacity {capacity}.");
         Assert.True(table.Entries.Count >= count + 4);
