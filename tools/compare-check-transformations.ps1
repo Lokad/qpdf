@@ -58,6 +58,8 @@ $cases = @(
   @{N='externalized-image-listing';Fixture='inline-1page.pdf';Rotate='+90:1';O='3';Settings=@{externalizeInlineImages='';iiMinBytes='0';withImages=''};Arguments=@('--externalize-inline-images','--ii-min-bytes=0','--with-images');Line='    /IIm1: 6 0 R, 1 x 1';Pattern='/Rotate 90'},
   @{N='inline-image-threshold';Fixture='inline-1page.pdf';O='3';Settings=@{externalizeInlineImages='';iiMinBytes='100000';withImages=''};Arguments=@('--externalize-inline-images','--ii-min-bytes=100000','--with-images');Pattern='/Contents 4 0 R';Forbidden='/IIm'},
   @{N='optimized-image-listing';Fixture='photo-1page.pdf';Rotate='+90:1';O='3';Settings=@{optimizeImages='';jpegQuality='50';keepInlineImages='';withImages=''};Arguments=@('--optimize-images','--jpeg-quality=50','--keep-inline-images','--with-images');Line='    /Im0: 6 0 R, 160 x 160';Pattern='/Rotate 90'},
+  @{N='selected-prune-yes';Fixture='unref-1page.pdf';R='1';O='3';Settings=@{removeUnreferencedResources='yes'};Arguments=@('--remove-unreferenced-resources=yes');Pattern='/Font << /F1 5 0 R >>';Forbidden='/F2'},
+  @{N='selected-prune-no';Fixture='unref-1page.pdf';R='1';O='3';Settings=@{removeUnreferencedResources='no'};Arguments=@('--remove-unreferenced-resources=no');Pattern='/Font << /F1 5 0 R /F2 6 0 R >>'},
   @{N='catalog-form-removal';Fixture='forms-1page.pdf';O='1';Settings=@{removeAcroform=''};Arguments=@('--remove-acroform');Forbidden='/AcroForm'},
   @{N='catalog-structure-removal';Fixture='struct-preserve-1page.pdf';O='1';Settings=@{removeStructure=''};Arguments=@('--remove-structure');Forbidden='/StructTreeRoot|/MarkInfo'},
   @{N='catalog-metadata-removal';Fixture='meta-1page.pdf';O='1';Settings=@{removeMetadata=''};Arguments=@('--remove-metadata');Forbidden='/Metadata'},
@@ -85,7 +87,7 @@ $cases = @(
 $checkRoutes = @{
   'first'='argv'; 'collation'='job'; 'content-generations'='mixed'; 'coalesced-listing'='job';
   'range-bounds'='job'; 'missing-source'='mixed'; 'catalog-form-removal'='job'
-  'externalized-image-listing'='job'
+  'externalized-image-listing'='job'; 'selected-prune-yes'='job'
 }
 $records = foreach ($item in $cases) {
   $variants = @(@{Route='argv';Check=$false})

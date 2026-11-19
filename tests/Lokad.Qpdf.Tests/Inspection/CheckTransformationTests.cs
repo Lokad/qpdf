@@ -5,6 +5,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Tests.Content;
+using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -208,6 +209,65 @@ public sealed class CheckTransformationTests
     private static string[] ListedContents(QpdfExecutionResult result)
         => result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.PageListing && d.Message.StartsWith("    ", StringComparison.Ordinal))
             .Select(d => d.Message).ToArray();
+
+    [Theory]
+    [InlineData("argv", "yes", "shared", true)]
+    [InlineData("argv", "no", "shared", false)]
+    [InlineData("job", "auto", "inherited", true)]
+    [InlineData("argv", "auto", "independent", false)]
+    [InlineData("argv", "yes", "damaged", false)]
+    public async Task SelectedTextInspectionPrunesOnlyEligibleResourceBindings(string route, string mode, string shape, bool pruned)
+    {
+        using InMemoryQpdfHost storage = Host(JsonResourcePruningTests.Fixture(17, shape));
+        TestHost host = new(storage, null);
+        QpdfExecutionResult original = await Execute(storage, host, "argv", "",
+            ["--show-object=5,17", "--show-xref"], QpdfLimits.Default, CancellationToken.None);
+        string properties = "\"pages\":[{\"file\":\".\",\"range\":\"1\"}],\"showObject\":\"3,17\",\"showXref\":\"\","
+            + "\"removeUnreferencedResources\":\"" + mode + "\"";
+        QpdfExecutionResult selected = await Execute(storage, host, route, properties,
+            ["--pages", ".", "1", "--", "--remove-unreferenced-resources=" + mode, "--show-object=3,17", "--show-xref"],
+            QpdfLimits.Default, CancellationToken.None);
+        bool damaged = shape == "damaged";
+        Assert.Equal(damaged ? QpdfExitCode.Warning : QpdfExitCode.Success, selected.ExitCode);
+        Assert.Equal(damaged, selected.Diagnostics.Any(d => d.Code == QpdfDiagnosticCode.UnsupportedFeature
+            && d.Message.StartsWith("Skipped resource pruning", StringComparison.Ordinal)));
+        string page = Assert.Single(selected.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message;
+        string resources = pruned ? "/Resources << /Font << /F1 8 17 R >> >>"
+            : shape == "independent" ? "/Resources << /Font << /F1 8 17 R /F2 9 17 R >> >>" : "/Resources 5 17 R";
+        Assert.Contains(resources, page, StringComparison.Ordinal);
+        Assert.Equal(original.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.XrefListing),
+            selected.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.XrefListing));
+
+        QpdfExecutionResult alias = await Execute(storage, host, "argv", "",
+            ["--pages", ".", "1", "--", "--remove-unreferenced-resources=" + mode, "--show-object=5,17"],
+            QpdfLimits.Default, CancellationToken.None);
+        QpdfDiagnostic privateResources = Assert.Single(alias.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing);
+        Assert.Equal(Assert.Single(original.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, privateResources.Message);
+        Assert.Contains("/F2 9 17 R", privateResources.Message, StringComparison.Ordinal);
+        Assert.Equal(0, host.OutputRequests);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task TextInspectionAutoPruningMakesIndependentDecisionsForEachSource()
+    {
+        using InMemoryQpdfHost host = Host(JsonResourcePruningTests.Fixture(17, "shared"));
+        host.AddInput(QpdfPath.From("foreign"), JsonResourcePruningTests.Fixture(0, "independent"), QpdfInputOwnership.Transfer);
+        string[] selection = ["--pages", ".", "1", "foreign", "1", "--", "--remove-unreferenced-resources=auto"];
+        QpdfExecutionResult listing = await Execute(host, "argv", "", [.. selection, "--show-pages", "--show-object=3,17"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, listing.ExitCode);
+        Assert.Contains("/Resources << /Font << /F1 8 17 R >> >>",
+            Assert.Single(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message, StringComparison.Ordinal);
+        string second = Assert.Single(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing
+            && d.Message.StartsWith("page 2:", StringComparison.Ordinal)).Message;
+        Match pair = Regex.Match(second, @"^page 2: (?<number>\d+) (?<generation>\d+) R$");
+        Assert.True(pair.Success, second);
+        QpdfExecutionResult foreign = await Execute(host, "argv", "", [.. selection, "--show-object=" + Selector(pair)], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, foreign.ExitCode);
+        Assert.Contains("/F2 ", Assert.Single(foreign.Diagnostics, d => d.Code == QpdfDiagnosticCode.ObjectListing).Message,
+            StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
 
     private static byte[] NestedFixture() => NestedFixture(false);
 

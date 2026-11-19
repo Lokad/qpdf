@@ -827,6 +827,7 @@ internal static partial class JobPlanner
                     CoalesceContents = coalesceContents,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
+                    RemoveUnreferencedResources = removeUnreferencedResources,
                     OptimizeImages = optimizeImages,
                     OiMinWidth = oiMinWidth,
                     OiMinHeight = oiMinHeight,

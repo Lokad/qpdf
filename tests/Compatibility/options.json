@@ -100,7 +100,7 @@
   ],
   "supplementalRequirements": [
     "Nested and mixed job configuration is host-mediated and bounded. Setter order, duplicates, include cycles and invocation defaults have public-job and pinned-reference evidence.",
-    "Checking and fileless inspection use the shared reader and transformed graph. Selection, rotation, overlay/form integration and serialization-only pruning behavior have public-job and pinned-reference evidence. Accepted codec/build limitations stay documented separately.",
+    "Checking and fileless inspection use the shared reader and transformed graph. Selection, rotation, overlay/form integration and per-source pruning have public-job and pinned-reference evidence. Accepted codec/build limitations stay documented separately.",
     "--json-key=encrypt must report non-secret encryption facts",
     "fix-qdf companion",
     "zlib-flate companion"
@@ -4208,6 +4208,8 @@
           "JsonImageOptimizationTests.OptimizedResourceRolesKeepOriginalAliasesAndExactSourcePairs",
           "JsonImageOptimizationTests.InlinePolicyDeterminesWhetherOptimizationCreatesAnImage",
           "JsonResourcePruningTests.SelectedResourcesFollowSourcePolicyWithoutChangingPrivateBindings",
+          "CheckTransformationTests.SelectedTextInspectionPrunesOnlyEligibleResourceBindings",
+          "CheckTransformationTests.TextInspectionAutoPruningMakesIndependentDecisionsForEachSource",
           "JsonResourcePruningTests.FormReplacementsLeaveThePrivateFormAndResourcesIntact"
         ],
         "negative": [
