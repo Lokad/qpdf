@@ -27,10 +27,9 @@ roles are known.
 
 Input admission and xref parsing precede authentication and page traversal.
 The reader resolves classic, streamed, hybrid and incremental xrefs into
-immutable values. Eligible classic-xref selection and standalone counting read
-bounded ranges and fall back to complete acquisition on the same lease. Public
-document opening keeps complete input for synchronous resolution. Resolution by
-reference validates the complete object number and generation.
+immutable values and validates the object number and generation of each reference.
+The input profile defines when selection and counting can use bounded reads.
+[Input profile](SUPPORTED-PROFILE.md#input-profile)
 
 ## Component map
 
@@ -80,15 +79,14 @@ reports share inherited image lookup.
 [Inspection profile](SUPPORTED-PROFILE.md#inspection-profile)
 
 JSON imports and ordinary writes share catalog, version and split policies.
+Split preparation binds each page range to its target before validation.
 `OutputModelPreparation` finalizes reachability, numbering and object-stream
 membership after stream preparation. QDF comments use original pairs. Packing
 and encryption use final numbers. Two-pass linearization assigns page and shared
 dependencies to hint spans and keeps outline objects outside object streams.
 
 `OutputSerialization` dispatches counting, identifier replay and emission.
-`OutputPublication` owns staged captures. Alias checks use the acquisition
-records. In-place updates and targeted binary extraction can retain admitted
-bytes after closing the input lease.
+`OutputPublication` owns staged captures. Alias checks use the acquisition records.
 [Publication rules](SUPPORTED-PROFILE.md#governance) · [Host transaction flow](MEMORY.md#host-transaction-flow)
 
 ## Password security
@@ -102,17 +100,14 @@ its encryption flag. External-file streams stay opaque.
 
 AES, hashes and randomness use .NET system cryptography. The owned RC4
 primitive is checked against published vectors. AES verifies padding before
-allocating exact plaintext and processes bounded chunks. Derivation and
-payload scratch follow their owners and secret buffers clear at retirement.
+allocating exact plaintext and processes bounded chunks.
 [RFC 6229](https://www.rfc-editor.org/rfc/rfc6229.txt) ·
 [ISO R6 algorithm errata](https://pdf-issues.pdfa.org/32000-2-2020/clause07.html#7.6.4.3.4)
 
-Each input authenticates with its own credential. An output security owner
-holds the key and dictionary independently of reader lifetime. Preservation
-and templates copy password entries and the first identifier. Fresh R6 split
-outputs receive independent keys.
-The writer negotiates the required PDF version for the chosen handler.
-[Password profile](SUPPORTED-PROFILE.md#password-security)
+The output security owner holds the key and dictionary independently of the
+reader. The writer negotiates the required version for the chosen handler.
+[Password profile](SUPPORTED-PROFILE.md#password-security) ·
+[Key and scratch ownership](MEMORY.md#engine-guarantees-and-limits)
 
 Crypt-stage validation and header reconstruction are shared. Protection
 applies after compression and final numbering. R2–R4 per-object keys use that
@@ -128,22 +123,18 @@ metadata-only path. [JSON security](SUPPORTED-PROFILE.md#authenticated-json-upda
 ## Storage and ownership
 
 `IQpdfHost` supplies stable input leases and staged output transactions.
-Core paths are logical keys, and physical I/O belongs to the host. Coarse
-owners fund scratch, graph values, host storage and escaped results.
-Borrowed buffers stay funded until the last consumer or pending I/O finishes.
+Core paths are logical keys, and physical I/O belongs to the host.
 [Memory ownership](MEMORY.md)
 
 ## Limits and cancellation
 
 One governor spans planning, reading, transforms, serialization and publication.
-It enforces structural, memory, decoded-byte and handle limits and optional host
-admission. It bounds diagnostics and accounts for actual host operations.
-Cancellation is checked at I/O boundaries and in bounded work loops.
+The same limits and cancellation token apply throughout the execution.
 
 Operation-local indexes reuse traversal, content analysis and decoded streams
 by graph identity and processing context. Cache hits preserve active-path
-cycle checks, depth and quota checks, and per-page validation. Memory charges
-follow backing ownership while a consumer still borrows the data.
+cycle checks, depth and quota checks, and per-page validation.
+[Caller limits](SUPPORTED-PROFILE.md#governance)
 
 ## Development
 

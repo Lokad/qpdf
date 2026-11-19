@@ -104,16 +104,14 @@ Standalone page counts can read compact classic-xref metadata and bounded object
 extents through the opened input lease. Inputs below 128 KiB use the complete
 reader; larger candidates require at most 64 KiB of xref/trailer data and 256 KiB
 of prefetched extents, plus a 256-byte EOF probe. Extents above 64 KiB are omitted
-until required by validation. Actual metadata, parsed containers and traversal
-still need their own admission; these constants are acquisition bounds, not a
-guaranteed minimum job allowance.
+until required by validation. Parsed containers and traversal need their own
+admission in addition to these acquisition bounds.
 
 Encrypted, incremental, hybrid/xref-stream, oversized-metadata and uncertain
 inputs use complete acquisition on the same lease. Missing required extents,
-reader warnings or inconsistent declared counts can require that fallback. A
-refused local/shared memory reservation fails immediately; it never selects
-another storage strategy. Pending reads finish before their buffers or leases
-retire. Selection keeps its existing prefetch profile and fallback rules.
+reader warnings or inconsistent declared counts can require that fallback.
+[Admission and ownership](#admission-and-ownership) ·
+[Input profile](SUPPORTED-PROFILE.md#input-profile)
 
 Authenticated document opening borrows caller password text/bytes only until the
 open operation completes. Bounded encoding, derivation and cipher scratch are
@@ -127,18 +125,7 @@ both owned prefixes clear before their storage retires.
 [Command setter semantics](SUPPORTED-PROFILE.md#command-password-files-and-modes)
 define how each file changes the credential.
 
-Parsing, copying, filters, images, JSON, writer passes and inspection admit major
-buffers and container capacity before construction. The engine borrows immutable
-streams and keys when possible. Owners fund copies and release scratch after
-consumption. Returned graph and result data transfer to caller ownership.
-
-Diagnostics store actual messages under count/UTF-8 ceilings. Overflow fails
-explicitly, retaining the accepted prefix and a bounded terminal error. Suppressed
-warnings keep only exit-status history. Result/diagnostic state is prepared before
-publication so formatting/admission failure cannot follow a successful commit.
-
-Structural/cycle/decompression limits and cooperative cancellation remain
-independent of memory admission. `QpdfExecutionCounters.HostOperations` counts
-actual opens, reads and writes. Hosts can supply deadline tokens. The engine has
-no cumulative CPU fuel or host-call quota.
-[Resource failures](COMPATIBILITY.md#resource-apis) · [Benchmark methodology](BENCHMARKS.md)
+The engine prepares admitted result and diagnostic storage before publication.
+`QpdfExecutionCounters.HostOperations` counts actual opens, reads and writes.
+[Caller limits and diagnostics](SUPPORTED-PROFILE.md#governance) ·
+[Benchmark methodology](BENCHMARKS.md)

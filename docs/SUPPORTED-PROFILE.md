@@ -637,8 +637,11 @@ Limits cover input/output/decoded bytes, memory, filters, open handles,
 diagnostics, nesting and containers. Nesting is 1..499, default 256; filter default
 is 25. Invocation settings cannot raise host ceilings, including under
 `--no-default-limits`. Cancellation is cooperative and independent of memory
-admission; there is no cumulative CPU fuel. Diagnostic count and UTF-8 byte
-limits also apply to standalone help, version and completion replies.
+admission. Hosts can supply deadline tokens. Work remains subject to the
+structural limits without a cumulative CPU or host-call quota.
+Diagnostic count and UTF-8 byte limits also apply to standalone help, version
+and completion replies. Overflow fails with the accepted prefix and a bounded
+error. Suppressed warnings retain their effect on exit status.
 Recoverable malformed optional graphs can drop; profile,
 resource, cancellation and host failures remain fatal.
 

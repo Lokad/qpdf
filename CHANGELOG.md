@@ -2,57 +2,32 @@
 
 ## Unreleased — 0.2.0-dev.7
 
-### PDF JSON
+### PDF JSON and inspection
 
-- Create and update PDFs with command compression, QDF, object streams,
-  linearization and output protection. Typed imports can select packing and
-  linearization. Commands support in-place updates and opt-in retention of
-  detached objects. [JSON import and update](docs/SUPPORTED-PROFILE.md#json-import-and-update)
-- Split authored or patched pages with inherited attributes, continued
-  labels and separate widget registrations for repeated pages. Capture
-  the first linearization pass for whole PDFs or split parts.
-- Check bound JSON and return listings without writing a PDF. Coalesce
-  page contents before reporting or publication.
-- Apply image transforms to authored and patched graphs in writers and
-  reports. Bound writers can normalize page programs and prune split resources.
-- Assemble and collate pages for JSON export, including empty primaries.
-  Export applies resource pruning, image optimization, content coalescing
-  and inline-image externalization.
-- Remove metadata, AcroForm, structure and page labels during JSON export
-  and import. Commands can author labels in effective page order.
-- Return typed JSON without publishing a report. File sidecars require a prefix
-  when there is no report target. Typed document opening, checking and JSON
-  inspection can opt into bounded repair. [JSON export](docs/SUPPORTED-PROFILE.md#json-export)
+- Create, patch and split PDFs from qpdf JSON. Command options include stream
+  preparation, packing, QDF, linearization, protection and in-place updates.
+  Bound graphs can be checked or reported without producing a PDF.
+  [JSON import and update](docs/SUPPORTED-PROFILE.md#json-import-and-update)
+- Assemble and collate pages for JSON export. Apply supported page, image,
+  catalog and attachment edits before reporting or publication.
+  [Inspection profile](docs/SUPPORTED-PROFILE.md#inspection-profile) ·
+  [JSON export](docs/SUPPORTED-PROFILE.md#json-export)
+- Resolve exact object number and generation with
+  `QpdfDocument.GetObject(PdfReference)`. Return typed JSON in memory,
+  normalize filtered stream output and support named binary extraction.
+  Protect consumed inputs and split targets from publication collisions.
+  [Publication rules](docs/SUPPORTED-PROFILE.md#governance)
 
-### Inspection and publication
+### Page and document behavior
 
-- Resolve exact generation pairs with `QpdfDocument.GetObject(PdfReference)`.
-  Resolve named outline targets in both JSON versions. Form JSON uses field-local
-  alternative and mapping names, and reports depth exhaustion before output.
-- Preserve raw image filter descriptors with decoding disabled. Normalize
-  filtered stream bytes when returning them or publishing to a host target.
-- Support direct outline roots in linearized output and JSON writer packing.
-  Check physical outline-hint ownership and required hints.
-- Preserve ordinary graph streams tagged `/Type /XRef` during protected
-  publication and accept valid leading Identity Crypt filters.
-- Protect acquired input identities from output and first-pass capture
-  collisions, including expanded split targets. [Publication rules](docs/SUPPORTED-PROFILE.md#governance)
-- Allow bounded repair in typed attachment APIs and return warnings and counters
-  from listing. Commands can list and extract attachments from one authenticated input.
-
-### Command and graph behavior
-
-- Resolve effective job settings after duplicate properties, with encoding
-  checks and ordered includes. Empty filename declarations retain argv slots
-  without choosing a file. Endpoint-free odd/even ranges work on zero pages.
-- Empty attachment key and filename setters use the payload basename. Empty
-  prefixes/descriptions clear earlier values. Validate authored MIME and
-  timestamps before acquisition. Existing stored metadata remains readable.
-- Accept omitted page-label starts and PDF whitespace inside ASCII85 terminal
-  markers.
-- Combine static View layer states with ON/OFF bases. Keep independent layer
-  identities and refuse unsupported combinations before publication.
-- Bound page-range validation and diagnostic previews.
+- Give repeated pages independent headers and widget registrations. Maintain
+  inherited attributes, labels and supported navigation through page edits.
+- Offer scoped option and topic help. Layered configuration follows effective
+  setter order. Attachment metadata and page-label options retain their
+  documented defaults. [Entry paths](docs/SUPPORTED-PROFILE.md#entry-paths)
+- Support direct outline roots in linearized output, process valid leading
+  Identity Crypt stages during copying, and allow host codecs to decode CMYK/YCCK
+  JPEGs into raw CMYK samples. [Compatibility](docs/COMPATIBILITY.md)
 
 ### Password security and typed migration
 
@@ -61,9 +36,9 @@
   template. Each source accepts its own credentials.
 - Preserve stored signature appearances in derived PDFs. Publication
   invalidates signatures and disables active signature fields and restrictions.
-- Add bounded repair options for typed opening, previews, selection, merging
-  and splitting. Typed page counting traverses and validates the page tree.
-- Allow host codecs to decode CMYK/YCCK JPEGs into raw CMYK samples.
+- Add bounded repair options for typed opening, previews, selection, merging,
+  splitting and attachment operations. Typed page counting traverses and
+  validates the page tree. Attachment listing returns warnings and counters.
 - Remove the `QpdfLimits.MaxHostOperations` setting. `HostOperations` continues
   to report actual I/O. Memory, handle, structural and decoded-byte limits
   remain available.
