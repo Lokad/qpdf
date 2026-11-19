@@ -5659,6 +5659,7 @@
         ],
         "resource": [
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
+          "ImageTraversalMemoryTests.CandidateDiscoveryScansSharedXObjectsOnceAndKeepsDistinctScopes",
           "ImageOptimizationGraphTests.FilterCeilingsPreserveOpaqueBytesBeforeSampleAndCodecAdmission",
           "ImageOptimizationGraphTests.ZeroFilterCeilingStillAllowsUnfilteredImages",
           "ResourceEnforcementTests.OptimizeImagesYieldsToExhaustedBudget",

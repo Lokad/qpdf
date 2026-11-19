@@ -149,8 +149,9 @@ Cancellation is checked at I/O boundaries and in bounded work loops.
 
 Operation-local reuse indexes serve traversal, content analysis and decoded
 streams. Field survival reuses membership summaries within a source and
-its retained widget set. Destination lookups reuse observed, disjoint child
-ranges and visit irregular or unseen siblings in source order. Reuse respects graph
+its retained widget set. Image optimization scans each effective XObject
+dictionary once during candidate discovery. Destination lookups reuse observed,
+disjoint child ranges and visit irregular or unseen siblings in source order. Reuse respects graph
 identity and processing context. Active-path
 cycle checks, depth and quota checks still apply on replay, and each page
 retains its own validation. Memory charges follow backing ownership past

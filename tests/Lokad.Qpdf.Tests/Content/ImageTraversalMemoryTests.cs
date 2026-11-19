@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
@@ -13,6 +14,62 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class ImageTraversalMemoryTests
 {
+    private static readonly FieldInfo Work = typeof(ResourceGovernor).GetField("_operationsSinceCheck",
+        BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new InvalidOperationException("Missing work counter.");
+
+    [Fact]
+    public void CandidateDiscoveryScansSharedXObjectsOnceAndKeepsDistinctScopes()
+    {
+        long single = DiscoveryWork(1, true);
+        long shared = DiscoveryWork(24, true);
+        long distinct = DiscoveryWork(24, false);
+        Assert.InRange(shared, single, 3 * single);
+        Assert.True(distinct > 6 * shared, $"Distinct scopes took {distinct} operations and shared scopes took {shared}.");
+    }
+
+    private static long DiscoveryWork(int pageCount, bool share)
+    {
+        using DocumentEngine engine = Engine();
+        ResourceGovernor construction = new(QpdfLimits.Default, CancellationToken.None);
+        using ParserMemoryScope sourceMemory = ParserMemoryScope.Create(construction);
+        GraphCopier copier = GraphCopier.CreateOwned(engine, construction, QpdfLimits.Default, 1, sourceMemory);
+        PdfStream image = new(Dict(("Subtype", PdfName.FromAscii("Image")), ("Width", new PdfInteger("1", 1)),
+            ("Height", new PdfInteger("1", 1)), ("BitsPerComponent", new PdfInteger("8", 8)),
+            ("ColorSpace", PdfName.FromAscii("DeviceGray"))), [5]);
+        PdfReference imageRef = copier.AddIndirectObjectWithId(image, copier.NextId);
+        PdfName[] aliases = Enumerable.Range(0, 128).Select(index => PdfName.FromAscii("I" + index)).ToArray();
+
+        PdfReference shared = AddScope();
+        List<int> pages = new(pageCount);
+        List<PdfDictionary> originals = new(pageCount);
+        for (int index = 0; index < pageCount; index++)
+        {
+            PdfReference scope = share ? shared : AddScope();
+            PdfDictionary page = Dict(("Resources", Dict(("XObject", scope))));
+            originals.Add(page);
+            pages.Add(copier.AddIndirectObjectWithId(page, copier.NextId).ObjectNumber);
+        }
+        QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = long.MaxValue };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        ImageOptimizer.Apply(copier, pages, new(true, 128, 128, 16384, false, null), limits,
+            governor, new(governor), CancellationToken.None);
+        Assert.Equal(0L, governor.Snapshot().TotalDecodedBytes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+        Assert.Same(image, copier.CopiedObjects[imageRef.ObjectNumber]);
+        for (int index = 0; index < pages.Count; index++) { Assert.Same(originals[index], copier.CopiedObjects[pages[index]]); }
+        return Assert.IsType<long>(Work.GetValue(governor));
+
+        PdfReference AddScope()
+        {
+            // The parser's governed name table observes traversal work.
+            PdfNameTable<QpdfObject> entries = PdfNameTable<QpdfObject>.Create(sourceMemory, construction, IntPtr.Size,
+                CancellationToken.None);
+            foreach (PdfName alias in aliases) { entries.Assign(sourceMemory, construction, alias, imageRef, CancellationToken.None); }
+            entries.Freeze(sourceMemory, construction, CancellationToken.None);
+            return copier.AddIndirectObjectWithId(PdfDictionary.FromOwnedEntries(entries), copier.NextId);
+        }
+    }
+
     private sealed class MemoryHost(IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost
     {
         public IMemoryBudget MemoryBudget => budget;

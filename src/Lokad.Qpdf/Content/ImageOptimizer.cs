@@ -103,7 +103,8 @@ internal static class ImageOptimizer
         if (resolved is not PdfDictionary resources ||
             !PdfDictionaryLookup.TryGet(resources, "XObject"u8, governor, token, out raw)) { return; }
         resolved = raw is PdfReference objectsLink ? ResolveOrNull(resolver, objectsLink) : raw;
-        if (resolved is not PdfDictionary xobjects) { return; }
+        // Different resource headers can share the same effective XObject table.
+        if (resolved is not PdfDictionary xobjects || !forms.AddScope(xobjects)) { return; }
 
         // Gather candidates without changing the original pool slots. The same
         // stream can also be an attachment or an independent catalog value.
