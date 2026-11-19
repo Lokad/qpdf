@@ -11,7 +11,15 @@ public sealed class FormNullProjectionTests
 
     private static byte[] Fixture(string key, string shape, string formShape)
     {
-        string value = key is "Ff" or "Q" or "MaxLen" ? "7" : key == "FT" ? "/Tx" : key == "Opt" ? "[(child)]" : key == "DA" ? "(/F1 10 Tf)" : "(child)";
+        string value = key switch
+        {
+            "Ff" or "MaxLen" => "7",
+            "Q" => "2",
+            "FT" => "/Ch",
+            "Opt" => "[(child)]",
+            "DA" => "(/F1 10 Tf)",
+            _ => "(child)",
+        };
         string entry = shape == "absent" ? "" : "/" + key + " " + (shape == "null" ? "null" : shape == "nullref" ? "7 0 R" : shape == "value" ? value : "8 0 R");
         string parent = key == "Parent" ? "/T (child) /FT /Tx /V (child) " + entry : "/Parent 5 0 R " + entry;
         string form = formShape switch
@@ -56,28 +64,69 @@ public sealed class FormNullProjectionTests
 
     public static IEnumerable<object[]> Cases()
     {
-        for (int index = 0; index < Keys.Length; index++)
-        foreach (string shape in new[] { "null", "nullref", "value", "valueref" })
-        foreach (int version in new[] { 1, 2 }) { yield return [Keys[index], shape, version, Routes[index % Routes.Length]]; }
-        foreach (string key in new[] { "T", "V", "Opt" })
-        foreach (string shape in new[] { "null", "nullref", "value", "valueref" })
-        foreach (int version in new[] { 1, 2 })
-        foreach (string route in Routes)
+        foreach (string key in Keys)
         {
-            if (route != Routes[Array.IndexOf(Keys, key) % Routes.Length]) { yield return [key, shape, version, route]; }
+            foreach (string shape in new[] { "absent", "null", "nullref", "value", "valueref" })
+            { yield return [key, shape, 2, "typed"]; }
         }
-        foreach (string shape in new[] { "null", "nullref" })
-        foreach (int version in new[] { 1, 2 })
-        foreach (string route in Routes) { yield return ["Parent", shape, version, route]; }
+        // V1 changes PDF string encoding. The full field and reference matrix belongs to V2.
+        yield return ["V", "nullref", 1, "typed"];
+        yield return ["V", "valueref", 1, "typed"];
+        yield return ["DV", "valueref", 1, "typed"];
+        yield return ["T", "valueref", 2, "argv"];
+        yield return ["Opt", "nullref", 2, "job"];
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task OptionalFieldEntriesUseResolvedValuesWithoutChangingTheirTerminalIdentity(string key, string shape, int version, string route)
+    public async Task OptionalFieldEntriesReportValuesAndTerminalPairs(string key, string shape, int version, string route)
     {
-        JsonElement expected = await Read(Fixture(key, shape is "null" or "nullref" ? "absent" : "value", "normal"), version, route);
-        JsonElement actual = await Read(Fixture(key, shape, "normal"), version, route);
-        Assert.True(JsonElement.DeepEquals(expected, actual), key + ": " + actual.GetRawText());
+        JsonElement field = SingleField(await Read(Fixture(key, shape, "normal"), version, route));
+        bool local = shape is "value" or "valueref";
+        string fullName = local && key == "T" ? "parent.child" : "parent";
+        string alternate = local ? key == "TU" ? "child" : fullName : "alternative";
+        string mapping = local ? key == "TM" ? "child" : alternate : "mapping";
+        bool choice = key == "Opt" || local && key == "FT";
+        string prefix = version == 1 ? "" : "u:";
+
+        Assert.Equal(local ? "4 0 R" : "5 0 R", field.GetProperty("object").GetString());
+        Assert.Equal(local ? "5 0 R" : null, field.GetProperty("parent").GetString());
+        Assert.Equal(fullName, field.GetProperty("fullname").GetString());
+        Assert.Equal(local ? key == "T" ? "child" : "" : "parent", field.GetProperty("partialname").GetString());
+        Assert.Equal(alternate, field.GetProperty("alternativename").GetString());
+        Assert.Equal(mapping, field.GetProperty("mappingname").GetString());
+        Assert.Equal(choice ? "/Ch" : "/Tx", field.GetProperty("fieldtype").GetString());
+        Assert.Equal(choice, field.GetProperty("ischoice").GetBoolean());
+        Assert.Equal(local && key == "Ff" ? 7 : 2, field.GetProperty("fieldflags").GetInt32());
+        Assert.Equal(local && key == "Q" ? 2 : 1, field.GetProperty("quadding").GetInt32());
+        Assert.Equal(prefix + (local && key == "V" ? "child" : "inherited"), field.GetProperty("value").GetString());
+        Assert.Equal(prefix + (local && key == "DV" ? "child" : "default"), field.GetProperty("defaultvalue").GetString());
+        string?[] choices = field.GetProperty("choices").EnumerateArray().Select(item => item.GetString()).ToArray();
+        Assert.Equal(choice ? [local && key == "Opt" ? "child" : "inherited option"] : [], choices);
+    }
+
+    [Theory]
+    [InlineData("absent")]
+    [InlineData("null")]
+    [InlineData("nullref")]
+    public async Task NullParentKeepsTheLocalFieldAndStopsInheritance(string shape)
+    {
+        JsonElement field = SingleField(await Read(Fixture("Parent", shape, "normal"), 2, "typed"));
+        Assert.Equal("4 0 R", field.GetProperty("object").GetString());
+        Assert.Equal(JsonValueKind.Null, field.GetProperty("parent").ValueKind);
+        Assert.Equal("child", field.GetProperty("fullname").GetString());
+        Assert.Equal("u:child", field.GetProperty("value").GetString());
+        Assert.Equal(JsonValueKind.Null, field.GetProperty("defaultvalue").ValueKind);
+        Assert.Equal(0, field.GetProperty("fieldflags").GetInt32());
+        Assert.Equal(0, field.GetProperty("quadding").GetInt32());
+    }
+
+    private static JsonElement SingleField(JsonElement form)
+    {
+        Assert.True(form.GetProperty("hasacroform").GetBoolean());
+        JsonElement field = Assert.Single(form.GetProperty("fields").EnumerateArray());
+        Assert.Equal("4 0 R", field.GetProperty("annotation").GetProperty("object").GetString());
+        return field;
     }
 
     public static IEnumerable<object[]> RootCases()
