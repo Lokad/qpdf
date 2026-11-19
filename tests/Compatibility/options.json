@@ -5658,6 +5658,7 @@
         "interaction": [
           "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.WriterEncodingFollowsOptimization",
+          "BoundImageTransformTests.SplitPrunesUnusedImagesBeforeRequiringACodec",
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",

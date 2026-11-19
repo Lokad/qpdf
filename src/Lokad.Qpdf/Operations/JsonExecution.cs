@@ -626,6 +626,7 @@ internal static class JsonExecution
                 .ShouldPrune(resolver, model.Trailer, limits, governor, token);
         bool normalizePages = writer.NormalizeContent && !writer.Qdf.Enabled;
         Content.ImageOptimizeRequest images = writer.Images ?? Content.ImageOptimizeRequest.Disabled;
+        bool pruneBeforeOptimization = pruneSplitResources && images.Optimize;
         bool externalize = writer.ExternalizeInlineImages || images.Optimize && !images.KeepInline;
         bool transformContent = normalizePages || externalize || images.Optimize;
         if (writer.Rotations.Count > 0 || transformContent)
@@ -640,7 +641,8 @@ internal static class JsonExecution
             {
                 Content.ContentTransformRequest request = new(false, normalizePages, false, null, externalize, writer.InlineImageMinimumBytes)
                 { BoundPageContent = true, DeferImageEncoding = true };
-                ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, limits, memory, governor, diagnostics, token);
+                ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, pruneBeforeOptimization,
+                    limits, memory, governor, diagnostics, token);
                 if (retirement is not null && before is not null)
                 { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }
             }
@@ -775,7 +777,8 @@ internal static class JsonExecution
             foreach (NumberedObject item in output.Model)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
         }
-        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots, pruneSplitResources);
+        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots,
+            pruneSplitResources && !pruneBeforeOptimization);
     }
 
 }

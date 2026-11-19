@@ -13,7 +13,7 @@ internal static class ImportedPublication
     private static readonly PdfName[] ImageResources = [PdfName.FromAscii("Resources")];
 
     internal static void TransformPagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
-        ContentTransformRequest request, ImageOptimizeRequest images,
+        ContentTransformRequest request, ImageOptimizeRequest images, bool pruneResources,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (pages.Count == 0) { return; }
@@ -38,6 +38,8 @@ internal static class ImportedPublication
         ContentTransforms.ApplyPageTransforms(copier, ids, request, limits, governor, diagnostics, token);
         if (request.Externalize)
         { ContentTransforms.ExternalizeForms(copier, ids, request, null, limits, governor, diagnostics, token); }
+        if (pruneResources)
+        { ContentTransforms.ApplyResourcePruning(copier, ids, request.BoundPageContent, limits, governor, diagnostics, token); }
         ImageOptimizer.Apply(copier, ids, images, limits, governor, diagnostics, token);
     }
 

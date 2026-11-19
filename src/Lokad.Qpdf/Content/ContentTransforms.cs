@@ -932,6 +932,10 @@ internal static class ContentTransforms
 
     internal static void ApplyResourcePruning(GraphCopier copier, IReadOnlyList<int> pageIds,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+        => ApplyResourcePruning(copier, pageIds, false, limits, governor, diagnostics, token);
+
+    internal static void ApplyResourcePruning(GraphCopier copier, IReadOnlyList<int> pageIds, bool prepareIdentityCrypt,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using FormResourceWalk forms = FormResourceWalk.Create(governor, token);
@@ -957,7 +961,7 @@ internal static class ContentTransforms
                     ? CatalogCopy.ResolveDictionary(raw, resolver, governor, token) : null;
                 if ((resources is null) != (pass == 0)) { continue; }
                 using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-                PdfDictionary? pruned = ScanForm(form.Stream, resources, inherited, resolver, limits, diagnostics, graph);
+                PdfDictionary? pruned = ScanForm(form.Stream, resources, inherited, resolver, prepareIdentityCrypt, limits, diagnostics, graph);
                 if (pruned is null || form.Id is not int id) { continue; }
                 PdfStream replacement = ResourceRebuild.ReplaceResources(graph, form.Stream, pruned);
                 replacements.TryAdd(traversal, id, replacement); graph.Retain();
@@ -978,14 +982,14 @@ internal static class ContentTransforms
             if (copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) && raw is PdfDictionary page)
             {
                 decoded.BeginPage();
-                try { PrunePage(copier, id, page, inherited, resolver, decoded, prunedPages, limits, governor, diagnostics, token); }
+                try { PrunePage(copier, id, page, inherited, resolver, decoded, prunedPages, prepareIdentityCrypt, limits, governor, diagnostics, token); }
                 finally { decoded.EndPage(); }
             }
         }
     }
 
     private static void PrunePage(GraphCopier copier, int pageId, PdfDictionary page, ResourceNameSet inherited,
-        PoolResolver resolver, DecodedStreamCache decoded, PrunedPageResources prunedPages,
+        PoolResolver resolver, DecodedStreamCache decoded, PrunedPageResources prunedPages, bool prepareIdentityCrypt,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject raw)
@@ -1002,7 +1006,7 @@ internal static class ContentTransforms
             copier.ValidateReplacement(pageId); cachedGraph.Retain(); copier.ReplaceCopiedObject(pageId, cachedPage);
             return;
         }
-        using AnalysisChunks? chunks = CollectPageChunks(page, resolver, decoded, limits, governor, token);
+        using AnalysisChunks? chunks = CollectPageChunks(page, resolver, decoded, prepareIdentityCrypt, limits, governor, token);
         if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Skipped resource pruning for content that could not be read.");
@@ -1039,10 +1043,10 @@ internal static class ContentTransforms
     }
 
     private static PdfDictionary? ScanForm(PdfStream form, PdfDictionary? resources, ResourceNameSet inherited,
-        PoolResolver resolver, QpdfLimits limits, DiagnosticBag diagnostics, OwnedAllocationBatch graph)
+        PoolResolver resolver, bool prepareIdentityCrypt, QpdfLimits limits, DiagnosticBag diagnostics, OwnedAllocationBatch graph)
     {
         ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
-        using AnalysisChunks? chunks = CollectFormContent(form, resolver, limits, governor, token);
+        using AnalysisChunks? chunks = CollectFormContent(form, resolver, prepareIdentityCrypt, limits, governor, token);
         if (chunks is null)
         {
             inherited.MarkUnresolvedScope();
@@ -1182,10 +1186,15 @@ internal static class ContentTransforms
         PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, resourcesEntries, resourceAllocation);
         return rebuilt;
     }
-    internal static AnalysisChunks? CollectPageChunks(
+    internal static AnalysisChunks? CollectPageChunks(PdfDictionary page, PoolResolver resolver, DecodedStreamCache decoded,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => CollectPageChunks(page, resolver, decoded, false, limits, governor, cancellationToken);
+
+    private static AnalysisChunks? CollectPageChunks(
         PdfDictionary page,
         PoolResolver resolver,
         DecodedStreamCache decoded,
+        bool prepareIdentityCrypt,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -1199,7 +1208,7 @@ internal static class ContentTransforms
         {
             for (int index = 0; index < entries.Count; index++)
             {
-                if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits, decoded))
+                if (!chunks.TryAdd(entries.Get(index).Stream, resolver, limits, decoded, prepareIdentityCrypt))
                 { chunks.Dispose(); return null; }
             }
             return chunks;
@@ -1210,6 +1219,7 @@ internal static class ContentTransforms
     private static AnalysisChunks? CollectFormContent(
         PdfStream form,
         PoolResolver resolver,
+        bool prepareIdentityCrypt,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -1219,7 +1229,7 @@ internal static class ContentTransforms
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
         try
         {
-            if (chunks.TryAdd(form, resolver, limits)) { return chunks; }
+            if (chunks.TryAdd(form, resolver, limits, null, prepareIdentityCrypt)) { return chunks; }
             chunks.Dispose();
             return null;
         }

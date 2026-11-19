@@ -521,7 +521,8 @@ policy, byte and dimension thresholds, and JPEG quality.
 
 `--split-pages` / `splitPages` partitions the bound page order. Resource pruning
 defaults to `auto` for splits, using the bound graph's shared resources to decide
-whether to prune. Explicit `yes` prunes and `no` keeps the bindings. Whole-file
+whether to prune. Explicit `yes` prunes and `no` keeps the bindings. Pruning
+removes unused bindings before image optimization. Whole-file
 creation and update keep the bindings. Private resource aliases survive. Parts
 inherit page attributes, continue labels and replace references to foreign
 pages with null. Repeated pages get separate widget registrations. Explicit

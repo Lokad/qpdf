@@ -1,6 +1,7 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
@@ -30,12 +31,18 @@ internal sealed class AnalysisChunks : IDisposable
         => TryAdd(stream, resolver, limits, null);
 
     internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits, DecodedStreamCache? cache)
+        => TryAdd(stream, resolver, limits, cache, false);
+
+    internal bool TryAdd(PdfStream stream, IIndirectResolver resolver, QpdfLimits limits, DecodedStreamCache? cache,
+        bool prepareIdentityCrypt)
     {
         ParserMemoryScope memory = _memory ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         ResourceGovernor governor = _governor ?? throw new ObjectDisposedException(nameof(AnalysisChunks));
         if (cache is not null && cache.TryBorrow(stream, out ReadOnlyMemory<byte> cached))
         { AddBorrowed(cached); return true; }
-        if (!TryDecode(stream, resolver, limits, governor, memory, _token, out ReadOnlyMemory<byte> bytes, out bool decoded))
+        using OwnedAllocationBatch? cryptHeader = StreamCryptFilter.PrepareIdentityForAnalysis(stream, resolver,
+            prepareIdentityCrypt, governor, _token, out PdfStream input);
+        if (!TryDecode(input, resolver, limits, governor, memory, _token, out ReadOnlyMemory<byte> bytes, out bool decoded))
         { return false; }
         bool owned = decoded && (cache is null || !cache.Remember(stream, bytes, memory));
         Append(bytes, owned); return true;

@@ -128,6 +128,64 @@ public sealed class BoundImageTransformTests
         ExecutionJobFixtures.AssertClosed(host, result);
     }
 
+    [Theory]
+    [InlineData(false, false, "yes", true)]
+    [InlineData(false, true, "yes", true)]
+    [InlineData(true, false, "yes", false)]
+    [InlineData(false, false, "no", false)]
+    public async Task SplitPrunesUnusedImagesBeforeRequiringACodec(bool drawn, bool identityCrypt, string policy, bool succeeds)
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        byte[] samples = new byte[128 * 128];
+        Array.Fill(samples, (byte)96);
+        string data = Convert.ToBase64String(samples);
+        string program = Convert.ToBase64String(drawn ? "q /Im Do Q"u8 : "q Q"u8);
+        string filter = identityCrypt ? """ "/Filter":"/Crypt","/DecodeParms":{"/Name":"/Identity"} """ : "";
+        string json = $$$$"""
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.7"},{
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/AuditImage":"6 0 R"}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Kids":["3 0 R"],"/Count":1,"/MediaBox":[0,0,128,128],
+                "/Resources":{"/XObject":{"/Im":"6 0 R"}}} },
+              "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/Contents":"4 0 R"}},
+              "obj:4 0 R":{"stream":{"dict":{ {{{{filter}}}} },"data":"{{{{program}}}}"}},
+              "obj:6 0 R":{"stream":{"dict":{"/Type":"/XObject","/Subtype":"/Image","/Width":128,"/Height":128,
+                "/ColorSpace":"/DeviceGray","/BitsPerComponent":8},"data":"{{{{data}}}}"}},
+              "trailer":{"value":{"/Root":"1 0 R","/Size":7}}
+            }]}
+            """;
+        host.Inner.AddInput(Model, Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Transfer);
+        QpdfPath split = QpdfPath.From("output-1.pdf");
+        await using (IQpdfOutputTransaction prior = await host.Inner.CreateOutputAsync(split, CancellationToken.None))
+        {
+            await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([Model.Value, "--json-input", "--split-pages=1",
+            $"--remove-unreferenced-resources={policy}", "--stream-data=preserve", "--optimize-images", "--keep-inline-images",
+            "--oi-min-width=1", "--oi-min-height=1", "--oi-min-area=1", Output.Value]), CancellationToken.None);
+
+        if (succeeds)
+        {
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(0L, result.Counters.TotalDecodedBytes);
+            await using QpdfDocument document = await Read(host.Inner, split);
+            PdfDictionary resources = Dictionary(document, Assert.Single(document.PageReferences).Page, "Resources");
+            if (resources.TryGet(PdfName.FromAscii("XObject"), out _))
+            { Assert.False(Dictionary(document, resources, "XObject").TryGet(PdfName.FromAscii("Im"), out _)); }
+            Assert.Equal(samples, Stream(document, Link(Catalog(document), "AuditImage")).Data);
+        }
+        else
+        {
+            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+            Assert.Contains(result.Diagnostics, item => item.Message.Contains("codec supplied by the host", StringComparison.Ordinal));
+            Assert.Empty(host.CreatedPaths);
+            Assert.True(host.Inner.TryGetOutput(split, out byte[] kept));
+            Assert.Equal("prior"u8.ToArray(), kept);
+        }
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
     private static void CheckExternalizedSample(QpdfDocument document, PdfDictionary xobjects)
     {
         PdfStream image = Stream(document, Link(xobjects, "IIm1"));
