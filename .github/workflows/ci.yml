@@ -32,7 +32,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Record runtime and prepare logs
         run: |
-          New-Item -ItemType Directory -Force artifacts/ci/logs, artifacts/ci/test-results | Out-Null
+          New-Item -ItemType Directory -Force artifacts/ci/logs, artifacts/ci/test-results, artifacts/ci-diagnostics | Out-Null
           dotnet --info 2>&1 | Tee-Object artifacts/ci/logs/dotnet-info.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Restore locked dependencies
@@ -67,7 +67,7 @@ jobs:
           dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore `
             --logger 'trx;LogFilePrefix=tests' `
             --results-directory artifacts/ci/test-results `
-            --diag artifacts/ci/logs/vstest.log `
+            --diag artifacts/ci-diagnostics/vstest.log `
             --blame-crash --blame-crash-dump-type mini `
             --blame-hang --blame-hang-timeout 10m --blame-hang-dump-type mini `
             2>&1 | Tee-Object artifacts/ci/logs/tests.log
@@ -100,10 +100,23 @@ jobs:
         with:
           name: verification-${{ matrix.os }}-${{ github.run_attempt }}
           path: |
-            artifacts/ci/
+            artifacts/ci/logs/
+            artifacts/ci/tool-controls/
+            artifacts/ci/test-results/**/*.trx
             artifacts/consumer-tests/**/*.log
           retention-days: 14
           if-no-files-found: error
+      - name: Preserve failed test diagnostics
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v6
+        with:
+          name: verification-diagnostics-${{ matrix.os }}-${{ github.run_attempt }}
+          path: |
+            artifacts/ci-diagnostics/
+            artifacts/ci/test-results/
+            !artifacts/ci/test-results/**/*.trx
+          retention-days: 14
+          if-no-files-found: ignore
 
   reference:
     name: Reference (qpdf 12.4.2)

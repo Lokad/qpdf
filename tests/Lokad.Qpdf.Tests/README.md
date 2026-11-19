@@ -63,6 +63,9 @@ sequential commits. Feature suites supply their own fixtures and public calls to
 `Writing/InspectionFailureTests` covers JSON exception translation, inspection
 scratch and rewrite-source ownership through commit.
 
+CI keeps the TRX files with the routine verification logs. Available VSTest
+traces and dumps from failed or canceled jobs go in `verification-diagnostics-*`.
+
 ## Reference and visual checks
 
 Run from the repository root after the locked Release build. On Windows, the
