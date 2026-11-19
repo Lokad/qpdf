@@ -3,6 +3,7 @@ using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Filters;
 
@@ -28,7 +29,7 @@ public sealed class DctParameterTests
         RecordingCodec codec = new();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
         host.AddInput(Input, pdf, QpdfInputOwnership.Transfer);
-        QpdfExecutionResult result = await Run(host, operation, job, CancellationToken.None);
+        QpdfExecutionResult result = await Run(host, operation, job, operation == "extract" ? null : Output, CancellationToken.None);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.Equal(unsupported ? 0 : 1, codec.Decodes);
         Assert.Equal(!unsupported && operation == "optimize" ? 1 : 0, codec.Encodes);
@@ -85,7 +86,7 @@ public sealed class DctParameterTests
         using InMemoryQpdfHost host = new(limits, codecPresent ? codec : null);
         (byte[] pdf, byte[] encoded) = Fixture("ct0");
         host.AddInput(Input, pdf, QpdfInputOwnership.Transfer);
-        QpdfExecutionResult result = await Run(host, "optimize", job, CancellationToken.None);
+        QpdfExecutionResult result = await Run(host, "optimize", job, Output, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.Empty(result.Diagnostics);
@@ -102,17 +103,36 @@ public sealed class DctParameterTests
     [InlineData(true)]
     public async Task UnsupportedExtractionPreservesPriorTarget(bool job)
     {
-        RecordingCodec codec = new(); using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
-        host.AddInput(Input, Fixture("ct0").Pdf, QpdfInputOwnership.Transfer);
-        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(Output, CancellationToken.None))
-        { await prior.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
-        QpdfExecutionResult result = await Run(host, "extract", job, CancellationToken.None);
+        RecordingCodec codec = new();
+        using RecordingJobHost host = new(new InMemoryQpdfHost(QpdfLimits.Default, codec), null, null, "success", true);
+        host.Inner.AddInput(Input, Fixture("ct0").Pdf, QpdfInputOwnership.Transfer);
+        byte[] seed = [17, 23, 41];
+        await using (IQpdfOutputTransaction prior = await host.Inner.CreateOutputAsync(Output, CancellationToken.None))
+        {
+            await prior.WriteAsync(seed, CancellationToken.None);
+            await prior.CommitAsync(CancellationToken.None);
+        }
+        QpdfExecutionResult result = await Run(host, "extract", job, Output, CancellationToken.None);
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Null(result.OutputBytes);
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("DecodeParms", StringComparison.Ordinal));
-        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
-        Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
-        Assert.Equal(0, codec.Decodes); Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Empty(host.CreatedPaths);
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] bytes));
+        Assert.Equal(seed, bytes);
+        Assert.Equal(0L, result.Counters.TotalOutputBytes);
+        Assert.Equal(0, codec.Decodes);
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
+
+        // Keep the same named call and change only the codec eligibility.
+        host.Inner.AddInput(Input, Fixture("absent").Pdf, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult named = await Run(host, "extract", job, Output, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, named.ExitCode);
+        Assert.Null(named.OutputBytes);
+        Assert.Equal(Output, Assert.Single(host.CreatedPaths));
+        Assert.True(host.Inner.TryGetOutput(Output, out byte[] decoded));
+        Assert.Equal(32 * 32 * 3, decoded.Length);
+        Assert.Equal(1, codec.Decodes);
+        Assert.Equal(0L, host.Inner.OpenLeaseCount);
     }
 
     [Theory]
@@ -137,7 +157,7 @@ public sealed class DctParameterTests
         RecordingCodec codec = new(); using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
         host.AddInput(Input, Fixture("ct0").Pdf, QpdfInputOwnership.Transfer);
         using CancellationTokenSource cancellation = new(); cancellation.Cancel();
-        QpdfExecutionResult result = await Run(host, "extract", job, cancellation.Token);
+        QpdfExecutionResult result = await Run(host, "extract", job, null, cancellation.Token);
         Assert.Equal(QpdfExecutionStatus.Canceled, result.Status); Assert.Null(result.OutputBytes);
         Assert.Equal(0, codec.Decodes); Assert.Equal(0L, host.OpenLeaseCount);
     }
@@ -166,21 +186,27 @@ public sealed class DctParameterTests
         Assert.Equal(unsupported ? 0 : 1, codec.Decodes); Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    private static ValueTask<QpdfExecutionResult> Run(InMemoryQpdfHost host, string operation, bool job, CancellationToken token)
+    private static ValueTask<QpdfExecutionResult> Run(IQpdfHost host, string operation, bool job, QpdfPath? target, CancellationToken token)
     {
         if (job)
         {
-            Dictionary<string, object> settings = new() { ["inputFile"] = "input", ["decodeLevel"] = operation == "optimize" ? "none" : "all", ["compressStreams"] = "n" };
+            Dictionary<string, object> settings = new() { ["inputFile"] = "input" };
             if (operation == "extract") { settings["showObject"] = "5"; settings["filteredStreamData"] = ""; }
-            if (operation != "extract") { settings["outputFile"] = "output"; }
+            else
+            {
+                settings["decodeLevel"] = operation == "optimize" ? "none" : "all";
+                settings["compressStreams"] = "n";
+            }
+            if (target is QpdfPath output) { settings["outputFile"] = output.Value; }
             if (operation == "optimize")
             { settings["optimizeImages"] = ""; settings["jpegQuality"] = "1"; settings["oiMinWidth"] = "0"; settings["oiMinHeight"] = "0"; settings["oiMinArea"] = "0"; settings["keepInlineImages"] = ""; }
             return Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(settings), token);
         }
-        List<string> flags = ["input", operation == "optimize" ? "--decode-level=none" : "--decode-level=all", "--compress-streams=n"];
+        List<string> flags = ["input"];
         if (operation == "extract") { flags.AddRange(["--show-object=5", "--filtered-stream-data"]); }
+        else { flags.AddRange([operation == "optimize" ? "--decode-level=none" : "--decode-level=all", "--compress-streams=n"]); }
         if (operation == "optimize") { flags.AddRange(["--optimize-images", "--jpeg-quality=1", "--oi-min-width=0", "--oi-min-height=0", "--oi-min-area=0", "--keep-inline-images"]); }
-        if (operation != "extract") { flags.AddRange(["--", "output"]); }
+        if (target is QpdfPath destination) { flags.AddRange(["--", destination.Value]); }
         return Qpdf.ExecuteAsync(host, new(flags), token);
     }
 

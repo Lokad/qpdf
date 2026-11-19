@@ -230,7 +230,7 @@ internal sealed class FailingWriteHost : IQpdfHost
 }
 
 /// <summary>Records real calls/admission and suspends one selected host callback.</summary>
-internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
+internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost, IDisposable
 {
     private readonly string? _boundary;
     private readonly string _outcome;
@@ -269,6 +269,7 @@ internal sealed class RecordingJobHost : IQpdfHost, IQpdfMemoryHost, IDisposable
     internal InMemoryQpdfHost Inner { get; }
     internal RecordingMemoryBudget Budget { get; } = new(64L << 20);
     public IMemoryBudget MemoryBudget => Budget;
+    public IQpdfJpegCodec? JpegCodec => Inner.JpegCodec;
     internal Task Entered => _entered.Task;
     internal QpdfPath? PausePath { get; set; }
     internal List<QpdfPath> OpenedPaths { get; } = [];
