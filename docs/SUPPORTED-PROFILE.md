@@ -332,6 +332,11 @@ Rotation baking updates retained destinations. Affected nullable positions and
 quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication when their
 viewer-dependent meaning cannot be preserved; see [navigation differences](COMPATIBILITY.md#known-differences-from-native-qpdf).
 
+Rotation baking moves page viewport bounds. Rectilinear measurement viewports
+keep their corner order and unit formats, and explicit origins follow the
+page frame. Overlapping viewports retain their order. A changed page with an
+unusable viewport or an unsupported measurement subtype fails before publication.
+
 ### JPEG codec capabilities
 
 Image optimization uses a host JPEG codec for eligible 8-bit

@@ -3680,12 +3680,15 @@
           "FlattenRotationTests.DirectStreamAppearanceStaysUntouched",
           "FlattenRotationTests.DirectUserUnitSurvivesRotation",
           "FlattenRotationTests.MarkupAppearanceRotates",
+          "ViewportRotationTests.BakedViewportPreservesOverlapAxesAndPrivateGeometry",
+          "ViewportRotationTests.BoundsKeepTheDefaultMeasurementOriginAndSharedFormats",
           "RotationAppearanceTests.DirectAndIndirectAppearanceValuesAreEquivalent",
           "RotationAppearanceTests.SharedAppearancesStayLocalToTheirPageAndKeepFieldIdentities",
           "RotationDestinationTests.RetainedDestinationRolesFollowTheActualBakedFrame"
         ],
         "negative": [
           "FlattenRotationTests.MalformedFlattenFlagsFail",
+          "ViewportRotationTests.UnusableViewportMeasurementRefusesBeforePublication",
           "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
           "RotationDestinationProfileTests.OnlyRetainedDestinationsToActuallyBakedPagesRequireProjection"

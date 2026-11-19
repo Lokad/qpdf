@@ -139,6 +139,8 @@ internal static class FlattenRotation
                     {
                         if (key.Equals(Boxes[box]) && rotated[box] is double[] rect) { value = NumberArray(rect, graph); break; }
                     }
+                    if (key.RawSpan.SequenceEqual("VP"u8))
+                    { value = ViewportRotation.Project(value, matrix, copier, resolver, graph, scratch, ref allocator); }
                     rebuilt.Assign(graph.Memory, governor, key, value, cancellationToken);
                 }
             }
