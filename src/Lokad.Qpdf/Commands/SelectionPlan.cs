@@ -261,7 +261,6 @@ internal sealed record SecurityPlan(QpdfPath Input, QpdfRecoveryMode Recovery, b
 internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
     internal ImportedInspectionInput? Import { get; init; }
-    public bool AssembleCatalog => false;
     public QpdfPassword? Password { get; init; }
 
     public bool ShowEncryption { get; init; }
@@ -306,7 +305,6 @@ internal sealed record WholeFilePlan(QpdfPath Input, QpdfPath Output, QpdfRecove
 internal sealed record JsonPlan(QpdfPath Input, QpdfPath? Output, int Version, IReadOnlyList<string> Keys, QpdfRecoveryMode Recovery) : JobPlan(Input), IInspectionGraphPlan
 {
     internal ImportedInspectionInput? Import { get; init; }
-    public bool AssembleCatalog => true;
     public IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
     public PdfPageCollation? Collation { get; init; }
     public QpdfPassword? Password { get; init; }

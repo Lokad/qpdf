@@ -106,7 +106,7 @@ internal static partial class InspectionGraphPreparation
             {
                 PdfDictionary labels = PageLabelAssembly.BuildPageLabels(plan.Labels, document.PageCount, governor)
                     ?? throw new InvalidOperationException("Page-label specifications produced no labels.");
-                QpdfObject labelRoot = plan.AssembleCatalog ? pool.AddIndirectObjectWithId(labels, pool.NextId) : labels;
+                QpdfObject labelRoot = plan is JsonPlan ? pool.AddIndirectObjectWithId(labels, pool.NextId) : labels;
                 selected = PdfDictionaryRebuild.ReplaceEntry(graph, selected, "PageLabels"u8, labelRoot);
             }
             // Publish a new role; source catalog aliases keep their original header.

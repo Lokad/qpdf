@@ -200,7 +200,7 @@ internal static partial class InspectionGraphPreparation
                 }
             }
 
-            InspectionCatalog? catalogAssembly = plan.AssembleCatalog && plan.Sources.Count > 0 ? new(memory) : null;
+            InspectionCatalog? catalogAssembly = plan.Sources.Count > 0 ? new(memory) : null;
             bool preserveLabels = catalogAssembly is not null && !authoredLabels && !plan.PublicationPolicy.RemoveLabels;
             if (catalogAssembly is not null)
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, document, governor, cancellationToken); }
@@ -690,6 +690,7 @@ internal static partial class InspectionGraphPreparation
         IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> additional, bool pruneFields,
         ParserMemoryScope memory, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
+        if (sourceForm is null && imports.Count == 0 && additional.Count == 0) { return null; }
         Dictionary<int, QpdfObject> assembled = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
         foreach (KeyValuePair<int, QpdfObject> entry in pool.CopiedObjects)
         {

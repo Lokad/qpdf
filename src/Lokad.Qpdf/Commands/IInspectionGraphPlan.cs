@@ -7,7 +7,6 @@ internal interface IInspectionGraphPlan
     QpdfRecoveryMode Recovery { get; }
     IReadOnlyList<PdfPageSource> Sources { get; }
     PdfPageCollation? Collation { get; }
-    bool AssembleCatalog { get; }
     Writing.DocumentPublicationPolicy PublicationPolicy { get; }
     IReadOnlyList<PageLabelSpec> Labels { get; }
     IReadOnlyList<OutputRotation> Rotations { get; }

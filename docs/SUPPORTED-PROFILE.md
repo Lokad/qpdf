@@ -337,8 +337,9 @@ externalization, image optimization, document-role removals and authored
 page labels before checking or listing the effective graph. Header rotation
 preserves earlier edits to page content and resources. Image thresholds
 and codec requirements follow the [content profile](#page-content-profile).
-With page selection, resource pruning uses each source's `yes`, `no`, or
-`auto` policy. Whole-file text reports keep their resource bindings.
+Page selection assembles labels, form registrations and source context for
+the effective catalog. Resource pruning uses each selected source's `yes`,
+`no`, or `auto` policy. Whole-file text reports keep their resource bindings.
 Attachment edits follow the same active catalog policy.
 Selecting the source catalog's exact object pair displays the active catalog
 after these role edits. Independently rooted references keep their stored

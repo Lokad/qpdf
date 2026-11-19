@@ -2627,6 +2627,7 @@
           "CheckTransformationTests.SelectedFilteredStreamReturnsTheOriginalPayload",
           "CheckTransformationTests.OverlayChangesInspectedPageBeforeChecking",
           "CheckTransformationTests.CheckerValidatesSelectedContentBeforeListing",
+          "SelectedCatalogInspectionTests.CheckedForeignPageAndCatalogShareTheRegisteredWidget",
           "CheckTransformationTests.OverlayRegistersImportedFieldsBeforeChecking",
           "CheckInspectionTests.PruningDoesNotRewriteFilelessInspectionResources",
           "InlinePacketBoundaryTests.CheckingDoesNotParseBinarySamplesAsAnUnterminatedLiteral",
