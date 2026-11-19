@@ -116,24 +116,33 @@ public sealed class AttachmentConstructionTests
     public async Task ManyConflictsNeedNoKeyLedgerAndStillProcessLaterAdds()
     {
         AttachmentAdd duplicate = new("file", "already", "name", null, null, null, null, false);
-        AttachmentAdd[] adds = Enumerable.Repeat(duplicate, 262144).Append(duplicate with { Key = "later" }).ToArray();
-        Host host = new([], null); QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096 };
-        ResourceGovernor governor = new(limits, CancellationToken.None); Dictionary<int, QpdfObject> pool = [];
-        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        await Run(32);
+        long small = await Run(32);
+        long large = await Run(262144);
+        Assert.True(large - small <= 65535L, $"Attachment allocation grew from {small} to {large} bytes.");
+
+        async Task<long> Run(int conflicts)
         {
-            AttachmentEdits edits = new(adds, [], []);
-            SortedDictionary<string, AttachmentReference> existing = new(StringComparer.Ordinal)
-            { ["already"] = new(new PdfByteString("already"u8.ToArray(), false), new PdfReference(7, 0)) };
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            Task operation = Assemble(host, pool, edits, existing, false, limits, governor, memory, CancellationToken.None);
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.True(operation.IsCompleted);
-            QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => operation);
-            Assert.InRange(allocated, 0L, 65535L);
-            Assert.Equal("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key. (offset 0).", failure.Message);
-            Assert.Equal(1, host.Opens); Assert.Equal(1, host.Closes); Assert.Single(pool.Values.OfType<PdfStream>());
+            AttachmentAdd[] adds = Enumerable.Repeat(duplicate, conflicts).Append(duplicate with { Key = "later" }).ToArray();
+            Host host = new([], null); QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096 };
+            ResourceGovernor governor = new(limits, CancellationToken.None); Dictionary<int, QpdfObject> pool = [];
+            long allocated;
+            using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+            {
+                AttachmentEdits edits = new(adds, [], []);
+                SortedDictionary<string, AttachmentReference> existing = new(StringComparer.Ordinal)
+                { ["already"] = new(new PdfByteString("already"u8.ToArray(), false), new PdfReference(7, 0)) };
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                Task operation = Assemble(host, pool, edits, existing, false, limits, governor, memory, CancellationToken.None);
+                allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                Assert.True(operation.IsCompleted);
+                QpdfParseException failure = await Assert.ThrowsAsync<QpdfParseException>(() => operation);
+                Assert.Equal("Attachments with conflicting keys already exist; use --replace to replace or --key to specify a different key. (offset 0).", failure.Message);
+                Assert.Equal(1, host.Opens); Assert.Equal(1, host.Closes); Assert.Single(pool.Values.OfType<PdfStream>());
+            }
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            return allocated;
         }
-        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
     [Theory]
     [InlineData("key", false)]
