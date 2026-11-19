@@ -1201,6 +1201,13 @@ internal static class ContentTransforms
     {
         if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, cancellationToken, out QpdfObject contents))
         { return AnalysisChunks.Create(governor, cancellationToken); }
+        return CollectProgramChunks(contents, resolver, decoded, prepareIdentityCrypt, limits, governor, cancellationToken);
+    }
+
+    internal static AnalysisChunks? CollectProgramChunks(QpdfObject contents, IIndirectResolver resolver,
+        DecodedStreamCache? decoded, bool prepareIdentityCrypt, QpdfLimits limits, ResourceGovernor governor,
+        CancellationToken cancellationToken)
+    {
         using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, cancellationToken);
         if (entries is null) { return null; }
         AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);

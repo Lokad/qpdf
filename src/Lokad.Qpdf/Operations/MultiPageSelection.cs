@@ -247,7 +247,8 @@ internal static class MultiPageSelection
                             cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
                             PageLocation location = document.PageReferences[pageNumber - 1];
                             IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location,
-                                copier, governor, limits, cancellationToken, selectionMemory, ancestry);
+                                copier, governor, limits, cancellationToken, selectionMemory, ancestry,
+                                settings.RepairPageResources ? diagnostics : null);
                             if (outputParent is null) { selectionMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
                             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                             RequireMediaBox(page);

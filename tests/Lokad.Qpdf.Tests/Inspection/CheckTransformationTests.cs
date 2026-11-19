@@ -508,14 +508,15 @@ public sealed class CheckTransformationTests
         using InMemoryQpdfHost host = Host(PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Count 2 /Kids [3 0 R 4 0 R] >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 5 0 R >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 5 0 R >>", null),
             (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 42 >>", null),
             (5, "<< /Length 3 >>", "q Q"u8.ToArray())], 1));
         string properties = "\"pages\":[{\"file\":\".\",\"range\":\"" + range + "\"}],\"showPages\":\"\"";
         List<string> flags = ["--pages", ".", range, "--", "--show-pages"];
         if (check) { properties += ",\"check\":\"\""; flags.Add("--check"); }
         QpdfExecutionResult result = await Execute(host, route, properties, [.. flags], QpdfLimits.Default);
-        Assert.Equal(fails ? QpdfExitCode.Error : QpdfExitCode.Success, result.ExitCode);
+        Assert.True((fails ? QpdfExitCode.Error : QpdfExitCode.Success) == result.ExitCode,
+            string.Join("\n", result.Diagnostics.Select(diagnostic => diagnostic.Message)));
         if (fails)
         {
             QpdfDiagnostic failure = Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.CheckFailed);

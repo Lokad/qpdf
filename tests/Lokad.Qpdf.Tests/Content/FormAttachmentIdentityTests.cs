@@ -22,7 +22,7 @@ public sealed class FormAttachmentIdentityTests
     internal static byte[] Fixture()
         => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /DA 9 0 R /DR << /Font << /Helv 8 0 R >> >> >> /PageLabels << /Nums [0 << /P 10 0 R >>] >> >>", null),
-            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << >> >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [5 0 R] >>", null),
             (4, "null", null),
             (5, "<< /Subtype /Widget /FT /Tx /T (Field) /Rect [0 0 10 10] >>", null),

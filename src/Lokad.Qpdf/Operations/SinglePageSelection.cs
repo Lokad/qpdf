@@ -100,7 +100,8 @@ internal static class SinglePageSelection
                             governor.NoteOperation();
                             PageLocation location = document.PageReferences[pageNumber - 1];
                             IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location,
-                                copier, governor, limits, cancellationToken, copyMemory, ancestry);
+                                copier, governor, limits, cancellationToken, copyMemory, ancestry,
+                                settings.RepairPageResources ? diagnostics : null);
                             if (outputParent is null) { copyMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
                             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                             RequireMediaBox(page);

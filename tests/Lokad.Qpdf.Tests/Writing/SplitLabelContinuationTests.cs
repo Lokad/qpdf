@@ -129,7 +129,7 @@ public sealed class SplitLabelContinuationTests
     {
         var objects = Enumerable.Range(3, 6).Select(number => (number,
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", (byte[]?)null)).ToList();
-        objects.Insert(0, (2, "<< /Type /Pages /Count 6 /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] >>", null));
+        objects.Insert(0, (2, "<< /Type /Pages /Count 6 /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] /Resources << >> >>", null));
         objects.Insert(0, (1, "<< /Type /Catalog /Pages 2 0 R /PageLabels 9 0 R >>", null));
         objects.Add((9, "<< " + tree + " >>", null));
         return PdfTestDocument.Assemble(objects, 1);

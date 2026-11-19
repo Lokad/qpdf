@@ -24,7 +24,7 @@ public sealed class CheckboxNameTests
         byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [" + (separate ? "8" : "5") + " 0 R] /NeedAppearances true >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Annots [5 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Annots [5 0 R] >>", null),
             (4, "null", null),
             (5, "<< /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R " + (separate ? "/Parent 8 0 R" : "/FT /Btn /V /" + value) + " /AS /Off /AP << /N << /Off 6 0 R /" + name + " 7 0 R >> >> >>", null),
             (6, "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 1 >>", "q"u8.ToArray()),

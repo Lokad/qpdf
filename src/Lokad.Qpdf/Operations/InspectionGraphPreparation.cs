@@ -586,7 +586,7 @@ internal static partial class InspectionGraphPreparation
                             PageLocation location = reader.PageReferences[number - 1];
                             if (kept is not null) { ParserContainers.AddItem(ranges, kept, location, 16L); }
                             IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(reader.Engine,
-                                location, copier, governor, limits, token, memory, ancestry);
+                                location, copier, governor, limits, token, memory, ancestry, null);
                             (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, null);
                             selected = new(id, 0, page);
                         }

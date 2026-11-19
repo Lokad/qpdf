@@ -13,7 +13,7 @@ return new string((char)32, 1);
         List<string> bodies =
         [
             "<< /Type /Catalog /Pages 2 0 R" + catalogExtra + " >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 /Resources << >> >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]" + pageExtra + " >>",
         ];
         foreach ((string dict, byte[]? _) in extras) { bodies.Add(dict); }

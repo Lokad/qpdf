@@ -507,6 +507,7 @@ internal sealed partial class GraphCopier
         }
 
         _rootPageNumber = sourceNumber ?? -2;
+        bool replaceResources = !retainSourceObjects && extra.ContainsKey(Content.PageResources.Key);
         PdfNameTable<QpdfObject> entries = CreateEntries(checked(page.Count + extra.Count));
         using (PdfDictionary.EntryEnumerator source = page.GetEntryEnumerator())
         {
@@ -515,6 +516,7 @@ internal sealed partial class GraphCopier
                 (PdfName key, QpdfObject value) = source.Current;
                 if (value is null) { continue; }
                 if (!retainSourceObjects && key.Equals(ParentKey)) { continue; }
+                if (replaceResources && key.Equals(Content.PageResources.Key)) { continue; }
 
                 _ownership.Reserve(32L);
                 // Rebuilt page roots have a canonical type for writer planning.

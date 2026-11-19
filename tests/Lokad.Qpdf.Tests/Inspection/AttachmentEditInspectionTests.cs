@@ -20,7 +20,7 @@ public sealed class AttachmentEditInspectionTests
     private static byte[] Fixture(string version, bool directSpec) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /Names 4 0 R /AuditNames 4 0 R /AuditCatalog 8 0 R /AcroForm << /Fields [] >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),
+        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
         (4, "<< /EmbeddedFiles << /Names [(seed) " + (directSpec ? FileSpec : "5 7 R") + "] >> /AuditCategory 7 0 R >>", null),
         (5, FileSpec, null),
         (6, "<< /Type /EmbeddedFile /Length 4 >>", Original),

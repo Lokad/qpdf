@@ -481,17 +481,12 @@ internal static class DocumentCheck
         DecodedStreamCache cache,
         CancellationToken cancellationToken)
     {
-        if (options.DecodeLevel == QpdfStreamDecodeLevel.None)
-        {
-            diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check page-content: decode level none disables stream decoding.");
-            return CheckOutcome.Literal(governor, "page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
-        }
-
+        bool decode = options.DecodeLevel != QpdfStreamDecodeLevel.None;
         int examined = 0;
         int skipped = 0;
         int aboveLevel = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
-        using PageProgramCache? programs = pages.Count > 1 ? PageProgramCache.TryCreate(governor, cancellationToken) : null;
+        using PageProgramCache? programs = decode && pages.Count > 1 ? PageProgramCache.TryCreate(governor, cancellationToken) : null;
         int failureCount = 0;
         int pageNumber = 0;
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
@@ -499,6 +494,8 @@ internal static class DocumentCheck
             PageLocation location = pages[pageIndex];
             cancellationToken.ThrowIfCancellationRequested();
             pageNumber += 1;
+            QpdfObject? resources = PageResources.Check(location, pageNumber, resolver, limits, governor, diagnostics, cancellationToken);
+            if (!decode) { continue; }
             if (!PdfDictionaryLookup.TryGet(location.Page, "Contents"u8, governor, cancellationToken, out QpdfObject contents) || contents is null || contents is PdfNull)
             {
                 continue;
@@ -518,7 +515,6 @@ internal static class DocumentCheck
                 continue;
             }
 
-            QpdfObject? resources = PageInheritance.Find(resolver, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
             if (streams.Count == 0) { continue; }
             bool alreadyTokenized = programs?.Contains(streams, resources) == true;
             using AnalysisChunks? chunks = !alreadyTokenized && streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
@@ -577,6 +573,11 @@ internal static class DocumentCheck
             }
         }
 
+        if (!decode)
+        {
+            diagnostics.Add(QpdfDiagnosticCode.CheckSkipped, QpdfDiagnosticSeverity.Info, "Skipped check page-content: decode level none disables stream decoding.");
+            return CheckOutcome.Literal(governor, "page-content", QpdfCheckStatus.Skipped, "Decode level none disables stream decoding.");
+        }
         if (failureCount > 0)
         {
             return FinishOutcome(governor, "page-content", QpdfCheckStatus.Failed, failures);

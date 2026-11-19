@@ -399,6 +399,13 @@ and resources.
 Page selection assembles labels, form registrations and source context for
 the effective catalog. Resource pruning uses each selected source's `yes`,
 `no`, or `auto` policy. Whole-file text reports keep their resource bindings.
+Structural checking warns about missing or invalid effective page `/Resources`.
+PDF selection and bound splitting carry valid inherited dictionaries into the
+new pages. They install an empty dictionary with a warning for blank pages and
+supported path-only programs whose appearances do not need page resources.
+If a page may refer to unresolved resources, the operation warns and preserves
+the existing binding. This policy applies in both reader recovery modes.
+Whole-file rewrites preserve the original resource role.
 Attachment edits follow the same active catalog policy.
 Selecting the source catalog's exact object pair displays the active catalog
 after these role edits. Independently rooted references keep their stored

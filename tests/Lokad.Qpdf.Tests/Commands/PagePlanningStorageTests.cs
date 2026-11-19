@@ -108,7 +108,7 @@ public sealed class PagePlanningStorageTests
         host.AddInput(QpdfPath.From("input"), PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 /Rotate 90 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] >>", null)], 1), QpdfInputOwnership.Transfer);
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 20] /Resources << >> >>", null)], 1), QpdfInputOwnership.Transfer);
         if (route == "typed")
         {
             await Qpdf.SelectPagesAsync(host, [new PdfPageSource(QpdfPath.From("input"), PdfPageSelectionOptions.FromPages([1, 1]))],

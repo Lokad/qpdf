@@ -32,7 +32,7 @@ public sealed class AppearanceGenerationRegressionTests
             byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R 6 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots " + (indirect ? "9 0 R" : "[5 0 R 6 0 R]") + " >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots " + (indirect ? "9 0 R" : "[5 0 R 6 0 R]") + " >>", null),
                 (4, "null", null),
                 (5, "<< /Subtype /Widget /FT /Btn /Ff " + flags + " /T (Skipped) /V " + value + " /AS /Off /Rect [0 0 100 20] /AP << /N << /Off 7 0 R /Yes 8 0 R >> >> >>", null),
                 (6, "<< /Subtype /Widget /FT /Btn /T (Updated) /V /Yes /AS /Off /Rect [0 30 100 50] /AP << /N << /Off 7 0 R /Yes 8 0 R >> >> >>", null),
@@ -67,7 +67,7 @@ public sealed class AppearanceGenerationRegressionTests
             byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots " + (merged ? "[6 0 R 8 0 R]" : "[7 0 R 9 0 R]") + " >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots " + (merged ? "[6 0 R 8 0 R]" : "[7 0 R 9 0 R]") + " >>", null),
                 (4, "null", null), (5, "<< /T (Group) /FT /Btn /V /Off /Kids [6 0 R 8 0 R] >>", null),
                 (6, "<< /T (A) /V /OnA /Parent 5 0 R" + ft + (merged ? " " + widgetA : " /Kids [7 0 R]") + " >>", null),
                 (7, merged ? "null" : "<< /Parent 6 0 R " + widgetA + " >>", null),
@@ -110,7 +110,7 @@ public sealed class AppearanceGenerationRegressionTests
             byte[] input = PdfTestDocument.Assemble([
                 (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /NeedAppearances true /DR << /Font << /Helv 9 0 R >> >> >> >>", null),
                 (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [5 0 R] >>", null),
+                (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [5 0 R] >>", null),
                 (4, "null", null),
                 (5, "<< /Subtype /Widget /FT " + ft + " /T (Text) /V " + value + " /DA " + da + " /Rect [0 0 100 20] /AP << /N "
                     + (attribute == "State" ? indirect ? "12 0 R" : "<< /A#23B 6 0 R >>" : "6 0 R") + " >> /AS /A#23B >>", null),

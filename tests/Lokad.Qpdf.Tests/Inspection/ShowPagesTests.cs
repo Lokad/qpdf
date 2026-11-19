@@ -42,7 +42,7 @@ public sealed class ShowPagesTests
         return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents " + contents + " >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Contents " + contents + " >>", null),
             (4, "<< /Length " + payload.Length + " >>", payload),
             (5, indirect, null),
             (6, "<< /Length 0 >>", Array.Empty<byte>()),

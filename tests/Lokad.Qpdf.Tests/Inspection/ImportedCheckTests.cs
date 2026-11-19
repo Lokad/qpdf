@@ -43,7 +43,7 @@ public sealed class ImportedCheckTests
             "/Metadata":"7 0 R","/PageLabels":"8 0 R","/Audit":"9 0 R","/MarkInfo":{"/Marked":true},
             "/StructTreeRoot":{"/Type":"/StructTreeRoot","/K":[]}}},
           "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":1,"/Kids":["3 0 R"]}},
-          "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/MediaBox":[0,0,100,100]}},
+          "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/MediaBox":[0,0,100,100],"/Resources":{}}},
           "obj:5 0 R":{"value":{"/Fields":[]}},
           "obj:6 0 R":{"value":{"/ModDate":"u:D:20240101000000Z","/Title":"u:original"}},
           "obj:7 0 R":{"stream":{"dict":{"/Type":"/Metadata","/Subtype":"/XML"},"data":"PHRlc3QvPg=="}},

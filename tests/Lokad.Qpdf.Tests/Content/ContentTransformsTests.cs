@@ -85,7 +85,7 @@ public sealed class ContentTransformsTests
     {
         byte[] fixture = BuildPdf(
             string.Empty,
-            " /Contents [4 0 R 5 0 R]",
+            " /Resources << >> /Contents [4 0 R 5 0 R]",
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Length 12 >>", Encoding.ASCII.GetBytes("BT /F1 12 Tf")),
@@ -140,7 +140,7 @@ public sealed class ContentTransformsTests
     {
         byte[] fixture = BuildPdf(
             string.Empty,
-            " /Contents 4 0 R",
+            " /Resources << >> /Contents 4 0 R",
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Length 15 >>", Encoding.ASCII.GetBytes("BT (Page) Tj ET")),
@@ -391,7 +391,7 @@ public sealed class ContentTransformsTests
 
         byte[] fixture = BuildPdf(
             string.Empty,
-            " /Contents 4 0 R",
+            " /Resources << >> /Contents 4 0 R",
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Length " + compressed.Length + " /Filter /FlateDecode >>", compressed),
@@ -409,7 +409,7 @@ public sealed class ContentTransformsTests
         byte[] raw = Encoding.ASCII.GetBytes("BT\r/F1 12 Tf\r\nET");
         byte[] fixture = BuildPdf(
             string.Empty,
-            " /Contents 4 0 R",
+            " /Resources << >> /Contents 4 0 R",
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Length " + raw.Length + " >>", raw),
@@ -543,7 +543,7 @@ public sealed class ContentTransformsTests
     {
         byte[] fixture = BuildPdf(
             string.Empty,
-            " /Contents [4 0 R 5 0 R]",
+            " /Resources << >> /Contents [4 0 R 5 0 R]",
             new List<(string Dict, byte[]? StreamData)>
             {
                 ("<< /Length 2 >>", Encoding.ASCII.GetBytes("BT")),

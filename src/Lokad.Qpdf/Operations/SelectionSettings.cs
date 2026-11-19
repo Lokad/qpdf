@@ -36,6 +36,7 @@ internal readonly struct SelectionSettings
     internal required QdfOptions Qdf { get; init; }
     internal required ContentPrunePolicy Prune { get; init; }
     internal bool PreserveCatalog { get; init; }
+    internal bool RepairPageResources { get; init; }
     internal bool Linearize { get; init; }
     internal QpdfPath? LinearizePass1 { get; init; }
     internal QpdfPassword? PrimaryPassword { get; init; }
@@ -62,6 +63,7 @@ internal readonly struct SelectionSettings
         Optimize = ImageOptimizeRequest.Disabled,
         Qdf = QdfOptions.Disabled,
         Prune = new(false, null),
+        RepairPageResources = true,
     };
 
     internal static SelectionSettings FromPlan(JobPlan plan, bool pruneEnabled, QpdfPassword? password) => new()
@@ -97,6 +99,7 @@ internal readonly struct SelectionSettings
         Qdf = new(plan.Qdf, plan.NoOriginalObjectIds),
         Prune = new(pruneEnabled, plan.RemoveUnreferencedResources),
         PreserveCatalog = true,
+        RepairPageResources = plan is MergePlan or SelectionPlan || plan.SplitPages.HasValue,
         Linearize = plan.Linearize,
         LinearizePass1 = plan.LinearizePass1,
     };

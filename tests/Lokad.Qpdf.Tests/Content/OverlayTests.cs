@@ -264,7 +264,7 @@ for (int i = 0; i < n; i++)
 int pageNumber = i + 3;
 int contentNumber = pageNumber + n;
 kids.Add(pageNumber.ToString() + " 0 R");
-bodies.Add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents " + contentNumber.ToString() + " 0 R >>");
+bodies.Add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents " + contentNumber.ToString() + " 0 R >>");
 }
 for (int i = 0; i < n; i++)
 {

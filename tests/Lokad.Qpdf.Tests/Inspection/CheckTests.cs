@@ -320,7 +320,7 @@ public sealed class CheckTests
         {
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields " + acroFields + " >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots " + annots + " >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots " + annots + " >>", null),
             (4, fieldDict, null),
             (5, widgetInForm, null),
         };

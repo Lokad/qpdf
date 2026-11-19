@@ -165,7 +165,7 @@ public sealed class DocumentLifetimeTests
         byte[] input = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),
             (4, "<< /Length 4 >>", "q Q\n"u8.ToArray()),
             (5, "null %" + new string('A', 1024 * 1024) + "\n", null)
         ], 1);

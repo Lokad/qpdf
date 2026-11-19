@@ -567,12 +567,12 @@ internal static class PageAssembly
     internal static readonly PdfName WriterMediaBox = PdfName.FromAscii("MediaBox");
 
     internal static readonly PdfName[] WriterInherited =
-        [PdfName.FromAscii("Resources"), WriterMediaBox, PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
+        [Content.PageResources.Key, WriterMediaBox, PdfName.FromAscii("CropBox"), PdfName.FromAscii("Rotate")];
 
     internal static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine, PageLocation location, GraphCopier copier,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken,
-        ParserMemoryScope ownership, PageInheritance.Batch? ancestry)
+        ParserMemoryScope ownership, PageInheritance.Batch? ancestry, DiagnosticBag? repairWarnings)
     {
         ownership.CheckOwner(governor);
         Dictionary<PdfName, QpdfObject>? extra = null;
@@ -583,6 +583,11 @@ internal static class PageAssembly
             governor.CheckCancellation();
             PdfName key = WriterInherited[index];
             QpdfObject? value = inherited[index];
+            if (repairWarnings is not null && key.Equals(Content.PageResources.Key))
+            {
+                value = Content.PageResources.PrepareSelection(location.Page, value, engine, limits, governor,
+                    repairWarnings, cancellationToken);
+            }
             if (value is null) { continue; }
             QpdfObject copied = copier.CopyValue(value, 0);
             if (copied is PdfNull) { continue; }

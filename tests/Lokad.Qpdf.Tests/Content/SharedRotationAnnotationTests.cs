@@ -162,7 +162,7 @@ public sealed class SharedRotationAnnotationTests
         byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [4 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Subtype /Text /Rect [10 20 30 40] /P 3 0 R /Popup 5 0 R >>", null),
             (5, "<< /Subtype /Popup /Rect [40 60 60 80] /P 3 0 R /Parent 4 0 R >>", null)], 1);
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), fixture, QpdfInputOwnership.Transfer);
@@ -232,7 +232,7 @@ public sealed class SharedRotationAnnotationTests
         byte[] fixture = PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields " + (removeForm ? "[5 0 R]" : "[]") + " >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Annots [4 0 R] >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 200] /Resources << >> /Annots [4 0 R] >>", null),
             (4, "<< /Subtype /Widget /Rect [10 20 30 40] /P 3 0 R /Parent 5 0 R >>", null),
             (5, "<< /FT /Tx /T (Unregistered) /Kids [4 0 R] >>", null)], 1);
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), fixture, QpdfInputOwnership.Transfer);

@@ -26,7 +26,7 @@ public sealed class InvocationNestingTests
     private static byte[] Viewer(int depth) => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /Audit " + new string('[', depth) + "1" + new string(']', depth) + " >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
-        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null)], 1);
+        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null)], 1);
 
     public static IEnumerable<object[]> Cases()
     {

@@ -25,7 +25,7 @@ return PdfTestDocument.AssembleBodies(bodies, number => number > 3 ? extras[numb
 private static byte[] ContentFixture(string pageExtra)
 {
 byte[] content = Encoding.ASCII.GetBytes("BT (Hi) Tj ET");
-return BuildPdf(string.Empty, string.Concat(" /Contents 4 0 R", pageExtra), new List<(string Dict, byte[]? StreamData)>
+return BuildPdf(string.Empty, string.Concat(" /Resources << >> /Contents 4 0 R", pageExtra), new List<(string Dict, byte[]? StreamData)>
 {
 (string.Concat("<< /Length ", content.Length.ToString(), " >>"), content),
 });

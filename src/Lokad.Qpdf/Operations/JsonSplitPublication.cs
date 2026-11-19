@@ -51,7 +51,7 @@ internal static class JsonSplitPublication
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             Dictionary<int, PdfReference>? articleAliases = null;
             List<PdfReference> kids = PreparePages(pages, pool, resolver, pagesNumber, ref maximum, pageNumbers,
-                ref articleAliases, limits, split, governor, token);
+                ref articleAliases, limits, split, governor, diagnostics, token);
             if (pruneResources)
             {
                 maximum = PrunePageResources(kids, pool, resolver, maximum, limits, split, governor, diagnostics, token);
@@ -114,7 +114,7 @@ internal static class JsonSplitPublication
     private static List<PdfReference> PreparePages(IReadOnlyList<PageLocation> pages, Dictionary<int, QpdfObject> pool,
         IIndirectResolver resolver, int pagesNumber, ref int maximum, HashSet<int> pageNumbers,
         ref Dictionary<int, PdfReference>? articleAliases, QpdfLimits limits,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(memory, pages.Count, IntPtr.Size);
         memory.Reserve(32L);
@@ -137,8 +137,11 @@ internal static class JsonSplitPublication
             entries.Assign(headers.Memory, governor, ParentKey, parent, token);
             for (int i = 0; i < PageAssembly.WriterInherited.Length; i++)
             {
-                if (inherited[i] is QpdfObject value)
-                { entries.Assign(headers.Memory, governor, PageAssembly.WriterInherited[i], value, token); }
+                PdfName key = PageAssembly.WriterInherited[i];
+                QpdfObject? value = inherited[i];
+                if (key.Equals(PageResources.Key))
+                { value = PageResources.PrepareSelection(location.Page, value, resolver, limits, governor, diagnostics, token); }
+                if (value is not null) { entries.Assign(headers.Memory, governor, key, value, token); }
             }
             PdfDictionary page = PdfDictionaryRebuild.Complete(headers, entries, allocation);
             PageAssembly.RequireMediaBox(page);

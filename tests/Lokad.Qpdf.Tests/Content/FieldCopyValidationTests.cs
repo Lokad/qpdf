@@ -26,7 +26,7 @@ public sealed class FieldCopyValidationTests
     private static byte[] Input() => PdfTestDocument.Assemble([
         (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
         (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
-        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] >>", null)], 1);
+        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> >>", null)], 1);
 
     private static byte[] SharedAppearanceInput(int count)
     {
@@ -36,7 +36,7 @@ public sealed class FieldCopyValidationTests
         List<(int Number, string Dict, byte[]? StreamData)> objects = [
             (1, $"<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [{fields} {6 + count} 0 R] /DA (/Helv 10 Tf 0 g) /DR << /Font << /Helv 4 0 R >> >> >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
-            (3, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Annots [{fields}] >>", null),
+            (3, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Annots [{fields}] >>", null),
             (4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", null),
             (5, $"<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << /XObject << {resources} >> >> /Length {appearance.Length} >>", appearance),
         ];

@@ -296,7 +296,12 @@ public sealed class InlineResourceDefaultsTests
             Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] prior)); Assert.Equal(new byte[] { 9, 8, 7 }, prior);
             return;
         }
-        Warnings(result, below ? 1 : 2);
+        Assert.Equal(QpdfExecutionStatus.Completed, result.Status);
+        Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+        Assert.Equal(below ? 2 : 3, result.Diagnostics.Count);
+        Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.PageStructureWarning);
+        Assert.Equal(below ? 1 : 2, result.Diagnostics.Count(diagnostic => diagnostic.Code == QpdfDiagnosticCode.UnsupportedFeature));
+        Assert.All(result.Diagnostics, diagnostic => Assert.Equal(QpdfDiagnosticSeverity.Warning, diagnostic.Severity));
         Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Message == RepairWarning);
         await using QpdfDocument document = await Open(host);
         Assert.Equal(3L, Assert.IsType<PdfInteger>(Get(document, document.PageReferences[0].Page, "Resources")).Value);

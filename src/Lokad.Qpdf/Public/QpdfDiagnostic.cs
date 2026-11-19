@@ -101,6 +101,9 @@ public enum QpdfDiagnosticCode
 
     /// <summary>A non-secret note about password-file input.</summary>
     PasswordFileNote = 27,
+
+    /// <summary>A page structure finding kept as a warning.</summary>
+    PageStructureWarning = 28,
 }
 
 /// <summary>A single structured diagnostic entry.</summary>

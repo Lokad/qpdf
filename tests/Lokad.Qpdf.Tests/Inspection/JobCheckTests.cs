@@ -45,7 +45,7 @@ public sealed class JobCheckTests
         {
             // Repair-mode loading consumes one member value, as native does;
             // strict typed rejection of trailing data remains independently tested.
-            yield return [flate ? "flate-member" : "raw-member", Reading.ReaderAcceptanceTests.ObjectStreamPdf("(kept)", "(bad) null", flate, true, null),
+            yield return [flate ? "flate-member" : "raw-member", Reading.ReaderAcceptanceTests.ObjectStreamPdf("(kept)", "(bad) null", flate, true, null, "/Resources << >>"),
                 QpdfExecutionStatus.Completed, QpdfExitCode.Success, null];
         }
     }
