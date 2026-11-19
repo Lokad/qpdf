@@ -20,11 +20,12 @@ internal readonly record struct JsonImportWriterSettings(
     string? MinVersion, string? ForceVersion, bool StaticId, bool NewlineBeforeEndstream,
     string ObjectStreams, bool Linearize, QpdfPath? LinearizePass1, QpdfOutputEncryption Encryption,
     DocumentPublicationPolicy Publication, CompressionRequest? Compression, QdfOptions Qdf, bool NormalizeContent,
-    bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels, JsonDetachedObjects DetachedObjects)
+    bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels, IReadOnlyList<OutputRotation> Rotations,
+    JsonDetachedObjects DetachedObjects)
 {
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
-            null, QdfOptions.Disabled, false, false, null, [], JsonDetachedObjects.RetainAll);
+            null, QdfOptions.Disabled, false, false, null, [], [], JsonDetachedObjects.RetainAll);
 }
 
 internal static class JsonExecution
@@ -316,8 +317,10 @@ internal static class JsonExecution
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
             Json.ImportedModel model = await BindInspectionModelAsync(host, imported, engine, source.Header,
                 limits, governor, memory, token).ConfigureAwait(false);
+            IReadOnlyList<OutputRotation> rotations = [];
             if (inspection.GraphPlan is JsonPlan settings)
             {
+                rotations = settings.Rotations;
                 model = ImportedPublication.Apply(model,
                     new(settings.RemoveInfo, settings.RemoveMetadata, settings.RemoveAcroform, settings.RemoveStructure, settings.RemoveLabels),
                     limits, memory, governor, token, out _);
@@ -327,10 +330,11 @@ internal static class JsonExecution
             Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
                 model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
             IReadOnlyList<PageLocation> pages = [];
-            if (Json.DocumentJson.RequestUsesPageTree(request))
+            if (rotations.Count > 0 || Json.DocumentJson.RequestUsesPageTree(request))
             {
-                (PdfDictionary trailer, IReadOnlyList<PageLocation> locations) = PrepareBoundProjectionPages(model, resolver, ids,
+                (PdfDictionary trailer, List<PageLocation> locations) = PrepareBoundPages(model, resolver, ids,
                     limits, memory, governor, diagnostics, token);
+                ApplyBoundRotations(model.Objects, resolver, locations, rotations, limits, memory, governor, token);
                 memory.Reserve(Json.ImportedModel.AllocationBytes);
                 model = model with { Trailer = trailer, CalledAllPages = true };
                 pages = locations;
@@ -342,9 +346,9 @@ internal static class JsonExecution
         return rendered;
     }
 
-    private static (PdfDictionary Trailer, IReadOnlyList<PageLocation> Pages) PrepareBoundProjectionPages(
+    private static (PdfDictionary Trailer, List<PageLocation> Pages) PrepareBoundPages(
         Json.ImportedModel model, Content.PoolResolver resolver,
-        Dictionary<int, (int Number, int Generation)> ids, QpdfLimits limits, ParserMemoryScope memory,
+        Dictionary<int, (int Number, int Generation)>? ids, QpdfLimits limits, ParserMemoryScope memory,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         int lastBound = 0, lastDeclared = 0;
@@ -364,11 +368,18 @@ internal static class JsonExecution
         {
             if (lastBound == 0)
             {
-                foreach ((int bound, var pair) in ids)
+                foreach (int bound in model.Objects.Keys)
                 {
                     token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     lastBound = Math.Max(lastBound, bound);
-                    lastDeclared = Math.Max(lastDeclared, pair.Number);
+                }
+                if (ids is not null)
+                {
+                    foreach (var pair in ids.Values)
+                    {
+                        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        lastDeclared = Math.Max(lastDeclared, pair.Number);
+                    }
                 }
             }
             if (lastDeclared == int.MaxValue || lastBound == int.MaxValue)
@@ -376,9 +387,35 @@ internal static class JsonExecution
             if (objects >= limits.MaxContainerSize)
             { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), objects + 1L, limits.MaxContainerSize); }
             objects++;
-            ParserContainers.EnsureEntryCapacity(memory, ids, 2L * sizeof(int));
-            ids.Add(++lastBound, (++lastDeclared, 0));
+            lastBound++;
+            if (ids is not null)
+            {
+                ParserContainers.EnsureEntryCapacity(memory, ids, 2L * sizeof(int));
+                ids.Add(lastBound, (++lastDeclared, 0));
+            }
             return lastBound;
+        }
+    }
+
+    private static void ApplyBoundRotations(Dictionary<int, QpdfObject> objects, IIndirectResolver resolver,
+        List<PageLocation> pages, IReadOnlyList<OutputRotation> rotations, QpdfLimits limits,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (rotations.Count == 0) { return; }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<List<(PdfRotationMode Mode, int Angle)>?> folds;
+        try { folds = ResolveRotationFolds(rotations, pages.Count, governor, limits, scratch); }
+        catch (ArgumentException error) { throw new QpdfParseException("Invalid page rotation range.", null, null, error); }
+        for (int index = 0; index < pages.Count; index++)
+        {
+            governor.CheckCancellation();
+            if (folds[index] is not { Count: > 0 } specifications) { continue; }
+            PageLocation location = pages[index];
+            PdfReference reference = location.Source ?? throw new InvalidOperationException("Missing prepared page identity.");
+            QpdfObject? inherited = ReadInheritedRotation(resolver, location, limits, governor, token);
+            PdfDictionary page = RotatePage(location.Page, inherited, specifications, index + 1, governor, memory);
+            objects[reference.ObjectNumber] = page;
+            pages[index] = new(reference, page);
         }
     }
 
@@ -541,7 +578,15 @@ internal static class JsonExecution
             : writer.Publication with { RemoveLabels = true };
         model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
+        Content.PoolResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
+        if (writer.Rotations.Count > 0)
+        {
+            (PdfDictionary trailer, List<PageLocation> locations) = PrepareBoundPages(model, resolver, null,
+                limits, memory, governor, diagnostics, token);
+            ApplyBoundRotations(model.Objects, resolver, locations, writer.Rotations, limits, memory, governor, token);
+            memory.Reserve(Json.ImportedModel.AllocationBytes);
+            model = model with { Trailer = trailer, CalledAllPages = true };
+        }
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);
         PdfDictionary? catalog = Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token);
         int level = Content.CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);

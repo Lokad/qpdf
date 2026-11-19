@@ -401,16 +401,9 @@ internal static partial class InspectionGraphPreparation
                 InspectionPage selected = selectedPages[i];
                 PdfDictionary page = pool.CopiedObjects[selected.Number] as PdfDictionary
                     ?? throw new QpdfParseException("Selected page was removed from the graph.", null, selected.Number);
-                QpdfObject? inherited = PageInheritance.Find(document.Engine, new PageLocation(new PdfReference(selected.Number, selected.Generation), page),
-                    InspectionRotate, limits, governor, cancellationToken);
-                if (inherited is not null)
-                {
-                    Dictionary<PdfName, QpdfObject> entries = CopyInspectionEntries(page, memory, governor);
-                    SetInspectionEntry(entries, InspectionRotate, PageInheritance.Resolve(document.Engine, inherited, limits, governor), memory);
-                    memory.Reserve(32L);
-                    page = PdfDictionary.FromOwnedEntries(entries);
-                }
-                ApplyRotation(pool, selected.Number, page, specifications, i + 1, governor, memory);
+                QpdfObject? inherited = ReadInheritedRotation(document.Engine, new(new PdfReference(selected.Number, selected.Generation), page),
+                    limits, governor, cancellationToken);
+                ApplyRotation(pool, selected.Number, page, inherited, specifications, i + 1, governor, memory);
             }
             if (overlay)
             {

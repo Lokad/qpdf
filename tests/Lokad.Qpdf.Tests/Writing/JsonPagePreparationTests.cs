@@ -87,6 +87,99 @@ public sealed class JsonPagePreparationTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
+    [Fact]
+    public async Task JsonCreationRotatesOnlyTheSelectedOccurrenceAndPreservesTheOriginalRotationValue()
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Json, """
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/AuditRotate":"8 4 R"}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":2,"/Kids":["3 17 R","3 17 R"],"/Rotate":"8 4 R"}},
+              "obj:3 17 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/MediaBox":[0,0,100,200]}},
+              "obj:8 4 R":{"value":90},"trailer":{"value":{"/Root":"1 0 R","/Size":9}}
+            }]}
+            """u8.ToArray(), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"json","jsonInput":"","outputFile":"output","rotate":["+90:2"],"warningExit0":""}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.RecoveryEngaged);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        host.AddInput(Input, bytes, QpdfInputOwnership.Transfer);
+        await using var document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
+        Assert.Equal(2, document.PageCount);
+        Assert.NotEqual(document.PageReferences[0].Source, document.PageReferences[1].Source);
+        Assert.False(document.PageReferences[0].Page.TryGet(PdfName.FromAscii("Rotate"), out _));
+        Assert.Equal(180L, Assert.IsType<PdfInteger>(Entry(document.PageReferences[1].Page, "Rotate")).Value);
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(1));
+        Assert.Equal(90L, Assert.IsType<PdfInteger>(Resolve(document, Entry(catalog, "AuditRotate"))).Value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UpdatedRotationUsesThePatchedPageOrder(bool report)
+    {
+        using InMemoryQpdfHost host = ReorderedPatchHost();
+        string[] output = report ? ["--json-output", "--json-stream-data=inline"] : ["--stream-data=preserve", "output"];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input", "--update-from-json=json", "--rotate=-90:1", .. output]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        if (report)
+        {
+            using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+            JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+            JsonElement tree = table.GetProperty("obj:2 0 R").GetProperty("value");
+            Assert.Equal(new[] { "4 0 R", "3 0 R" }, tree.GetProperty("/Kids").EnumerateArray().Select(kid => kid.GetString()));
+            Assert.Equal(90, tree.GetProperty("/Rotate").GetInt32());
+            Assert.Equal(0, table.GetProperty("obj:4 0 R").GetProperty("value").GetProperty("/Rotate").GetInt32());
+            Assert.False(table.GetProperty("obj:3 0 R").GetProperty("value").TryGetProperty("/Rotate", out _));
+            return;
+        }
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        QpdfPath resultPath = QpdfPath.From("published");
+        host.AddInput(resultPath, bytes, QpdfInputOwnership.Transfer);
+        await using var document = await QpdfDocument.OpenAsync(host, resultPath, CancellationToken.None);
+        PdfDictionary first = document.PageReferences[0].Page, second = document.PageReferences[1].Page;
+        Assert.Equal(0L, Assert.IsType<PdfInteger>(Entry(first, "Rotate")).Value);
+        Assert.False(second.TryGet(PdfName.FromAscii("Rotate"), out _));
+        Assert.Contains("(Second)", Program(first), StringComparison.Ordinal);
+        Assert.Contains("(First)", Program(second), StringComparison.Ordinal);
+
+        string Program(PdfDictionary page)
+            => Encoding.ASCII.GetString(Assert.IsType<PdfStream>(Resolve(document, Entry(page, "Contents"))).RawMemory.Span);
+    }
+
+    [Fact]
+    public async Task InvalidRotationAfterBindingLeavesANamedTargetUnchanged()
+    {
+        using InMemoryQpdfHost host = ReorderedPatchHost();
+        byte[] prior = "prior output"u8.ToArray();
+        await using (IQpdfOutputTransaction seed = await host.CreateOutputAsync(Output, CancellationToken.None))
+        {
+            await seed.WriteAsync(prior, CancellationToken.None);
+            await seed.CommitAsync(CancellationToken.None);
+        }
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input", "--update-from-json=json", "--rotate=90:3", "output"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.InvalidArguments);
+        Assert.True(host.TryGetOutput(Output, out byte[] bytes));
+        Assert.Equal(prior, bytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static InMemoryQpdfHost ReorderedPatchHost()
+    {
+        byte[] source = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-2page.pdf"));
+        return Host(source, Patch("", new()
+        {
+            ["obj:2 0 R"] = new { value = new Dictionary<string, object>
+            { ["/Type"] = "/Pages", ["/Count"] = 2, ["/Kids"] = new[] { "4 0 R", "3 0 R" }, ["/Rotate"] = 90 } },
+        }));
+    }
+
     public static IEnumerable<object[]> PageCases()
     {
         foreach (string shape in new[] { "ordinary", "direct", "repeated" })

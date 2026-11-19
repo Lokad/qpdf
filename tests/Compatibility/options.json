@@ -7060,6 +7060,8 @@
           "RotationTests.ArgvRotateSpansMergeSources",
           "JsonPagePreparationTests.ExportedRotationUsesInheritedValuesAndVisiblePageIdentities",
           "JsonContentTransformTests.RotationAfterPageSelectionPreservesTheCoalescedContentsAndPrivateArray",
+          "JsonPagePreparationTests.JsonCreationRotatesOnlyTheSelectedOccurrenceAndPreservesTheOriginalRotationValue",
+          "JsonPagePreparationTests.UpdatedRotationUsesThePatchedPageOrder",
           "RotationTests.JobRotateRangeMatchesArgv",
           "RotationTests.ArgvRotateAppliesToFileRangeGroups",
           "RotationTests.ArgvRotateAcrossFileRangeSources",

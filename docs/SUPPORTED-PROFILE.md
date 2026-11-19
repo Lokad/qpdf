@@ -396,9 +396,11 @@ resource pushdown is reported only when performed.
 JSON export applies Info, XML metadata, AcroForm, structure and page-label
 removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
-PDF-to-JSON export applies `--rotate` to the effective page order. Rotation
-composes with the content transforms and can assign identities to edited page
-occurrences. Rotation baking and appearance transforms remain unavailable.
+JSON export applies `--rotate` to the effective page order. PDF-to-JSON export
+composes rotation with content transforms. Bound export rotates the order
+established by the authored graph and patch. Edited page occurrences can gain
+identities.
+Rotation baking and appearance transforms remain unavailable.
 Export from a PDF can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)
@@ -479,11 +481,12 @@ detached declarations and source objects. Superseded page-tree, security and
 physical layout roles require a retained edge. Typed imports retain detached
 declarations.
 
+Commands apply `--rotate` after binding, before splitting and publication.
 Command imports can coalesce page contents before stream encoding. Shared
 arrays and streams remain available to private references. An edited direct
 page gains an indirect identity. An undecodable chunk keeps the original
-array and reports a warning. Page rotation and other page, content, image and
-attachment edits remain unavailable during import and update.
+array and reports a warning. Other page, content, image and attachment edits
+remain unavailable during import and update.
 
 ### Splitting and replacement
 

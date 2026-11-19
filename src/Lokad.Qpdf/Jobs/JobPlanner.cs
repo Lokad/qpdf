@@ -992,7 +992,7 @@ internal static partial class JobPlanner
             bool wantJsonOutput = seenJsonOutput || seenJson;
             // Bound graphs do not use the physical page assembly path.
             if ((importJson || seenJson || seenJsonOutput)
-                && ((wantJsonOutput && splitPages.HasValue) || (importJson && (seenCollate || rotations.Count > 0))
+                && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate)
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
                     || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
@@ -1042,6 +1042,7 @@ internal static partial class JobPlanner
                     PreserveUnreferenced = preserveUnreferenced,
                     CompressionState = compressionSettings.State,
                     CoalesceContents = coalesceContents,
+                    Rotations = rotations,
                     Labels = labels,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,

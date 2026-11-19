@@ -240,36 +240,42 @@ internal static class PageAssembly
             {
                 throw new QpdfException("Rotation reached a missing copied page dictionary.");
             }
-            ApplyRotation(copier, id, page, specifications, i + 1, governor, ownership);
+            ApplyRotation(copier, id, page, null, specifications, i + 1, governor, ownership);
         }
     }
 
-    internal static void ApplyRotation(GraphCopier copier, int id, PdfDictionary page,
+    internal static void ApplyRotation(GraphCopier copier, int id, PdfDictionary page, QpdfObject? inherited,
+        IReadOnlyList<(PdfRotationMode Mode, int Angle)> specifications, int pageNumber,
+        ResourceGovernor governor, ParserMemoryScope ownership)
+    {
+        QpdfObject? raw = inherited;
+        if (raw is null && page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject local)) { raw = local; }
+        if (raw is PdfReference reference && PdfObjectLookup.TryResolve(reference, copier.CopiedObjects,
+            governor, governor.CancellationToken, out QpdfObject? resolved))
+        { raw = resolved ?? raw; }
+        copier.ReplaceCopiedObject(id, RotatePage(page, raw, specifications, pageNumber, governor, ownership));
+    }
+
+    internal static QpdfObject? ReadInheritedRotation(IIndirectResolver resolver, PageLocation page,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        QpdfObject? raw = PageInheritance.Find(resolver, page, PdfName.FromAscii("Rotate"), limits, governor, token);
+        return raw is null ? null : PageInheritance.Resolve(resolver, raw, limits, governor);
+    }
+
+    internal static PdfDictionary RotatePage(PdfDictionary page, QpdfObject? raw,
         IReadOnlyList<(PdfRotationMode Mode, int Angle)> specifications, int pageNumber,
         ResourceGovernor governor, ParserMemoryScope ownership)
     {
         using ParserMemoryScope header = ParserMemoryScope.Create(governor);
         header.Reserve(176L);
         PdfName rotateKey = PdfName.FromAscii("Rotate");
-        int current = 0;
-        if (page.TryGet(rotateKey, out QpdfObject raw))
+        int current = raw switch
         {
-            if (raw is PdfReference reference && PdfObjectLookup.TryResolve(reference, copier.CopiedObjects,
-                governor, governor.CancellationToken, out QpdfObject? resolved))
-            { raw = resolved ?? raw; }
-            if (raw is PdfNull)
-            {
-                current = 0;
-            }
-            else if (raw is PdfInteger inherited)
-            {
-                current = NormalizeRotation(inherited.Value);
-            }
-            else
-            {
-                throw new QpdfParseException($"Output page {pageNumber} has an invalid /Rotate value.", null, null);
-            }
-        }
+            null or PdfNull => 0,
+            PdfInteger inherited => NormalizeRotation(inherited.Value),
+            _ => throw new QpdfParseException($"Output page {pageNumber} has an invalid /Rotate value.", null, null),
+        };
 
         foreach ((PdfRotationMode mode, int angle) in specifications)
         {
@@ -293,7 +299,8 @@ internal static class PageAssembly
         if (!entries.ContainsKey(rotateKey)) { ParserContainers.EnsureEntryCapacity(header, entries, IntPtr.Size); }
         entries[rotateKey] = new PdfInteger(current.ToString(System.Globalization.CultureInfo.InvariantCulture), current);
         PdfDictionary rotated = PdfDictionary.FromOwnedEntries(entries);
-        header.TransferTo(ownership); copier.ReplaceCopiedObject(id, rotated);
+        header.TransferTo(ownership);
+        return rotated;
     }
 
     internal static int NormalizeRotation(long value)
