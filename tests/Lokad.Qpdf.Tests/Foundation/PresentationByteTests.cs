@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Inspection;
@@ -48,7 +47,7 @@ public sealed class PresentationByteTests
             QpdfExecutionResult baseline = await Run(baselineHost, route, operation, flags, QpdfLimits.Default, CancellationToken.None);
             Assert.True(baseline.Status == QpdfExecutionStatus.Completed, string.Join("; ", baseline.Diagnostics.Select(diagnostic => diagnostic.Message)));
             long bytes = MessageBytes(baseline);
-            QpdfLimits limits = ceiling == "default" ? QpdfLimits.Default : QpdfLimits.Default with
+            QpdfLimits limits = QpdfLimits.Default with
             { MaxDiagnosticBytes = ceiling == "tiny" ? 16L : bytes - (ceiling == "short" ? 1L : 0L) };
             CountingPublicationHost host = await Prepare(operation, compressed, false);
             byte[][] aliases = Targets.Select(target =>
@@ -56,14 +55,7 @@ public sealed class PresentationByteTests
             QpdfExecutionResult result = await Run(host, route, operation, flags, limits, CancellationToken.None);
             if (ceiling is "short" or "tiny")
             {
-                Assert.Equal(QpdfExecutionStatus.Failed, result.Status); Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-                Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
-                    && diagnostic.Message.Contains(nameof(QpdfLimits.MaxDiagnosticBytes), StringComparison.Ordinal));
-                Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code is QpdfDiagnosticCode.VerboseSummary
-                    or QpdfDiagnosticCode.MemoryUsage or QpdfDiagnosticCode.ProgressReport);
-                Assert.Null(result.OutputText); Assert.Null(result.OutputBytes); Assert.Equal(0, host.Commits);
-                foreach (string target in Targets)
-                { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] current)); Assert.Equal(Prior, current); }
+                PublicationTestJobs.AssertQuotaRefusal(host.Inner, result, host.Commits, nameof(QpdfLimits.MaxDiagnosticBytes));
             }
             else
             {
@@ -108,9 +100,8 @@ public sealed class PresentationByteTests
         CountingPublicationHost shortHost = await Prepare("whole", false, true);
         QpdfExecutionResult failed = await Run(shortHost, route, "whole", flags + (noWarn ? " no-warn" : ""),
             QpdfLimits.Default with { MaxDiagnosticBytes = required - 1L }, CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, failed.Status);
-        Assert.Contains(failed.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
-        Assert.Equal(0, shortHost.Commits); Assert.Equal(0L, shortHost.Inner.OpenLeaseCount);
+        PublicationTestJobs.AssertQuotaRefusal(shortHost.Inner, failed, shortHost.Commits, nameof(QpdfLimits.MaxDiagnosticBytes));
+        Assert.Equal(0L, shortHost.Inner.OpenLeaseCount);
     }
 
     [Theory]
@@ -132,25 +123,15 @@ public sealed class PresentationByteTests
         Assert.Equal(2, host.Commits); Assert.Equal(0L, result.Counters.OpenHandles); Assert.Equal(0L, host.Inner.OpenLeaseCount);
     }
 
-    public static IEnumerable<object[]> DecimalBoundaries()
-    {
-        for (long value = 1L; value <= 1_000_000_000_000_000_000L; value = checked(value * 10L))
-        {
-            yield return [value - 1L]; yield return [value]; yield return [value + 1L];
-            if (value == 1_000_000_000_000_000_000L) { break; }
-        }
-        yield return [long.MaxValue];
-    }
-
     public static IEnumerable<object[]> SelectedFlags()
     {
         foreach (string operation in new[] { "whole", "json-inline" })
         foreach (string flags in new[] { "verbose", "report-memory-usage", "progress", "verbose report-memory-usage",
-            "verbose progress", "report-memory-usage progress", "verbose report-memory-usage progress" })
+            "verbose progress", "report-memory-usage progress" })
         { yield return ["argv", operation, flags]; }
+        // Jobs() owns the all-summary whole-file adapter cases.
         foreach (string route in new[] { "job", "mixed", "response" })
-        foreach (string operation in new[] { "whole", "json-inline" })
-        { yield return [route, operation, "verbose progress report-memory-usage"]; }
+        { yield return [route, "json-inline", "verbose progress report-memory-usage"]; }
     }
 
     [Theory]
@@ -170,8 +151,7 @@ public sealed class PresentationByteTests
             CountingPublicationHost shortHost = await Prepare(operation, false, false);
             QpdfExecutionResult failed = await Run(shortHost, route, operation, flags,
                 QpdfLimits.Default with { MaxDiagnosticBytes = bytes - 1L }, CancellationToken.None);
-            Assert.Equal(QpdfExecutionStatus.Failed, failed.Status); Assert.Equal(0, shortHost.Commits);
-            Assert.Contains(failed.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded);
+            PublicationTestJobs.AssertQuotaRefusal(shortHost.Inner, failed, shortHost.Commits, nameof(QpdfLimits.MaxDiagnosticBytes));
             Assert.Equal(0L, failed.Counters.OpenHandles); Assert.Equal(0L, shortHost.Inner.OpenLeaseCount);
         }
         Assert.Equal(0L, exact.Counters.OpenHandles); Assert.Equal(0L, exactHost.Inner.OpenLeaseCount);

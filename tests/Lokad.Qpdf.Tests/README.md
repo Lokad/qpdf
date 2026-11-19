@@ -50,7 +50,7 @@ coverage boundaries are:
 | Physical layout | `WriterIdentifierTests` owns identifier bounds. `ObjectStreamDescriptorTests` owns descriptor syntax and malformed values at the reader and samples publication adapters with actual prior targets. Require `Valid` linearization and actual xref membership. Preserve outline promotion, hint ownership and frozen invalid fixtures independently of the writer. |
 | Reuse indexes | Separate repeated work from resource bindings and equal-byte identities; retain warning eligibility, per-page failures, admission and refund controls. Work notifications are not CPU fuel. |
 | Literal and partition syntax | Primitive owners exhaust escaping, shape, encoding and container representation; parser/writer/normalizer samples retain framing, quotas, cancellation and physical line markers. |
-| Presentation | Own count/byte boundaries for each output shape; sample flag combinations, decimal/culture behavior and route adaptation separately. |
+| Presentation | Output shapes own all-summary count and byte boundaries. Flag-selection tests cover individual summaries, combinations and adapter samples. The byte suite also checks non-invariant cultures. |
 | Argument previews | `ArgumentErrorMemoryTests` covers bounded terminal errors and range previews. Adapter samples cover configuration admission and prior targets. |
 
 Reference inspection compares ordered native listings and exact payloads.

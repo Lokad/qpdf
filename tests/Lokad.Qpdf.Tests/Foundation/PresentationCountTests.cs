@@ -1,13 +1,11 @@
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Runtime;
+using static Lokad.Qpdf.Tests.Foundation.PublicationTestJobs;
 
 namespace Lokad.Qpdf.Tests.Foundation;
 
 public sealed class PresentationCountTests
 {
-    private static readonly byte[] Prior = [17, 23, 41];
-    private static readonly string[] Targets = ["output.pdf", "output-1.pdf", "output-2.pdf", "side-4"];
-
     public static IEnumerable<object[]> Jobs()
     {
         foreach (string operation in new[] { "whole", "linearized", "qdf", "pages", "merge", "split",
@@ -37,23 +35,14 @@ public sealed class PresentationCountTests
         Assert.True(plain.Status == QpdfExecutionStatus.Completed, string.Join("; ", plain.Diagnostics.Select(d => d.Message)));
         long notes = plain.Counters.TotalOutputBytes > 0L ? 6L : 2L;
         long required = plain.Counters.DiagnosticCount + notes;
-        QpdfLimits limits = ceiling == "default" ? QpdfLimits.Default
-            : QpdfLimits.Default with { MaxDiagnostics = required - (ceiling == "short" ? 1L : 0L) };
+        QpdfLimits limits = QpdfLimits.Default with { MaxDiagnostics = required - (ceiling == "short" ? 1L : 0L) };
         PublicationHost host = await Prepare(operation, compressed);
         byte[][] priorAliases = Targets.Select(target =>
         { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] bytes)); return bytes; }).ToArray();
         QpdfExecutionResult result = await Run(host, invocation, operation, "verbose progress report-memory-usage", limits, CancellationToken.None);
         if (ceiling == "short")
         {
-            Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-            Assert.Equal(QpdfExitCode.Error, result.ExitCode);
-            Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
-                && diagnostic.Message.Contains(nameof(QpdfLimits.MaxDiagnostics), StringComparison.Ordinal));
-            Assert.DoesNotContain(result.Diagnostics, diagnostic => IsSummary(diagnostic.Code));
-            Assert.Null(result.OutputText); Assert.Null(result.OutputBytes);
-            Assert.Equal(0, host.Commits);
-            foreach (string target in Targets)
-            { Assert.True(host.Inner.TryGetOutput(QpdfPath.From(target), out byte[] bytes)); Assert.Equal(Prior, bytes); }
+            AssertQuotaRefusal(host.Inner, result, host.Commits, nameof(QpdfLimits.MaxDiagnostics));
         }
         else
         {
@@ -82,9 +71,6 @@ public sealed class PresentationCountTests
         Assert.All(priorAliases, alias => Assert.Equal(Prior, alias));
         GC.KeepAlive(result); GC.KeepAlive(priorAliases);
     }
-
-    private static bool IsSummary(QpdfDiagnosticCode code)
-        => code is QpdfDiagnosticCode.VerboseSummary or QpdfDiagnosticCode.MemoryUsage or QpdfDiagnosticCode.ProgressReport;
 
     public static IEnumerable<object[]> WarningJobs()
     {

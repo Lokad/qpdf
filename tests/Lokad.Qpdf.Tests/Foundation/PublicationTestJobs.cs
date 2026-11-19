@@ -10,6 +10,26 @@ internal static class PublicationTestJobs
     internal static readonly byte[] Prior = [17, 23, 41];
     internal static readonly string[] Targets = ["output.pdf", "output-1.pdf", "output-2.pdf", "side-4", "pass1.pdf"];
 
+    internal static bool IsSummary(QpdfDiagnosticCode code)
+        => code is QpdfDiagnosticCode.VerboseSummary or QpdfDiagnosticCode.MemoryUsage or QpdfDiagnosticCode.ProgressReport;
+
+    internal static void AssertQuotaRefusal(InMemoryQpdfHost host, QpdfExecutionResult result, int commits, string limit)
+    {
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Equal(QpdfExitCode.Error, result.ExitCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
+            && diagnostic.Message.Contains(limit, StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => IsSummary(diagnostic.Code));
+        Assert.Null(result.OutputText);
+        Assert.Null(result.OutputBytes);
+        Assert.Equal(0, commits);
+        foreach (string target in Targets)
+        {
+            Assert.True(host.TryGetOutput(QpdfPath.From(target), out byte[] bytes));
+            Assert.Equal(Prior, bytes);
+        }
+    }
+
     private static byte[] Source(bool compressed, bool warning)
     {
         byte[] body = "q Q\n"u8.ToArray();
