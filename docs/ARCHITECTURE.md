@@ -93,10 +93,8 @@ uses identities collected during input acquisition, including leases already
 closed. In-place JSON updates retain admitted reader storage after closing
 the source lease. [Publication rules](SUPPORTED-PROFILE.md#governance)
 
-Result-only JSON inspection with none/inline stream data needs no output
-transaction. Targeted binary extraction can transfer admitted payload backing
-past reader cleanup through commit. Other I/O borrows stay scoped to their
-actual consumers.
+Targeted binary extraction can transfer admitted payload backing past reader
+cleanup through commit.
 
 ## Password security
 

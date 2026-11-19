@@ -68,17 +68,15 @@ constructors remain caller-managed; fund them as an aggregate when needed.
    Retained backing remains immutable and funded by the host.
 3. Establish storage ownership that survives the invocation before `CommitAsync`.
    Moving a receipt does not extend its ancestor scope's lifetime.
-4. Commit is the replacement boundary. Failure/cancellation before replacement
-   preserves the prior target. If replacement succeeds, report success even if
-   cancellation arrives afterward.
+4. Once replacement succeeds, report commit success even if cancellation
+   arrives afterward.
 5. Await pending work and discard/dispose before refunding abandoned staging.
 
-Multiple targets commit sequentially, so an earlier PDF/sidecar can survive a
-later failure. A post-commit close fault does not undo publication. Split PDFs
-and first-pass captures release their serialized staging after their individual
-transactions close. The built-in memory host funds persistent keys and bytes
-separately from invocation scratch.
+Split PDFs and first-pass captures release their serialized staging after
+their individual transactions close. The built-in memory host funds persistent
+keys and bytes separately from invocation scratch.
 Known output lengths can pre-size staging without changing durable ownership.
+[Caller publication guarantees](SUPPORTED-PROFILE.md#governance)
 
 ## JPEG codecs
 

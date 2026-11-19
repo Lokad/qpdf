@@ -610,8 +610,10 @@ Explicit replacement may reuse the designated primary PDF acquisition.
 Configuration, patch, sidecar, password-file and template inputs remain
 protected, including after their leases close.
 
-Single-target publication is transactional. Multiple targets commit sequentially.
-Split preparation finishes before the first commit. Empty split jobs produce
-no files. Earlier successes survive later failure and post-commit close faults.
+Commit is the replacement boundary. Failure or cancellation before replacement
+preserves the prior target. A successful replacement survives cancellation and
+close faults. Multiple targets commit sequentially, so a later failure can
+leave an earlier PDF, report or sidecar published. Split preparation finishes
+before the first commit. Empty split jobs produce no files.
 Caller-owned results and pending I/O retain their required owners; see
 [memory and host ownership](MEMORY.md).
