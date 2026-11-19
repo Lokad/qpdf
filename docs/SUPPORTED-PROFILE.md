@@ -442,6 +442,11 @@ reports preserve unedited page trees.
 When exported objects share a number across generations, nonzero generations
 add a suffix to the sidecar name to keep the files distinct.
 
+A widget without local field entries uses the terminal field's `object`,
+`parent` and field-local names in `acroform.fields`. Use `annotation.object`
+for the widget's identity. A widget with local field entries reports its own
+field identity. Both JSON versions use the same projection.
+
 Argv/job JSON inspection accepts page-source assembly and collation, including
 an empty primary. Page descriptors and object exports share the assembled graph;
 labels, secondary actions/forms/layers and source version requirements survive

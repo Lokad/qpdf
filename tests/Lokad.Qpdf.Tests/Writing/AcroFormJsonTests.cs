@@ -23,22 +23,20 @@ public sealed class AcroFormJsonTests
         (7, "<< /Type /Annot /Subtype /Widget /P 3 0 R /Rect [0 0 10 10] " + widget + " >>", null), .. extra], 1);
 
     [Theory]
-    [InlineData("typed", false)]
-    [InlineData("argv", false)]
-    [InlineData("job", false)]
-    [InlineData("typed", true)]
-    [InlineData("argv", true)]
-    [InlineData("job", true)]
-    public async Task TerminalIdentityDoesNotDependOnRedundantFieldType(string route, bool ownType)
+    [InlineData("typed", 2, false)]
+    [InlineData("typed", 2, true)]
+    [InlineData("argv", 1, false)]
+    [InlineData("job", 2, true)]
+    public async Task TerminalIdentityDoesNotDependOnRedundantFieldType(string route, int version, bool ownType)
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture("/Parent 6 0 R", "/T (field) /V (value)" + (ownType ? " /FT /Tx" : ""), "/FT /Tx /Ff 4096"), QpdfInputOwnership.Transfer);
-        if (route == "typed") { await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(2, ["acroform"]), CancellationToken.None); }
+        if (route == "typed") { await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new QpdfJsonOptions(version, ["acroform"]), CancellationToken.None); }
         else
         {
             QpdfExecutionResult result = route == "job"
                 ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","json":"2","jsonKey":["acroform"]}""", CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", "--json=2", "--json-key=acroform", "--", "output"]), CancellationToken.None);
+                : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["input", $"--json={version}", "--json-key=acroform", "--", "output"]), CancellationToken.None);
             Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         }
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
@@ -47,17 +45,19 @@ public sealed class AcroFormJsonTests
         JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
         Assert.Equal("6 0 R", field.GetProperty("object").GetString());
         Assert.Equal("5 0 R", field.GetProperty("parent").GetString());
+        Assert.Equal("7 0 R", field.GetProperty("annotation").GetProperty("object").GetString());
         Assert.Equal("group.field", field.GetProperty("fullname").GetString());
         Assert.Equal("field", field.GetProperty("partialname").GetString());
         Assert.Equal("/Tx", field.GetProperty("fieldtype").GetString());
         Assert.Equal(4096, field.GetProperty("fieldflags").GetInt32());
-        Assert.Equal("u:value", field.GetProperty("value").GetString());
+        Assert.Equal(version == 1 ? "value" : "u:value", field.GetProperty("value").GetString());
         Assert.Equal(2, field.GetProperty("quadding").GetInt32());
     }
 
     [Theory]
     [InlineData("/T (merged)", "7 0 R", "group.field.merged", "merged")]
     [InlineData("/V (merged)", "7 0 R", "group.field", "")]
+    [InlineData("/FT /Tx", "7 0 R", "group.field", "")]
     [InlineData("", "6 0 R", "group.field", "field")]
     public async Task MergedAndSeparateWidgetsRetainTheirIdentity(string ownEntries, string identity, string full, string partial)
     {
@@ -67,6 +67,8 @@ public sealed class AcroFormJsonTests
         host.Dispose(); using JsonDocument json = JsonDocument.Parse(result.Json);
         JsonElement field = json.RootElement.GetProperty("acroform").GetProperty("fields")[0];
         Assert.Equal(identity, field.GetProperty("object").GetString());
+        Assert.Equal(ownEntries.Length == 0 ? "5 0 R" : "6 0 R", field.GetProperty("parent").GetString());
+        Assert.Equal("7 0 R", field.GetProperty("annotation").GetProperty("object").GetString());
         Assert.Equal(full, field.GetProperty("fullname").GetString()); Assert.Equal(partial, field.GetProperty("partialname").GetString());
         Assert.True(field.GetProperty("istext").GetBoolean());
     }

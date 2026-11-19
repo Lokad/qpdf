@@ -4210,6 +4210,8 @@
           "JsonPageAssemblyTests.SourceActionsFormsAndLayersKeepTheirMeaningAcrossCopies",
           "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
           "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
+          "AcroFormJsonTests.TerminalIdentityDoesNotDependOnRedundantFieldType",
+          "AcroFormJsonTests.MergedAndSeparateWidgetsRetainTheirIdentity",
           "ImageDescriptorShapeTests.DescriptorsRetainRawNamesReferencesAndOuterShapes",
           "JsonLabelProjectionTests.PageCountersAdvanceWithinRunsWhileExplicitEntriesKeepTheirStarts",
           "JsonLabelProjectionTests.ProjectionKeepsLiveFieldPairsAndLeavesOriginalDictionariesUntouched",
@@ -4512,6 +4514,8 @@
           "OutlineNamedDestinationTests.NamedTargetsKeepFullPageReferenceValidation",
           "AcroFormJsonTests.LocalNamesDoNotInheritAncestorNames",
           "AcroFormJsonTests.LocalNamesAndInheritedChoicesKeepTextEncoding",
+          "AcroFormJsonTests.TerminalIdentityDoesNotDependOnRedundantFieldType",
+          "AcroFormJsonTests.MergedAndSeparateWidgetsRetainTheirIdentity",
           "JsonReferenceProjectionTests.SourceTablesStreamHeadersAndTrailersShareReferenceProjection",
           "AttachmentJsonStreamKeysTests.EveryValidEfStreamIsReportedWithoutChangingFilenamePreference"
         ],
