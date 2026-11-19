@@ -72,8 +72,8 @@ internal static class Program
 
     private static void PrintHelp()
     {
-        Console.WriteLine("QpdfProbe 0.1.0: developer-only qpdf oracle and independent validation runner.");
-        Console.WriteLine($"Not part of the shipped Lokad.qpdf package. Requires an explicit qpdf {ExpectedQpdfVersion} executable for oracle commands.");
+        Console.WriteLine("QpdfProbe is the developer tool for oracle comparisons and independent validation.");
+        Console.WriteLine($"Oracle commands require an explicit qpdf {ExpectedQpdfVersion} executable.");
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  QpdfProbe --help");

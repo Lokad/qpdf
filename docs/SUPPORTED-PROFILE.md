@@ -139,36 +139,30 @@ protection and leave template inputs unopened.
 ### Inspection and secondary sources
 
 Typed `Qpdf.CheckAsync` accepts the same credentials in `QpdfCheckOptions.Password`
-and runs structural checks over the decrypted graph. Its existing skipped-stage
-reporting and partial-check contract still apply.
-Argv/job inspections and PDF transformations accept a primary text password through
-`--password`/`password`, or the first line of a host file through
-`--password-file`/`passwordFile`. Page sources accept `--password=...` after their
-file specification inside `--pages`, or `pages[].password` in job JSON. This applies
-to PDF transformations and transformed inspections, including empty-password inputs.
-Global password-mode and recovery settings apply to these credentials. A password
-specified on any occurrence applies to all occurrences of that file; contradictory
-nonempty setters reject before opening inputs. Primary-page password setters are ignored
-because the primary document uses its main credential.
+and runs structural checks over the decrypted graph. Page sources accept
+`--password=...` after their file specification inside `--pages`, or
+`pages[].password` in job JSON. This applies to transformations and transformed
+inspections, including empty-password inputs. One password setter applies to
+all occurrences of its file. Conflicting nonempty setters reject before inputs
+open. Primary-page password setters are ignored because the primary document
+uses its main credential.
 
 Typed attachment listing accepts primary credentials with explicit limits.
 Typed attachment edits also accept an [output policy](#page-sources-and-output-protection).
 [Attachment extraction](#attachment-extraction)
-Argv/job object-stream extraction accepts primary credentials for named output.
-Both modes decrypt payloads. Raw stream mode retains compression. Filtered mode
-decodes it.
+Raw and filtered object-stream extraction decrypt payloads. Raw mode retains
+compression. Filtered mode decodes it.
 
 Attachment-copy sources accept independent text credentials inside their argv/job
-blocks, including the global password mode and recovery settings. Typed
-`QpdfAttachmentCopy` accepts `QpdfPassword` text/raw credentials. These readers close
-after copying their plaintext graph; the primary's output policy protects the
-result. Each copy source uses its own credential, including copies from the
-primary path.
-Overlay/underlay argv blocks and job entries also accept independent passwords,
-including the global mode and recovery settings. The same file can use different
-valid credentials in separate placements; each distinct credential authenticates
-before its graph is reused. A missing placement credential does not inherit the
-primary password. Publication and transformed inspections share this reader path.
+blocks. Typed `QpdfAttachmentCopy` accepts `QpdfPassword` text/raw credentials.
+These readers close after copying their plaintext graph. The primary's output
+policy protects the result. Each source uses its own credential, including
+copies from the primary path.
+Overlay/underlay argv blocks and job entries accept independent passwords.
+The same file can use different valid credentials in separate placements.
+Each distinct credential authenticates before its graph is reused. A missing
+placement credential does not inherit the primary password. Publication and
+transformed inspections share this reader path.
 
 ### Authenticated JSON updates and creation
 
@@ -178,20 +172,23 @@ plaintext strings and stream data, including catalog metadata; protection is
 applied after final numbering. Full exports may repeat the authenticated input's
 unchanged `/Encrypt` reference and dictionary. Preservation rejects handler edits;
 use an explicit remove/create/template policy to define different output protection.
-Argv/job updates use `--update-from-json` / `updateFromJson` with primary text or
-host-file credentials, including password modes and recovery settings.
+Argv/job updates use `--update-from-json` / `updateFromJson` and authenticate the
+original PDF with the primary credential.
 Typed `CreatePdfFromJsonAsync` accepts an output policy with explicit limits.
 Plaintext JSON can produce new AES-256 or copied R2–R6 protection, including the
 chosen metadata policy. Creation has no authenticated PDF input: Preserve produces
 plaintext only when JSON has no `/Encrypt` declaration. Full encrypted exports
 require an explicit remove/create/template policy, which replaces that declaration.
 The writer raises the PDF version when required by protection.
-Argv/job `--json-input` / `jsonInput` accepts the same output policies and global
-password modes. Primary text passwords are ignored for plaintext JSON; password
-files are still read through the host, and missing files fail. Template inputs
-use the operation's recovery mode and their independent credential.
+Argv/job `--json-input` / `jsonInput` accepts the shared output policies. Plaintext
+JSON ignores the primary password after processing password setters. Missing
+password files still fail. Template inputs use their independent credential.
 
 ### Command password files and modes
+
+Argv/job operations use `--password` / `password` for the primary text
+credential or `--password-file` / `passwordFile` for its first line from a
+host file. Global password mode and recovery apply across command source roles.
 
 File setters retain native order: a zero-byte file leaves the previous password
 unchanged, while a blank first line supplies an empty password. Spaces are retained;

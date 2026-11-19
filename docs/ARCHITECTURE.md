@@ -18,12 +18,9 @@ flowchart LR
     Write --> Commit[Host commit]
 ```
 
-Argv and job JSON feed the same semantic planner. Typed methods adapt requests
-to the same operation cores. The typed multi-page overloads share preparation,
-result admission and cleanup. Configuration loading owns include
-order, duplicate keys, encoding and retained text. Plans carry the parsed object
-selector to the inspection resolver. Writer options are projected after source
-roles are known.
+Argv and job JSON share a planner. Typed requests enter the same operation
+cores. Planning resolves configuration and source roles before selecting writer
+options.
 
 Input admission and xref parsing precede authentication and page traversal.
 The reader resolves classic, streamed, hybrid and incremental xrefs into
@@ -75,19 +72,15 @@ become static stamps using their stored appearances.
 ## Inspection and publication
 
 Checking and listing use the same effective graph. Physical checks use the
-acquired file. Checking reuses successful page tokenization by stream order
-and inline-image resource context. A job shares hint analysis across its
-structural check and linearization reports. Attachment reports share a
-name-tree walker, and page reports share inherited image lookup.
+acquired file. Shared inspection analysis preserves page stream order and
+resource context.
 [Inspection profile](SUPPORTED-PROFILE.md#inspection-profile)
 
 JSON imports and ordinary writes share catalog, version and split policies.
-Split preparation binds each page range to its target before validation.
-`OutputModelPreparation` finalizes reachability, numbering and object-stream
-membership after stream preparation. Classic QDF borrows models already in
-number order and uses original pairs in comments. Packing and encryption use
-final numbers. Two-pass linearization assigns page and shared
-dependencies to hint spans and keeps outline objects outside object streams.
+Split preparation validates the page ranges and target bindings before
+publication. Stream preparation precedes final reachability, numbering and
+object-stream assignment. Packing and encryption use final object numbers.
+Linearization assigns page and shared dependencies to hint spans.
 
 `OutputSerialization` dispatches counting, identifier replay and emission.
 `OutputPublication` owns staged captures. Alias checks use the acquisition records.
@@ -142,13 +135,8 @@ cycle checks, depth and quota checks, and per-page validation.
 
 ## Development
 
-The core has no runtime NuGet dependencies. Hosts can supply JPEG codecs
-through `IQpdfJpegCodecHost`. The development adapter uses Lokad.Image.
-Ordinary tests need no native tools. Explicit reference and visual lanes
-require their selected tools. [Codec ownership](MEMORY.md#jpeg-codecs) ·
-[Compatibility verification](COMPATIBILITY.md#how-compatibility-is-verified)
-
-Shared semantic owners carry exhaustive cases. Adapter tests sample wiring
-and recording hosts observe resource and publication boundaries.
+Shared operation tests cover semantics. Adapter tests sample wiring, and
+recording hosts observe resource and publication boundaries.
+[Compatibility verification](COMPATIBILITY.md#how-compatibility-is-verified) ·
 [Test ownership guide](https://github.com/Lokad/qpdf/blob/master/tests/Lokad.Qpdf.Tests/README.md) ·
 [Benchmarks](BENCHMARKS.md)

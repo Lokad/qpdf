@@ -36,6 +36,14 @@ function Invoke-ColdProbe {
     } finally { $process.Dispose() }
 }
 
+$pin = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'reference-pin.json') -Raw | ConvertFrom-Json
+$help = Invoke-ColdProbe -Arguments @('--help') -InputText ''
+if ($help.ExitCode -ne 0 -or $help.Error -or
+    $help.Output -notmatch '^QpdfProbe is the developer tool' -or
+    $help.Output -notmatch [regex]::Escape("qpdf $($pin.version) executable")) {
+    throw 'Probe help must identify the tool and report the configured qpdf version.'
+}
+
 # Vary only the header terminator; calculate xref offsets for each actual layout.
 foreach ($ending in @(@{Name='lf'; Text="`n"}, @{Name='crlf'; Text="`r`n"}, @{Name='cr'; Text="`r"})) {
     $pdf = [Text.StringBuilder]::new('%PDF-1.4' + $ending.Text)

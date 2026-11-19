@@ -14,7 +14,10 @@ see [compatibility](docs/COMPATIBILITY.md) for supported behavior and difference
 - Extract, reorder, duplicate, merge, split and rotate pages.
 - Extract previews from signed PDFs, including supported password-encrypted inputs,
   retaining stored signature marks.
-- Inspect document structure, check PDFs, and manage attachments and metadata.
+- Inspect document structure, check PDFs, and manage attachments.
+- Remove Info fields and XMP metadata through rewrite options, or edit metadata
+  through JSON updates. [Writer profile](docs/SUPPORTED-PROFILE.md#writer-profile) ·
+  [JSON updates](docs/SUPPORTED-PROFILE.md#authenticated-json-updates-and-creation)
 - Open RC4 R2/R3, 128-bit RC4/AES R4 and AES-256 R5/R6 inputs through `QpdfDocument`, using user or owner credentials.
 - Rewrite PDFs with compression, object streams and linearization for web delivery.
 - Apply overlays and underlays, generate form appearances, flatten annotations,
