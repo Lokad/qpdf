@@ -1,6 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Lokad.Qpdf.Commands;
+using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Jobs;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests;
 
@@ -192,31 +195,110 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
-    public void JobJsonPathsMatchParserKeys()
+    public async Task JobJsonPathsMatchParserKeys()
     {
-        string parser = File.ReadAllText(Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf", "Jobs", "JobPlanner.cs"));
         using var inventory = ReadInventory();
-        var bad = new List<string>();
+        HashSet<string> checkedPaths = new(StringComparer.Ordinal);
+        HashSet<string> legacyBlocks = new(StringComparer.Ordinal);
         foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())
         {
-            foreach (var path in entry.GetProperty("jobJsonPaths").EnumerateArray())
+            foreach (var item in entry.GetProperty("jobJsonPaths").EnumerateArray())
             {
-                string? value = path.GetString();
-                if (string.IsNullOrEmpty(value) || value.StartsWith("encrypt.", StringComparison.Ordinal) || value.Contains("[]", StringComparison.Ordinal))
+                string path = Assert.IsType<string>(item.GetString());
+                string[] segments = path.Split('.');
+                if (segments is ["encrypt", "40bit" or "128bit", _])
                 {
+                    // Legacy creation rejects the entire enclosing block before reading any fields.
+                    Assert.Equal("deferred", entry.GetProperty("scope").GetString());
+                    Assert.Equal(segments[1][..^3] + "-bit-encryption", entry.GetProperty("context").GetString());
+                    if (legacyBlocks.Add(segments[1]))
+                    {
+                        QpdfCryptoException rejected = Assert.IsType<QpdfCryptoException>(await ProbeJobPathAsync(segments[..2]));
+                        Assert.Equal("encrypt", rejected.Option);
+                    }
                     continue;
                 }
 
-                string leaf = value.Contains('.', StringComparison.Ordinal) ? value.Substring(value.LastIndexOf('.') + 1) : value;
-                if (!parser.Contains("case \"" + leaf + "\":", StringComparison.Ordinal)
-                    && !JobPlanner.IsCryptoKey(leaf) && leaf != JobJsonLoader.FileKey)
+                if (checkedPaths.Add(path))
                 {
-                    bad.Add(entry.GetProperty("context").GetString() + "/" + entry.GetProperty("flag").GetString() + ": " + value);
+                    QpdfException? error = await ProbeJobPathAsync(segments);
+                    Assert.True(RecognizesJobPath(segments, error), $"Job path {path} did not reach its setting: {error?.Message}");
                 }
             }
         }
+    }
 
-        Assert.True(bad.Count == 0, "Job paths without a parser key: " + string.Join("; ", bad));
+    [Theory]
+    [InlineData("wrongContainer.parserMaxNesting")]
+    [InlineData("global.password")]
+    [InlineData("pages[].unknownNestedKey")]
+    [InlineData("pages.file")]
+    [InlineData("pages[].range.extra")]
+    [InlineData("overlay[].mimetype")]
+    [InlineData("addAttachment[].repeat")]
+    [InlineData("copyAttachmentsFrom[].filename")]
+    [InlineData("encrypt.accessibility")]
+    [InlineData("encrypt.256bit.parserMaxNesting")]
+    public async Task JobPathProbeRejectsKeysOutsideTheirParserContext(string path)
+    {
+        string[] segments = path.Split('.');
+        QpdfException? error = await ProbeJobPathAsync(segments);
+        Assert.IsType<QpdfParseException>(error);
+        Assert.False(RecognizesJobPath(segments, error), path);
+    }
+
+    private static bool RecognizesJobPath(string[] segments, QpdfException? error)
+    {
+        string path = string.Join('.', segments);
+        if (error is null) { return segments.Length == 1 && path is "encrypt" or "global" or "overlay" or "underlay"; }
+        if (error is QpdfCryptoException crypto) { return crypto.Option == path; }
+        if (error is not QpdfParseException) { return false; }
+
+        string leaf = segments[^1];
+        // Diagnostic names may include the enclosing setting or use the argv spelling.
+        string[] names = [leaf, path, path.Replace("[].", ".", StringComparison.Ordinal), path.Replace("[].", "-", StringComparison.Ordinal)];
+        return names.Any(name => error.Message.StartsWith($"Job {name} must ", StringComparison.Ordinal)
+            || error.Message.StartsWith($"Job \"{name}\" must ", StringComparison.Ordinal));
+    }
+
+    private static async Task<QpdfException?> ProbeJobPathAsync(string[] segments)
+    {
+        static JsonObject Encryption() => new() { ["256bit"] = new JsonObject(), ["ownerPassword"] = "inventory" };
+        static JsonObject Placement() => new() { ["file"] = "overlay.pdf" };
+        JsonObject job = new() { ["inputFile"] = "input.pdf", ["outputFile"] = "output.pdf" };
+        JsonObject target = job;
+        foreach (string container in segments.AsSpan(0, segments.Length - 1))
+        {
+            JsonObject child = container == "encrypt" ? Encryption() : new JsonObject();
+            if (container.EndsWith("[]", StringComparison.Ordinal))
+            {
+                child["file"] = container == "pages[]" ? "." : "auxiliary.pdf";
+                target[container[..^2]] = new JsonArray(child);
+            }
+            else { target[container] = child; }
+            target = child;
+        }
+        string leaf = segments[^1];
+        // An object in a scalar or array setting triggers validation at that key.
+        target[leaf] = segments switch
+        {
+            ["encrypt"] => Encryption(),
+            ["global"] => new JsonObject(),
+            ["overlay" or "underlay"] => new JsonArray(Placement()),
+            _ => new JsonObject { ["grammarProbe"] = true },
+        };
+
+        using InMemoryQpdfHost host = new();
+        QpdfLimits limits = QpdfLimits.Default;
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        try
+        {
+            using JobJsonLoader.LoadedJob loaded = await JobJsonLoader.ParseAsync(host, job.ToJsonString(), limits,
+                governor, CancellationToken.None);
+            return null;
+        }
+        catch (QpdfException ex) { return ex; }
+        finally { governor.CompleteStorage(); }
     }
 
     [Fact]
