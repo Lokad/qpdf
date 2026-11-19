@@ -521,7 +521,8 @@ internal static class InspectionExecution
                 AddPageCountDiagnostic(count, plan.Input, diagnostics);
                 return CompleteWithPresentation(governor);
             }
-            using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes));
+            using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes),
+                cancellationToken, 1);
             using ParserMemoryScope? payloadOwner = plan.Import is null && plan.PayloadOutput.HasValue ? ParserMemoryScope.Create(governor) : null;
             ReadOnlyMemory<byte>? directPayload = null;
             bool hasPayload = false;
@@ -607,14 +608,16 @@ internal static class InspectionExecution
                 return await PublishInspectionPayloadAsync(host, payloadTarget, directPayload ?? output.WrittenMemory,
                     plan.PublishesObjectStream, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
+            using ParserMemoryScope? resultStorage = hasPayload ? ParserMemoryScope.Create(governor) : null;
             ReadOnlyMemory<byte>? bytes = null;
-            if (hasPayload)
+            if (resultStorage is not null)
             {
-                bytes = new ReadOnlyMemory<byte>(output.ToArray());
+                bytes = output.FinishBytes(resultStorage, cancellationToken);
             }
             output.Dispose();
             ExecutionOutcome result = CompleteWithPresentation(governor);
             if (result.Status != QpdfExecutionStatus.Completed) { bytes = null; }
+            else if (resultStorage is not null) { resultStorage.PrepareResultStorage(resultStorage.ReservedBytes); }
             return result.WithOutputBytes(bytes);
         }
         catch (QpdfException ex)

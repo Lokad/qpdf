@@ -186,6 +186,24 @@ internal sealed class GovernedBufferStream : Stream
         return ToArrayCore(memory, cancellationToken);
     }
 
+    internal byte[] FinishBytes(ParserMemoryScope memory, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        memory.CheckOwner(_governor);
+        CheckCancellation(cancellationToken);
+        // A caller can retrieve the backing array of read-only memory, so
+        // transfer only a fully initialized array with no spare capacity.
+        if (_length != _buffer.Length) { return ToArrayCore(memory, cancellationToken); }
+        if (_length == 0) { return Array.Empty<byte>(); }
+
+        memory.AdoptReserved(_length + (long)ArrayOverheadBytes);
+        byte[] result = _buffer;
+        _buffer = Array.Empty<byte>();
+        _length = 0;
+        _position = 0;
+        return result;
+    }
+
     private byte[] ToArrayCore(ParserMemoryScope? memory, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

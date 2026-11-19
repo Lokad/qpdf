@@ -61,6 +61,10 @@ them alive after source cleanup. `PdfArray.CopyItems` is shallow: referents stil
 need their source owner. Existing copy properties and caller-created object
 constructors remain caller-managed; fund them as an aggregate when needed.
 
+Fileless binary inspection can transfer an exact-size staging array to the
+execution result. Results expose only initialized payload bytes. Their backing
+stays admitted under the caller's scope.
+
 ## Host transaction flow
 
 1. Create unpublished staging under a host owner sharing the root allowance.

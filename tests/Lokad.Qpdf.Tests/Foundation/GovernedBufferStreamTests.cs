@@ -23,6 +23,33 @@ public sealed class GovernedBufferStreamTests
         GC.KeepAlive(result);
     }
 
+    [Theory]
+    [InlineData(16384, 16384)]
+    [InlineData(1024, 8192)]
+    public void FinishingTransfersExactBackingAndCopiesWhenCapacityHasSlack(int count, int capacity)
+    {
+        long capacityBytes = capacity + (long)GovernedBufferStream.ArrayOverheadBytes;
+        long resultBytes = count + (long)GovernedBufferStream.ArrayOverheadBytes;
+        long workingPeak = capacity == count ? capacityBytes : capacityBytes + resultBytes;
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        byte[] payload = new byte[count];
+        new Random(17).NextBytes(payload);
+        using (ParserMemoryScope resultOwner = ParserMemoryScope.Create(governor))
+        {
+            long scopeBytes = governor.Snapshot().LiveMemoryBytes;
+            using (GovernedBufferStream stream = new(governor, 65536L, nameof(QpdfLimits.MaxOutputBytes)))
+            {
+                stream.Write(payload);
+                byte[] result = stream.FinishBytes(resultOwner, CancellationToken.None);
+                Assert.Equal(payload, result);
+                Assert.Equal(scopeBytes + workingPeak, governor.Snapshot().PeakMemoryBytes);
+            }
+            Assert.Equal(resultBytes, resultOwner.ReservedBytes);
+            Assert.Equal(scopeBytes + resultBytes, governor.Snapshot().LiveMemoryBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     [Fact]
     public void GrowthRejectsBeforeAllocatingAndRetainsTheOldContents()
     {
