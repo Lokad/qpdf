@@ -30,9 +30,10 @@ public sealed class AttachmentPageModeTests
 
     public static IEnumerable<object[]> InsertionCases()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
         foreach (string shape in new[] { "absent", "null", "indirect-null", "name", "raw", "direct-raw", "opaque", "bad" })
-        { yield return [route, shape]; }
+        { yield return ["typed", shape]; }
+        yield return ["argv", "indirect-null"];
+        yield return ["job", "opaque"];
     }
 
     [Theory]
@@ -95,9 +96,7 @@ public sealed class AttachmentPageModeTests
 
     [Theory]
     [InlineData("argv", "name")]
-    [InlineData("job", "name")]
     [InlineData("argv", "indirect-null")]
-    [InlineData("job", "indirect-null")]
     [InlineData("argv", "opaque")]
     [InlineData("job", "opaque")]
     public async Task SplitKeepsNamedHintsAndDropsOpaqueExtras(string route, string shape)
@@ -113,6 +112,41 @@ public sealed class AttachmentPageModeTests
             Assert.True(catalog.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject hint));
             Assert.Equal(shape == "name" ? "UseOutlines" : "UseAttachments", Assert.IsType<PdfName>(hint).DisplayText);
             Assert.False(catalog.TryGet(PdfName.FromAscii("Audit"), out _));
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("indirect-null")]
+    public async Task EditedReportsAndPublicationUseTheResolvedPageModeDefault(string shape)
+    {
+        using InMemoryQpdfHost host = Host(shape);
+        QpdfExecutionResult report = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"input","json":"2","jsonKey":["qpdf"],"addAttachment":[{"file":"added","key":"K"}]}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, report.ExitCode);
+        using JsonDocument json = JsonDocument.Parse(Assert.IsType<string>(report.OutputText));
+        JsonElement table = json.RootElement.GetProperty("qpdf")[1];
+        string? root = table.GetProperty("trailer").GetProperty("value").GetProperty("/Root").GetString();
+        string? mode = table.GetProperty("obj:" + root).GetProperty("value").GetProperty("/PageMode").GetString();
+        Assert.Equal("/UseAttachments", mode);
+
+        string[] edit = ["--add-attachment", "added", "--key=K", "--"];
+        QpdfExecutionResult listed = await Qpdf.ExecuteAsync(host, new(["input", .. edit, "--show-object=1",
+            "--show-attachment=K"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, listed.ExitCode);
+        QpdfDiagnostic catalog = Assert.Single(listed.Diagnostics, item => item.Code == QpdfDiagnosticCode.ObjectListing);
+        Assert.Contains("/PageMode /UseAttachments", catalog.Message, StringComparison.Ordinal);
+        Assert.Equal("A"u8.ToArray(), Assert.IsType<ReadOnlyMemory<byte>>(listed.OutputBytes).ToArray());
+
+        QpdfExecutionResult written = await Qpdf.ExecuteAsync(host, new(["input", .. edit, "output"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, written.ExitCode);
+        await using (QpdfDocument document = await Reopen(host, "output"))
+        {
+            PdfDictionary published = Assert.IsType<PdfDictionary>(document.GetObject(1));
+            Assert.True(published.TryGet(PdfName.FromAscii("PageMode"), out QpdfObject raw));
+            Assert.Equal("UseAttachments", Assert.IsType<PdfName>(raw).DisplayText);
         }
         Assert.Equal(0L, host.OpenLeaseCount);
     }

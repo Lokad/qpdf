@@ -65,6 +65,14 @@ internal static class CatalogCopy
         return raw;
     }
 
+    internal static QpdfObject? ReadPageMode(PdfDictionary catalog, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token, out QpdfObject raw)
+    {
+        if (!PdfDictionaryLookup.TryGet(catalog, "PageMode"u8, governor, token, out raw)) { return null; }
+        QpdfObject? resolved = ResolveValue(raw, resolver, governor, token);
+        return resolved is PdfNull ? null : resolved;
+    }
+
     internal static PdfReference? TryCopyOutlines(
         DocumentEngine engine,
         GraphCopier copier,
@@ -232,11 +240,11 @@ internal static class CatalogCopy
         PdfNameTable<QpdfObject> extras = PdfNameTable<QpdfObject>.Create(result, governor, IntPtr.Size, cancellationToken);
         PdfDictionary? catalog = TryGetCatalog(engine);
         QpdfObject? pageMode = null;
-        if (catalog is not null && PdfDictionaryLookup.TryGet(catalog, "PageMode"u8, governor, cancellationToken, out QpdfObject rawMode))
+        if (catalog is not null
+            && ReadPageMode(catalog, engine, governor, cancellationToken, out QpdfObject rawMode) is { } resolved)
         {
-            QpdfObject? resolved = ResolveValue(rawMode, engine, governor, cancellationToken);
             if (resolved is PdfName) { pageMode = resolved; }
-            else if (preserveCatalog && resolved is not null and not PdfNull)
+            else if (preserveCatalog)
             {
                 int firstId = copier.BeginCopyAttempt();
                 try { pageMode = copier.CopyValue(rawMode, 0); }

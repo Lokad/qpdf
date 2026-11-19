@@ -65,7 +65,7 @@ internal static partial class InspectionGraphPreparation
         }
         PdfDictionary updated = newNames is null ? PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Names"u8)
             : PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Names"u8, newNames);
-        if (attached.Inserted && !PdfDictionaryLookup.TryGet(updated, "PageMode"u8, governor, token, out _))
+        if (attached.Inserted && CatalogCopy.ReadPageMode(updated, resolver, governor, token, out _) is null)
         { updated = PdfDictionaryRebuild.ReplaceEntry(graph, updated, "PageMode"u8, UseAttachmentsPageMode); }
         QpdfDocument.VersionParts parts = document.EffectiveVersionParts;
         PdfVersion version = governor.PrivateVersion(parts.Major, parts.Minor);

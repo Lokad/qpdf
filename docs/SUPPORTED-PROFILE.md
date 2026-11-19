@@ -553,8 +553,10 @@ The full typed overloads accept `QpdfRecoveryMode` for primary, copy-source and
 encryption-template inputs. Typed listing with explicit recovery returns immutable
 metadata, warnings and closed-handle counters in `QpdfAttachmentListResult`.
 Text inspection and JSON export of a PDF apply add, remove and copy before
-reporting. Text extraction uses the resulting collection. An independent
-reference to the old name tree continues to resolve against the source graph.
+reporting. Text extraction uses the resulting collection. Insertion defaults
+an absent or null PageMode to `/UseAttachments` in reports and published
+PDFs. An independent reference to the old name tree continues to resolve
+against the source graph.
 Editing attachments while binding JSON input remains unavailable.
 
 - Match decoded ordinal keys; sort output by encoded bytes. Full-collection
