@@ -35,6 +35,7 @@ public sealed class JsonOperationCompatibilityTests
             ("normalizeContent", "y", ["--normalize-content=y"]),
             ("externalizeInlineImages", true, ["--externalize-inline-images"]), ("iiMinBytes", "17", ["--ii-min-bytes=17"]),
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
+            ("rotate", new[] { "+90:1" }, ["--rotate=+90:1"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),
             ("generateAppearances", true, ["--generate-appearances"]), ("optimizeImages", true, ["--optimize-images"]),
             ("oiMinWidth", "17", ["--oi-min-width=17"]), ("keepInlineImages", true, ["--keep-inline-images"]),

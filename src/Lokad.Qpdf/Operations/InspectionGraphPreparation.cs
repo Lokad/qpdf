@@ -110,7 +110,9 @@ internal static partial class InspectionGraphPreparation
                     { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
                 }
             }
-            using ParserMemoryScope? preparation = content || authoredLabels ? ParserMemoryScope.Create(governor) : null;
+            bool promoteRotatedPages = plan.Rotations.Count > 0 && plan.Sources.Count == 0;
+            using ParserMemoryScope? preparation = content || authoredLabels || promoteRotatedPages
+                ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
                 : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
                     limits, memory, preparation, governor, cancellationToken);

@@ -53,6 +53,24 @@ public sealed class JsonContentTransformTests
         foreach (bool indirect in new[] { false, true }) { yield return [shape, generation, indirect]; }
     }
 
+    [Fact]
+    public async Task RotationAfterPageSelectionPreservesTheCoalescedContentsAndPrivateArray()
+    {
+        using InMemoryQpdfHost host = Host(Fixture("ordinary", 17, true, true, "coalesce"));
+        using Graph graph = await Inspect(host, ["--pages", ".", "1,1", "--", "--rotate=+90:2", "--coalesce-contents"]);
+        List<JsonElement> pages = graph.Pages();
+        Assert.Equal(2, pages.Count);
+        Assert.False(pages[0].TryGetProperty("/Rotate", out _));
+        Assert.Equal(90, pages[1].GetProperty("/Rotate").GetInt32());
+        Assert.Equal(pages[0].GetProperty("/Contents").GetString(), pages[1].GetProperty("/Contents").GetString());
+        string active = Assert.IsType<string>(pages[1].GetProperty("/Contents").GetString());
+        Assert.Equal([.. First, (byte)'\n', .. Second], graph.Bytes(active));
+        JsonElement original = graph.Resolve(graph.Catalog.GetProperty("/AuditContents"));
+        Assert.Equal(new[] { "4 17 R", "5 17 R" }, original.EnumerateArray().Select(value => value.GetString()));
+        Assert.Equal(First, graph.Bytes("4 17 R"));
+        Assert.Equal(Second, graph.Bytes("5 17 R"));
+    }
+
     [Theory]
     [MemberData(nameof(CoalescingCases))]
     public async Task CoalescingChangesVisiblePageEdgesWithoutChangingOriginalArrays(string shape, int generation, bool indirect)

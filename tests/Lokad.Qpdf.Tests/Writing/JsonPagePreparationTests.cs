@@ -47,6 +47,46 @@ public sealed class JsonPagePreparationTests
     { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return value; }
     private static string Text(QpdfObject value) => Encoding.ASCII.GetString(Assert.IsType<PdfByteString>(value).ValueMemory.Span);
 
+    [Theory]
+    [InlineData("direct", false, 1)]
+    [InlineData("repeated", true, 2)]
+    public async Task ExportedRotationUsesInheritedValuesAndVisiblePageIdentities(string shape, bool job, int count)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Input, Source(shape, 17, Leaf, Ancestor, "", ""), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult report = job ? await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"input","json":"2","jsonKey":["qpdf","pages"],"rotate":["+90:2"]}
+            """, CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--json-output=2", "--rotate=+90:1"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, report.ExitCode);
+        string text = Assert.IsType<string>(report.OutputText);
+        using JsonDocument json = JsonDocument.Parse(text);
+        JsonElement model = json.RootElement.GetProperty("qpdf"), table = model[1];
+        Assert.True(model[0].GetProperty("calledgetallpages").GetBoolean());
+        JsonElement pages = table.GetProperty("obj:2 0 R").GetProperty("value");
+        string?[] kids = pages.GetProperty("/Kids").EnumerateArray().Select(item => item.GetString()).ToArray();
+        Assert.Equal(count, kids.Length);
+        Assert.Equal(count, kids.Distinct().Count());
+        Assert.Equal(90, pages.GetProperty("/Rotate").GetInt32());
+        Assert.Equal(180, table.GetProperty("obj:" + kids[^1]).GetProperty("value").GetProperty("/Rotate").GetInt32());
+        if (job)
+        {
+            Assert.Equal("3 17 R", kids[0]);
+            Assert.False(table.GetProperty("obj:3 17 R").GetProperty("value").TryGetProperty("/Rotate", out _));
+            Assert.Equal(kids, json.RootElement.GetProperty("pages").EnumerateArray().Select(p => p.GetProperty("object").GetString()));
+        }
+        host.AddInput(Json, Encoding.UTF8.GetBytes(text), QpdfInputOwnership.Transfer);
+        await Qpdf.CreatePdfFromJsonAsync(host, Json, Output, CancellationToken.None);
+        Assert.True(host.TryGetOutput(Output, out byte[] recreated));
+        host.AddInput(QpdfPath.From("recreated"), recreated, QpdfInputOwnership.Transfer);
+        await using (QpdfDocument reopened = await QpdfDocument.OpenAsync(host, QpdfPath.From("recreated"), CancellationToken.None))
+        {
+            Assert.Equal(count, reopened.PageCount);
+            Assert.Equal(180L, Assert.IsType<PdfInteger>(Entry(reopened.PageReferences[^1].Page, "Rotate")).Value);
+        }
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
     public static IEnumerable<object[]> PageCases()
     {
         foreach (string shape in new[] { "ordinary", "direct", "repeated" })

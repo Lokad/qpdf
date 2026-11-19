@@ -990,11 +990,9 @@ internal static partial class JobPlanner
             { throw new QpdfParseException("--split-pages may not be used with --replace-input.", null, null); }
 
             bool wantJsonOutput = seenJsonOutput || seenJson;
-            // Complete validation before any restricted JSON-plan return. These
-            // plans cannot run geometry operations; ordinary checking and
-            // document-JSON writer ignores retain their separate policies.
+            // Bound graphs do not use the physical page assembly path.
             if ((importJson || seenJson || seenJsonOutput)
-                && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate) || rotations.Count > 0
+                && ((wantJsonOutput && splitPages.HasValue) || (importJson && (seenCollate || rotations.Count > 0))
                     || flattenRotation || flattenAnnotations is not null || generateAppearances
                     || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
@@ -1136,6 +1134,7 @@ internal static partial class JobPlanner
                     JpegQuality = jpegQuality,
                     Sources = jsonSources,
                     Collation = jsonCollation,
+                    Rotations = rotations,
                     PasswordFiles = passwordFiles,
                     Password = password,
                     EmptyDocument = emptyDocument,

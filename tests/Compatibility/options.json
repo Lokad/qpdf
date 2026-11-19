@@ -7058,6 +7058,8 @@
           "CheckTransformationTests.ExternalizationListsTheReplacementProgramAndKeepsIneligibleAndPrivateStreams",
           "CheckTransformationTests.JobImageOptimizationListsTheAcceptedJpegAndPreservesTheSourcePair",
           "RotationTests.ArgvRotateSpansMergeSources",
+          "JsonPagePreparationTests.ExportedRotationUsesInheritedValuesAndVisiblePageIdentities",
+          "JsonContentTransformTests.RotationAfterPageSelectionPreservesTheCoalescedContentsAndPrivateArray",
           "RotationTests.JobRotateRangeMatchesArgv",
           "RotationTests.ArgvRotateAppliesToFileRangeGroups",
           "RotationTests.ArgvRotateAcrossFileRangeSources",

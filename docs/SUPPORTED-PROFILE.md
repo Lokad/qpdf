@@ -375,8 +375,8 @@ declared pairs in descriptors, object keys and filters. A create-and-patch
 job can export the result directly. Physical updates authenticate before
 binding. The report and its sidecars protect every consumed input.
 Page, page-label, outline and form reports assign separate object identities
-to direct and repeated page occurrences and report the repair. An object-table
-report alone preserves the existing page tree.
+to direct and repeated page occurrences and report the repair. Object-table-only
+reports preserve unedited page trees.
 When exported objects share a number across generations, nonzero generations
 add a suffix to the sidecar name to keep the files distinct.
 
@@ -396,7 +396,9 @@ resource pushdown is reported only when performed.
 JSON export applies Info, XML metadata, AcroForm, structure and page-label
 removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
-Other form and frame transforms remain unavailable during JSON export.
+PDF-to-JSON export applies `--rotate` to the effective page order. Rotation
+composes with the content transforms and can assign identities to edited page
+occurrences. Rotation baking and appearance transforms remain unavailable.
 Export from a PDF can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)
@@ -480,8 +482,8 @@ declarations.
 Command imports can coalesce page contents before stream encoding. Shared
 arrays and streams remain available to private references. An edited direct
 page gains an indirect identity. An undecodable chunk keeps the original
-array and reports a warning. Other page, content, image and attachment edits
-remain unavailable during import and update.
+array and reports a warning. Page rotation and other page, content, image and
+attachment edits remain unavailable during import and update.
 
 ### Splitting and replacement
 
