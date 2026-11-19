@@ -15,9 +15,10 @@ import tempfile
 import time
 
 from object_stream_layout import validate_object_streams as validate_physical_streams
+from reference_pin import REFERENCE_PIN
 
 
-PIN = "4eba95899886e851cc41d76886483b347612f2a8"
+PIN = REFERENCE_PIN["commit"]
 
 
 def sha(path):
@@ -309,8 +310,8 @@ def main():
     probe = repo / "tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll"
     benchmark = repo / "benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net11.0/Lokad.Qpdf.Benchmarks.dll"
     version = run([qpdf, "--version"]).decode().strip()
-    if version.splitlines()[0] != "qpdf version 12.4.2":
-        raise ValueError("Expected pinned native qpdf 12.4.2")
+    if version.splitlines()[0] != f"qpdf version {REFERENCE_PIN['version']}":
+        raise ValueError(f"Expected pinned native qpdf {REFERENCE_PIN['version']}")
     actual_pin = run(["git", "-C", native_source, "rev-parse", "HEAD"]).decode().strip()
     if actual_pin != PIN or run(["git", "-C", native_source, "status", "--porcelain"]):
         raise ValueError("Native source must be clean at the pinned commit")

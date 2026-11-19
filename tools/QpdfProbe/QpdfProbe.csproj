@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../reference-pin.json" LogicalName="reference-pin.json" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="Lokad.Image" />
     <ProjectReference Include="..\..\src\Lokad.Qpdf\Lokad.Qpdf.csproj" />

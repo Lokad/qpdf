@@ -19,12 +19,12 @@ internal static class OracleRunner
     {
         if (string.IsNullOrWhiteSpace(qpdfExe))
         {
-            throw new ProbeException("Missing qpdf executable path. Supply --qpdf-exe <path> to the pinned qpdf 12.4.2 executable.", 1);
+            throw new ProbeException($"Missing qpdf executable path. Supply --qpdf-exe <path> to the pinned qpdf {expectedVersion} executable.", 1);
         }
 
         if (!File.Exists(qpdfExe))
         {
-            throw new ProbeException($"qpdf executable not found: {qpdfExe}. Bootstrap the pinned 12.4.2 build (see tools/bootstrap-qpdf.ps1); this is an explicit failure, not a skipped check.", 1);
+            throw new ProbeException($"qpdf executable not found: {qpdfExe}. Bootstrap the pinned {expectedVersion} build (see tools/bootstrap-qpdf.ps1); this is an explicit failure, not a skipped check.", 1);
         }
 
         if (!File.Exists(inputPdf))

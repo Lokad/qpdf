@@ -178,6 +178,8 @@ Write-Output 'Raster controls passed: exact nonblank match, mismatch, blank crop
 
 # Exercise both real version guards through their existing command-line paths.
 $previousVersion = $env:QPDF_TEST_ORACLE_VERSION
+$pin = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'reference-pin.json') -Raw | ConvertFrom-Json
+$fixtureHash = (Get-FileHash -LiteralPath $OracleFixture -Algorithm SHA256).Hash.ToLowerInvariant()
 try {
     foreach ($case in @(
         @{Name='pinned'; Banner="qpdf version 12.4.2`nRun qpdf --copyright to see copyright and license information."; Exit=0},
@@ -198,6 +200,12 @@ try {
         if ($bootstrapExit -ne $case.Exit -or $probe.ExitCode -ne $case.Exit -or
             ($case.Exit -ne 0 -and ($bootstrap -notmatch 'qpdf version mismatch' -or $probe.Error -notmatch 'qpdf version mismatch'))) {
             throw "Oracle version guard failed: $($case.Name) (bootstrap=$bootstrapExit probe=$($probe.ExitCode))."
+        }
+        if ($case.Exit -eq 0 -and (
+            $bootstrap -notmatch "(?m)^qpdf exe sha256: $fixtureHash\r?$" -or
+            $bootstrap -notmatch '(?m)^qpdf identity: version matched, executable hash recorded\r?$' -or
+            $bootstrap -notmatch "(?m)^qpdf target source commit: $($pin.commit)\r?$")) {
+            throw "Bootstrap mislabeled the measured version fixture: $bootstrap"
         }
     }
 } finally { $env:QPDF_TEST_ORACLE_VERSION = $previousVersion }

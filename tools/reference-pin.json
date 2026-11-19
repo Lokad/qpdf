@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/qpdf/qpdf",
+  "version": "12.4.2",
+  "commit": "4eba95899886e851cc41d76886483b347612f2a8",
+  "windowsRelease": {
+    "archive": "qpdf-12.4.2-msvc64.zip",
+    "archiveSha256": "db87077e683630c1217e0e8f9a20a9749d952ab676e881c3689187763a5de25d",
+    "executable": "qpdf-12.4.2-msvc64/bin/qpdf.exe",
+    "executableSha256": "1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff"
+  }
+}

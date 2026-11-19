@@ -9,9 +9,11 @@ from pathlib import Path
 
 import yaml
 
+from reference_pin import REFERENCE_PIN
 
-VERSION = "12.4.2"
-COMMIT = "4eba95899886e851cc41d76886483b347612f2a8"
+
+VERSION = REFERENCE_PIN["version"]
+COMMIT = REFERENCE_PIN["commit"]
 CRYPTO = set("""
 encrypt decrypt copy-encryption password password-file password-mode
 password-is-hex-key suppress-password-recovery encryption-file-password
@@ -162,7 +164,7 @@ def main():
     result = {
         "schemaVersion": 2,
         "reference": {
-            "repository": "https://github.com/qpdf/qpdf", "version": VERSION,
+            "repository": REFERENCE_PIN["repository"], "version": VERSION,
             "commit": COMMIT, "documentedFlagCount": len(forms),
             "sources": {"job.yml": hashlib.sha256(job_bytes).hexdigest(),
                         "manual/cli.rst": hashlib.sha256(manual_bytes).hexdigest()},

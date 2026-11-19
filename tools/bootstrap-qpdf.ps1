@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Bootstrap the pinned qpdf 12.4.2 oracle executable for development validation.
+  Inspect the supplied qpdf oracle executable for development validation.
   Fails explicitly when the executable is missing or the version does not match.
   Ordinary builds and tests do not require this executable or external/.
 #>
@@ -10,9 +10,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$pin = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'reference-pin.json') -Raw | ConvertFrom-Json
 
 if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
-  throw "QPDF_EXE is not set. Supply -QpdfExe <path> or set QPDF_EXE to the pinned qpdf 12.4.2 executable. Obtain it by building external/qpdf at commit 4eba95899886e851cc41d76886483b347612f2a8 or downloading the exact 12.4.2 release binary (see docs/COMPATIBILITY.md). This is an explicit failure, not a skipped check."
+  throw "QPDF_EXE is not set. Supply -QpdfExe <path> or set QPDF_EXE. Use the pinned qpdf $($pin.version) release or build commit $($pin.commit). See docs/COMPATIBILITY.md."
 }
 
 $resolved = (Resolve-Path -LiteralPath $QpdfExe -ErrorAction Stop).Path
@@ -27,13 +28,19 @@ if ($versionExit -ne 0) {
 }
 
 $versionLine = ($versionOutput -split '[\r\n]', 2)[0].Trim()
-if ($versionLine -cne 'qpdf version 12.4.2') {
-  throw "qpdf version mismatch. Expected 'qpdf version 12.4.2', got: $($versionOutput.Trim())."
+$expectedBanner = "qpdf version $($pin.version)"
+if ($versionLine -cne $expectedBanner) {
+  throw "qpdf version mismatch. Expected '$expectedBanner', got: $($versionOutput.Trim())."
 }
 
 $sha = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($sha -eq $pin.windowsRelease.executableSha256) {
+  $identity = 'Windows release executable hash matched'
+} else {
+  $identity = 'version matched, executable hash recorded'
+}
 Write-Output "qpdf oracle: $resolved"
 Write-Output "qpdf version output: $($versionOutput.Trim())"
 Write-Output "qpdf exe sha256: $sha"
-Write-Output "qpdf baseline: JPEG support expected; optional Zopfli support absent (see docs/COMPATIBILITY.md)."
-Write-Output "reference commit: 4eba95899886e851cc41d76886483b347612f2a8"
+Write-Output "qpdf identity: $identity"
+Write-Output "qpdf target source commit: $($pin.commit)"

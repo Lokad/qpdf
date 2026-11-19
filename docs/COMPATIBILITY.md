@@ -117,8 +117,9 @@ is a new directory under `artifacts/reference-checks`. The workspace contains
 stage logs, `results.json`, and the reader, content, differential and parser
 evidence. The runner builds the net11.0 probe with a locked restore. Pass
 `-ProbeDll` to use an existing build.
-`tools/bootstrap-qpdf.ps1` checks that the supplied executable reports qpdf
-12.4.2 and records its SHA-256.
+`tools/bootstrap-qpdf.ps1` checks the supplied executable's version and
+records its SHA-256. The log identifies the official Windows executable when
+its digest matches and records the target source commit separately.
 
 Run the visual lane in a fresh PowerShell process on .NET 10 or later. Supply
 the pinned qpdf and `pdftoppm` executables, the Release probe DLL and a test
@@ -133,12 +134,11 @@ pwsh -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer `
   -WorkRoot artifacts/visual-check
 ```
 
-The pinned source commit is `4eba95899886e851cc41d76886483b347612f2a8`.
-Inventory hashes normalize CRLF to LF; reference metadata changes require review.
-The official Windows `qpdf-12.4.2-msvc64.zip` SHA-256 is
-`db87077e683630c1217e0e8f9a20a9749d952ab676e881c3689187763a5de25d`;
-its `bin/qpdf.exe` is
-`1bdaf878f37eaffea1ea3c30591214c77636a0f2fc7432427516b6e22e36c0ff`.
-`tools/install-reference-qpdf.ps1` verifies both Windows hashes. The reference
-runner stops and awaits timed-out processes. Native qpdf, renderers, PdfPig and
-development codecs stay in the development tools and tests.
+For qualification on Windows, run `tools/install-reference-qpdf.ps1` with a
+fresh destination. It verifies both the archive and executable digests.
+For source builds, record the clean checkout and the resulting executable
+digest. [Reference pins](https://github.com/Lokad/qpdf/blob/master/tools/reference-pin.json)
+
+Inventory hashes normalize CRLF to LF. The reference runner stops and awaits
+timed-out processes. Native qpdf, renderers, PdfPig and development codecs
+stay in the development tools and tests.

@@ -2,8 +2,22 @@ namespace Lokad.Qpdf.Probe;
 
 internal static class Program
 {
-    private const string ExpectedQpdfVersion = "12.4.2";
+    private static string ExpectedQpdfVersion => ReferencePin.Version;
     private static bool _consoleEncodingInitialized;
+
+    private static class ReferencePin
+    {
+        internal static readonly string Version = ReadVersion();
+
+        private static string ReadVersion()
+        {
+            using Stream data = typeof(Program).Assembly.GetManifestResourceStream("reference-pin.json")
+                ?? throw new InvalidOperationException("Missing qpdf reference pin.");
+            using System.Text.Json.JsonDocument pin = System.Text.Json.JsonDocument.Parse(data);
+            return pin.RootElement.GetProperty("version").GetString()
+                ?? throw new InvalidOperationException("Missing qpdf reference version.");
+        }
+    }
 
     internal static int Main(string[] args)
     {
@@ -58,7 +72,7 @@ internal static class Program
     private static void PrintHelp()
     {
         Console.WriteLine("QpdfProbe 0.1.0: developer-only qpdf oracle and independent validation runner.");
-        Console.WriteLine("Not part of the shipped Lokad.qpdf package. Requires an explicit qpdf 12.4.2 executable for oracle commands.");
+        Console.WriteLine($"Not part of the shipped Lokad.qpdf package. Requires an explicit qpdf {ExpectedQpdfVersion} executable for oracle commands.");
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine("  QpdfProbe --help");
@@ -77,7 +91,7 @@ internal static class Program
         Console.WriteLine("  QpdfProbe zlib-flate --workdir <dir> --in <logical-input> --out <logical>=<physical> --mode <compress|uncompress> [--level 1..9]");
         Console.WriteLine("  QpdfProbe probe-jpeg");
         Console.WriteLine();
-        Console.WriteLine("probe-oracle runs: qpdf --version (must report exactly 12.4.2), qpdf --show-npages, qpdf --check.");
+        Console.WriteLine($"probe-oracle runs: qpdf --version (must report exactly {ExpectedQpdfVersion}), qpdf --show-npages, qpdf --check.");
         Console.WriteLine("validate opens the PDF with the pinned independent reader (PdfPig 0.1.16) and reports page count, header version and SHA-256.");
         Console.WriteLine("compare requires oracle npages, independent npages and --expected-npages to agree; mismatch exits 2.");
         Console.WriteLine("compare-raster exits 2 for a measured difference outside tolerance and 1 for invalid inputs or crops.");

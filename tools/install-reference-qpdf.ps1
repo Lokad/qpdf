@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Acquire the exact Windows qpdf 12.4.2 development oracle in a fresh directory.
+  Acquire the pinned Windows qpdf development oracle in a fresh directory.
   No files are installed into the runtime/package or overwritten.
 #>
 param(
@@ -9,21 +9,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$pin = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'reference-pin.json') -Raw | ConvertFrom-Json
+$release = $pin.windowsRelease
 $root = [IO.Path]::GetFullPath($Destination)
 if (Test-Path -LiteralPath $root) { throw "Oracle destination already exists: $root" }
 New-Item -ItemType Directory -Path $root | Out-Null
-$archive = Join-Path $root 'qpdf-12.4.2-msvc64.zip'
+$archive = Join-Path $root $release.archive
 # Official release asset and reviewed digest; never resolve a latest version.
-$url = 'https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-msvc64.zip'
+$url = "$($pin.repository)/releases/download/v$($pin.version)/$($release.archive)"
 Invoke-WebRequest -Uri $url -OutFile $archive
-$expectedArchive = 'DB87077E683630C1217E0E8F9A20A9749D952AB676E881C3689187763A5DE25D'
-if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expectedArchive) {
+if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $release.archiveSha256) {
     throw 'Pinned qpdf archive checksum mismatch.'
 }
 Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $root 'unpacked')
-$executable = Join-Path $root 'unpacked/qpdf-12.4.2-msvc64/bin/qpdf.exe'
-$expectedExe = '1BDAF878F37EAFFEA1EA3C30591214C77636A0F2FC7432427516B6E22E36C0FF'
-if ((Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash -ne $expectedExe) {
+$executable = Join-Path (Join-Path $root 'unpacked') $release.executable
+if ((Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash -ne $release.executableSha256) {
     throw 'Pinned qpdf executable checksum mismatch.'
 }
 Write-Output $executable

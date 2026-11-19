@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from reference_pin import REFERENCE_PIN
+
 
 def inspect_layout(objects, xref_text, data, decoded_stream):
     entries = {}
@@ -140,8 +142,8 @@ def main():
         return result.stdout
 
     try:
-        if run([args.qpdf_exe, "--version"]).decode("ascii").splitlines()[0] != "qpdf version 12.4.2":
-            raise ValueError("Require pinned native qpdf 12.4.2")
+        if run([args.qpdf_exe, "--version"]).decode("ascii").splitlines()[0] != f"qpdf version {REFERENCE_PIN['version']}":
+            raise ValueError(f"Require pinned native qpdf {REFERENCE_PIN['version']}")
         print(json.dumps(validate_object_streams(args.qpdf_exe, args.input, run)))
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as error:
         parser.exit(2, str(error) + "\n")

@@ -12,6 +12,8 @@ import subprocess
 import sys
 import time
 
+from reference_pin import REFERENCE_PIN
+
 spec = importlib.util.spec_from_file_location("linux_comparison", Path(__file__).with_name("compare-linux-performance.py"))
 comparison = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(comparison)
@@ -179,8 +181,8 @@ def main():
     cache = (native_build / "CMakeCache.txt").read_text()
     if "CMAKE_BUILD_TYPE:STRING=Release" not in cache or f"CMAKE_HOME_DIRECTORY:INTERNAL={native_source}\n" not in cache or not qpdf.is_relative_to(native_build):
         raise ValueError("Require pinned source's Release build")
-    if run([qpdf, "--version"]).decode().splitlines()[0] != "qpdf version 12.4.2":
-        raise ValueError("Require native qpdf 12.4.2")
+    if run([qpdf, "--version"]).decode().splitlines()[0] != f"qpdf version {REFERENCE_PIN['version']}":
+        raise ValueError(f"Require native qpdf {REFERENCE_PIN['version']}")
     root.mkdir(parents=True, exist_ok=False)
     shutil.copytree(input_root / "inputs", root / "inputs")
     cases = json.loads((input_root / "workloads.json").read_text())
