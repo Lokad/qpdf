@@ -3784,6 +3784,7 @@
         "positive": [
           "FormNeedAppearancesTests.DirectAndIndirectTrueKeepCurrentValues",
           "GenerateAppearancesTests.TextFieldAppearanceRegeneratesValue",
+          "ReportAppearanceGenerationTests.JsonReportUsesTheGeneratedProgramAndKeepsTheOriginalStream",
           "GenerationReadinessTests.OnlyCompletedGenerationClearsReadiness",
           "GenerationReadinessTests.PartialGenerationKeepsFailuresTransactionalAndRefundsAdmission",
           "AppearanceRetirementTests.RegeneratedProgramsRetireOnlyAfterFinalRootsAreKnown",
@@ -3829,11 +3830,15 @@
           "GenerateAppearancesTests.JobRoundTripMatchesArgv",
           "GenerateAppearancesTests.WholeFileJobGenerates",
           "GenerateAppearancesTests.MergeThenGenerateAppliesToFinalPages",
+          "ReportAppearanceGenerationTests.CheckedWidgetListingAndNamedStreamUseTheSameGeneratedAppearance",
+          "ReportAppearanceGenerationTests.GenerationRunsBeforeStoredAppearancesAreFlattened",
+          "ReportAppearanceGenerationTests.IncompleteGenerationKeepsNeedAppearancesAndReportsTheWarning",
           "InlinePacketBoundaryTests.AppearanceScanningCannotSelectMarkedContentInsideSamples",
           "FormSourceContextTests.RetainedFieldsKeepSourceFontAndDefaults"
         ],
         "resource": [
-          "ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget"
+          "ResourceEnforcementTests.GenerateAppearancesYieldsToExhaustedBudget",
+          "ReportAppearanceGenerationTests.GenerationRefusalKeepsThePriorReportAndClosesItsInput"
         ],
         "oracle": [
           "diff:forms",

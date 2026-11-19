@@ -751,8 +751,8 @@ internal static partial class JobPlanner
                     throw new QpdfParseException("Named object-stream output requires a stream inspection without other reports or PDF layout settings.", 0L, null);
                 }
                 if (output is not null && !attachmentTarget && !objectTarget || seenReplaceInput || seenSplitPages
-                    || importJson && (seenLabels || seenFlattenAnnotations)
-                    || seenFlattenRotation || seenGenerateAppearances
+                    || importJson && (seenLabels || seenFlattenAnnotations || seenGenerateAppearances)
+                    || seenFlattenRotation
                     || seenLinearizePass1
                     || importJson && (seenAddAttachment || seenRemoveAttachment || seenCopyAttachments)
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput
@@ -808,6 +808,7 @@ internal static partial class JobPlanner
                     AttachmentsToCopy = attachmentsToCopy,
                     Rotations = rotations,
                     FlattenAnnotations = flattenAnnotations,
+                    GenerateAppearances = generateAppearances,
                     RunCheck = check,
                     Overlays = overlays,
                     Underlays = underlays,
@@ -925,7 +926,7 @@ internal static partial class JobPlanner
             // Bound graphs do not use the physical page assembly path.
             if ((importJson || seenJson || seenJsonOutput)
                 && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate)
-                    || flattenRotation || (importJson && flattenAnnotations is not null) || generateAppearances
+                    || flattenRotation || importJson && (flattenAnnotations is not null || generateAppearances)
                     || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
@@ -1077,6 +1078,7 @@ internal static partial class JobPlanner
                     Collation = jsonCollation,
                     Rotations = rotations,
                     FlattenAnnotations = flattenAnnotations,
+                    GenerateAppearances = generateAppearances,
                     PasswordFiles = passwordFiles,
                     Password = password,
                     EmptyDocument = emptyDocument,

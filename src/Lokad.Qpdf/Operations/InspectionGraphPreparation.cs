@@ -80,8 +80,9 @@ internal static partial class InspectionGraphPreparation
         bool authoredLabels = plan.Labels.Count > 0;
         bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
+        bool editAppearances = plan.GenerateAppearances || plan.FlattenAnnotations is not null;
         bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels
-            || plan.FlattenAnnotations is not null;
+            || editAppearances;
         if (!preparePages && !publication && !editAttachments) { return null; }
         if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
             && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
@@ -112,7 +113,7 @@ internal static partial class InspectionGraphPreparation
                     { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
                 }
             }
-            bool promoteEditedPages = (plan.Rotations.Count > 0 || plan.FlattenAnnotations is not null) && plan.Sources.Count == 0;
+            bool promoteEditedPages = (plan.Rotations.Count > 0 || editAppearances) && plan.Sources.Count == 0;
             using ParserMemoryScope? preparation = content || authoredLabels || promoteEditedPages
                 ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
@@ -436,6 +437,7 @@ internal static partial class InspectionGraphPreparation
                     limits, governor, cancellationToken);
                 ApplyRotation(pool, selected.Number, page, inherited, specifications, i + 1, governor, memory);
             }
+            Content.OverlayApplication? placementEdits = null;
             if (overlay)
             {
                 List<(GraphCopier Copier, int Id)> overlayPages = ParserContainers.CreateList<(GraphCopier, int)>(memory);
@@ -443,9 +445,13 @@ internal static partial class InspectionGraphPreparation
                 {
                     ParserContainers.AddItem(memory, overlayPages, (pool, selected.Number), 16L);
                 }
+                bool primaryNeedsAppearances = plan.GenerateAppearances
+                    && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
                 Content.OverlayApplication applied = await Content.Overlays.ApplyAsync(host, plan.Input,
                     overlayPages, plan.Underlays, plan.Overlays, false, null, plan.Recovery,
-                    limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null, false, false).ConfigureAwait(false);
+                    limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null,
+                    plan.GenerateAppearances, primaryNeedsAppearances).ConfigureAwait(false);
+                placementEdits = applied;
                 foreach (GraphCopier source in applied.Copiers)
                 {
                     foreach (KeyValuePair<int, QpdfObject> entry in source.CopiedObjects)
@@ -460,10 +466,10 @@ internal static partial class InspectionGraphPreparation
                         plan.Sources.Count > 0, memory, limits, governor, diagnostics, cancellationToken);
                 }
             }
-            if (plan.FlattenAnnotations is string flatten)
+            if (editAppearances)
             {
-                FlattenInspectionAnnotations(document, pool, selectedPages, flatten, lifetime, memory,
-                    limits, governor, cancellationToken, diagnostics);
+                ApplyInspectionAppearances(document, pool, selectedPages, plan, lifetime, memory,
+                    limits, governor, cancellationToken, diagnostics, placementEdits);
             }
             List<PageLocation> transformed = ParserContainers.CreateList<PageLocation>(memory);
             foreach (InspectionPage selected in selectedPages)

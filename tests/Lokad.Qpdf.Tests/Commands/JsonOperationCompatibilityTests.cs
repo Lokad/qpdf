@@ -45,14 +45,14 @@ public sealed class JsonOperationCompatibilityTests
             string key = setting.Key;
             if (key is not ("linearize" or "qdf" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
-            if (key is "qdf" or "linearize" or "flattenRotation"
-                or "generateAppearances" or "overlay" or "underlay")
+            if (key is "qdf" or "linearize" or "flattenRotation" or "overlay" or "underlay")
             { yield return [key, "inspect", "argv"]; }
         }
 
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
+            ("generateAppearances", "bound-inspect", "job"),
             ("overlay", "create", "job"),
             ("flattenRotation", "inspect", "job"),
             ("flattenAnnotations", "update", "mixed"),

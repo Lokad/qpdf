@@ -759,15 +759,18 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 }
 [Fact]
-public async Task GenerateRejectedWithInspection()
+public async Task FormlessInspectionPreservesTheCheckResult()
 {
 byte[] fixture = BuildPdf(string.Empty, " /Contents 4 0 R", new List<(string Dict, byte[]? StreamData)>
 {
 ("<< /Length 15 >>", Encoding.ASCII.GetBytes("BT (Page) Tj ET")),
 });
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+QpdfExecutionResult baseline = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), CancellationToken.None);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--generate-appearances"]), CancellationToken.None);
-Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(baseline.Diagnostics, result.Diagnostics);
+Assert.Equal(0L, host.OpenLeaseCount);
 }
 [Fact]
 public async Task JobRoundTripMatchesArgv()
