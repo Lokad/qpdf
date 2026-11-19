@@ -76,7 +76,8 @@ public sealed class SourceActionIdentityTests
         try
         {
             long before = GC.GetAllocatedBytesForCurrentThread();
-            SourceActions.BindDocument(document.Engine, copier, null, null, null, false, null, governor, owner, CancellationToken.None);
+            SourceActions.BindDocument(document.Engine, copier, null, null, null, false, false, null,
+                QpdfLimits.Default, governor, owner, CancellationToken.None);
             long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             PdfDictionary mapped = Assert.IsType<PdfDictionary>(copier.CopiedObjects[copied.Id]);
             Assert.True(mapped.TryGet(PdfName.FromAscii("Annots"), out QpdfObject annotationRaw));

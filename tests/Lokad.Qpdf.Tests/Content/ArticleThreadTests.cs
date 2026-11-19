@@ -3,7 +3,7 @@ using Lokad.Qpdf.Objects;
 
 namespace Lokad.Qpdf.Tests.Content;
 
-public sealed class ArticleThreadTests
+public sealed partial class ArticleThreadTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf");
 

@@ -43,17 +43,19 @@ internal static partial class SourceActions
         internal PdfArray? PromotedNext;
         internal PdfName? Subtype;
         internal PdfReference? Reference;
-        internal bool Changed, SkippedGoTo;
+        internal bool Changed, SkippedAction;
     }
 
     internal static (CopiedForm? Form, CopiedForm? AppearanceForm, IReadOnlyDictionary<PdfName, QpdfObject>? Extras, PdfReference? Outlines) BindDocument(
-        DocumentEngine engine, GraphCopier copier, CopiedForm? form, CopiedForm? appearanceForm, IReadOnlyDictionary<PdfName, QpdfObject>? extras, bool preserveContext,
-        PdfReference? outlines, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        DocumentEngine engine, GraphCopier copier, CopiedForm? form, CopiedForm? appearanceForm,
+        IReadOnlyDictionary<PdfName, QpdfObject>? extras, bool preserveContext, bool discardLocalArticles,
+        PdfReference? outlines, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
     {
         PdfDictionary? catalog = Context(engine, governor, token);
-        if (catalog is null || preserveContext && PreservesContext(catalog, engine, copier.CopiedObjects, extras, governor, token))
-        { return (form, appearanceForm, extras, outlines); }
-        using Binding binding = new(engine, copier, copier, catalog, governor, ownership, token);
+        if (catalog is not null && preserveContext && PreservesContext(catalog, engine, copier.CopiedObjects, extras, governor, token))
+        { catalog = null; }
+        if (catalog is null && !discardLocalArticles) { return (form, appearanceForm, extras, outlines); }
+        using Binding binding = new(engine, copier, copier, catalog, discardLocalArticles, limits, governor, ownership, token);
         foreach (KeyValuePair<int, QpdfObject> pair in copier.CopiedObjects)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -68,13 +70,12 @@ internal static partial class SourceActions
     }
 
     internal static void BindPlacement(DocumentEngine engine, GraphCopier sourceCopier, GraphCopier destination,
-        List<PdfReference> annotations, List<AcroFormCopy.FieldImport> imports, int firstImport,
+        List<PdfReference> annotations, List<AcroFormCopy.FieldImport> imports, int firstImport, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
     {
         PdfDictionary? catalog = Context(engine, governor, token);
-        if (catalog is null) { return; }
         destination.AdvanceNextId(allocator); sourceCopier.AdvanceNextId(allocator);
-        using Binding binding = new(engine, sourceCopier, destination, catalog, governor, ownership, token);
+        using Binding binding = new(engine, sourceCopier, destination, catalog, true, limits, governor, ownership, token);
         foreach (PdfReference annotation in annotations) { binding.Add(annotation, Role.Annotation, null); }
         for (int index = firstImport; index < imports.Count; index++) { binding.AddForm(imports[index].Part); }
         binding.Apply();
@@ -225,11 +226,13 @@ internal static partial class SourceActions
         internal IIndirectResolver Resolver { get; }
         private OwnedAllocationBatch Graph => _graph ??= OwnedAllocationBatch.Create(_governor, _token);
 
-        internal Binding(DocumentEngine source, GraphCopier sourceCopier, GraphCopier copier, PdfDictionary catalog,
-            ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        internal Binding(DocumentEngine source, GraphCopier sourceCopier, GraphCopier copier, PdfDictionary? catalog,
+            bool discardLocalArticles, QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
             : this(new PoolResolver(copier.CopiedObjects), governor, ownership, token)
         {
-            _source = source; _sourceCopier = sourceCopier; _copier = copier; _catalog = catalog;
+            _source = catalog is null ? null : source;
+            _sourceCopier = sourceCopier; _copier = copier; _catalog = catalog;
+            _projectArticleActions = discardLocalArticles; _maxActionContainerSize = limits.MaxContainerSize;
         }
 
         internal Binding(GraphCopier copier, IReadOnlyDictionary<int, double[]> frames,
@@ -350,7 +353,7 @@ internal static partial class SourceActions
                 if (key.SequenceEqual("AcroForm"u8)) { return Role.Form; }
                 return CatalogRole(key);
             }
-            if ((_frames is not null || _fieldKids is not null || _splitPages is not null) && (roles & Role.Form) != 0
+            if ((_frames is not null || _fieldKids is not null || _splitPages is not null || _projectArticleActions) && (roles & Role.Form) != 0
                 && (key.SequenceEqual("Fields"u8) || key.SequenceEqual("CO"u8))) { result |= Role.Fields; }
             if (_frames is not null || _splitPages is not null)
             {
@@ -434,6 +437,7 @@ internal static partial class SourceActions
                     while (entries.MoveNext(_governor, _token)) { Add(entries.Current.Value, ChildRole(node, entries.Current.Key.RawSpan), node); }
                     BindLeaves(node, dictionary);
                     if (_splitPages is not null) { ProjectNavigation(node, dictionary); }
+                    if (_projectArticleActions) { ProjectThreadAction(node, dictionary); }
                 }
                 else if (node.Original is PdfArray array)
                 {
@@ -476,13 +480,14 @@ internal static partial class SourceActions
             foreach (Node node in _pending)
             {
                 Check();
-                if (node.Number != 0 && (node.Roles & Role.Page) == 0)
+                if (node.Number != 0 && (node.Roles & Role.Page) == 0 && node.Edited is not PdfNull)
                 { node.Reference = copier.AddIndirectObjectWithId(node.Original, copier.NextId); }
             }
             foreach (Node node in _pending)
             {
                 Check();
-                if (node.Number != 0) { copier.ReplaceCopiedObject(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0)); }
+                if (node.Number != 0 && node.Edited is not PdfNull)
+                { copier.ReplaceCopiedObject(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0)); }
             }
             if (_pending.Count > 0) { copier.MarkChangedRoots(); }
         }
@@ -537,7 +542,7 @@ internal static partial class SourceActions
             }
             if (original is PdfArray array)
             {
-                if (_splitPages is not null && node.Roles is Role.Actions or Role.DestinationTrees)
+                if ((_splitPages is not null || _projectArticleActions) && node.Roles is Role.Actions or Role.DestinationTrees)
                 { return node.Result = BuildProjectedArray(array, ItemRole(node.Roles), depth); }
                 long bytes = checked(64L + IntPtr.Size * (long)array.Count); Graph.Memory.Reserve(bytes);
                 QpdfObject[] values = new QpdfObject[array.Count]; Graph.Add(bytes);
@@ -555,10 +560,11 @@ internal static partial class SourceActions
                 {
                     QpdfObject value = source.Current.Value;
                     ReadOnlySpan<byte> key = source.Current.Key.RawSpan;
-                    if (node.SkippedGoTo && key.SequenceEqual("Next"u8)) { continue; }
+                    if (node.SkippedAction && key.SequenceEqual("Next"u8)) { continue; }
                     Role role = ChildRole(node, key);
                     if (role != Role.None) { value = Remap(value, role); }
-                    if (_splitPages is not null && !ReferenceEquals(source.Current.Value, value) && value is PdfNull) { continue; }
+                    if ((_splitPages is not null || _projectArticleActions) && !ReferenceEquals(source.Current.Value, value) && value is PdfNull)
+                    { continue; }
                     entries.Assign(Graph.Memory, _governor, source.Current.Key, value, _token);
                 }
                 if (node.PromotedNext is PdfArray next)
@@ -610,6 +616,7 @@ internal static partial class SourceActions
             foreach (KeyValuePair<PdfName, QpdfObject> entry in extras)
             {
                 Check(); Role role = CatalogRole(entry.Key.RawSpan); QpdfObject value = role == Role.None ? entry.Value : Map(entry.Value, role) ?? entry.Value;
+                if (_projectArticleActions && value is PdfNull && !ReferenceEquals(entry.Value, value)) { continue; }
                 result.Assign(_ownership, _governor, entry.Key, value, _token);
             }
             result.Freeze(_ownership, _governor, _token); return result;

@@ -281,8 +281,12 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   with copies of each bead in output occurrence order. Rotation baking transforms
   active bead rectangles. Invalid chains and unmatched page registrations are
   omitted from the active graph. Private article and bead aliases retain their
-  values under ordinary reference remapping. Article actions retain their
-  stored thread and bead indices.
+  values under ordinary reference remapping. Local Thread actions follow the
+  retained target, with the first retained occurrence of a repeated bead as
+  the target. Thread names use the first match in the source catalog. Local
+  actions with omitted targets or unusable selectors are skipped and live
+  Next actions continue in order. Imported secondary pages and placements omit their local
+  Thread actions with their article catalogs. Remote Thread selectors are kept.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.

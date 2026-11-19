@@ -26,14 +26,14 @@ internal static partial class SourceActions
     private sealed partial class Binding
     {
         private readonly IReadOnlySet<int>? _splitPages;
-        private readonly long _maxSplitContainerSize;
+        private readonly long _maxActionContainerSize;
         private bool _hasStaleContinuations;
 
         internal Binding(IIndirectResolver resolver, PdfDictionary catalog, IReadOnlySet<int> group, QpdfLimits limits,
             ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
             : this(resolver, governor, memory, token)
         {
-            _catalog = catalog; _splitPages = group; _maxSplitContainerSize = limits.MaxContainerSize;
+            _catalog = catalog; _splitPages = group; _maxActionContainerSize = limits.MaxContainerSize;
         }
 
         private bool IsStaleDestination(PdfArray destination)
@@ -64,9 +64,14 @@ internal static partial class SourceActions
                 && PdfDictionaryLookup.HasName(dictionary, "S"u8, "GoTo"u8, Resolver, _governor, _token)
                 && HasStaleDestination(dictionary, "D"u8))
             {
-                node.Edited = PdfNull.Instance; node.SkippedGoTo = true;
-                _hasStaleContinuations |= Resolve(Next(node)) is PdfDictionary or PdfArray { Count: > 0 };
+                SkipAction(node);
             }
+        }
+
+        private void SkipAction(Node node)
+        {
+            node.Edited = PdfNull.Instance; node.SkippedAction = true;
+            _hasStaleContinuations |= Resolve(Next(node)) is PdfDictionary or PdfArray { Count: > 0 };
         }
 
         private void PrepareActionContinuations()
@@ -79,7 +84,7 @@ internal static partial class SourceActions
             foreach (Node node in _nodes.Values)
             {
                 Check();
-                if (node.Roles == Role.Action && !node.SkippedGoTo) { FollowParents(node); }
+                if (node.Roles == Role.Action && !node.SkippedAction) { FollowParents(node); }
             }
             for (int index = 0; index < pending.Count; index++)
             { Check(); FollowParents(pending[index]); }
@@ -91,12 +96,12 @@ internal static partial class SourceActions
             foreach (Node node in pending)
             {
                 Check();
-                if (!node.SkippedGoTo) { continue; }
+                if (!node.SkippedAction) { continue; }
                 visited.Clear(); traversal.Clear(); tail.Clear(); next.Clear();
                 ParserContainers.AddSetItem(scratch, visited, node, IntPtr.Size);
                 Node? first = FirstAction(Next(node));
                 if (first is null) { continue; }
-                node.Edited = first.Original;
+                node.Edited = first.Edited ?? first.Original;
                 // The promoted action's own successors run before the rest
                 // of the skipped action's array.
                 QpdfObject? existing = Next(first);
@@ -119,7 +124,7 @@ internal static partial class SourceActions
                 foreach (Node parent in node.Parents)
                 {
                     Check();
-                    if ((parent.Roles == Role.Actions || parent.SkippedGoTo)
+                    if ((parent.Roles == Role.Actions || parent.SkippedAction)
                         && ParserContainers.AddSetItem(scratch, continuing, parent, IntPtr.Size))
                     { ParserContainers.AddItem(scratch, pending, parent, IntPtr.Size); }
                 }
@@ -136,7 +141,7 @@ internal static partial class SourceActions
                     if (item is null) { traversal.RemoveAt(traversal.Count - 1); continue; }
                     traversal[^1] = cursor;
                     if (Find(item, Role.Action) is not Node node) { continue; }
-                    if (!node.SkippedGoTo)
+                    if (!node.SkippedAction)
                     {
                         for (int index = traversal.Count - 1; index >= 0; index--)
                         {
@@ -162,9 +167,9 @@ internal static partial class SourceActions
             void Append(List<QpdfObject> target, QpdfObject raw)
             {
                 Check();
-                if (Find(raw, Role.Action) is not Node action || action.SkippedGoTo && !continuing.Contains(action)) { return; }
-                if (target.Count >= _maxSplitContainerSize)
-                { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), target.Count + 1L, _maxSplitContainerSize); }
+                if (Find(raw, Role.Action) is not Node action || action.SkippedAction && !continuing.Contains(action)) { return; }
+                if (target.Count >= _maxActionContainerSize)
+                { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), target.Count + 1L, _maxActionContainerSize); }
                 ParserContainers.AddItem(scratch, target, raw);
             }
         }

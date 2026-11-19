@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Lokad.Qpdf.Attachments;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
@@ -16,8 +17,9 @@ internal sealed class ArticleThreads
     private static readonly PdfName Rectangle = PdfName.FromAscii("R");
     private static readonly PdfName Registrations = PdfName.FromAscii("B");
 
+    private readonly record struct Article(PdfReference Reference, PdfDictionary Header, int FirstBead, int Count);
     private readonly record struct Bead(int Article, int Position, PdfDictionary Header, PdfReference? Page);
-    private readonly record struct Occurrence(Bead Bead, int Order, PdfReference Reference, PdfReference Page);
+    private readonly record struct Occurrence(Bead Bead, int Order, PdfReference Source, PdfReference Reference, PdfReference Page);
     private readonly record struct OccurrenceOrder : IComparer<Occurrence>
     {
         public int Compare(Occurrence left, Occurrence right)
@@ -29,13 +31,21 @@ internal sealed class ArticleThreads
         }
     }
 
-    private readonly List<PdfDictionary> _articles;
+    private readonly PdfArray _originalOrder;
+    private readonly List<Article> _articles;
     private readonly Dictionary<PdfReference, Bead> _beads;
+    private readonly List<PdfReference> _beadOrder;
+    private readonly ParserMemoryScope _memory;
+    private Dictionary<string, PdfReference>? _titles;
 
-    private ArticleThreads(List<PdfDictionary> articles, Dictionary<PdfReference, Bead> beads)
+    private ArticleThreads(PdfArray originalOrder, List<Article> articles, Dictionary<PdfReference, Bead> beads,
+        List<PdfReference> beadOrder, ParserMemoryScope memory)
     {
+        _originalOrder = originalOrder;
         _articles = articles;
         _beads = beads;
+        _beadOrder = beadOrder;
+        _memory = memory;
     }
 
     internal static ArticleThreads? Read(QpdfObject? role, IIndirectResolver resolver, QpdfLimits limits,
@@ -43,8 +53,9 @@ internal sealed class ArticleThreads
     {
         if (CatalogCopy.ResolveValue(role, resolver, governor, token) is not PdfArray threads) { return null; }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        List<PdfDictionary> articles = ParserContainers.CreateList<PdfDictionary>(memory);
+        List<Article> articles = ParserContainers.CreateList<Article>(memory);
         Dictionary<PdfReference, Bead> beads = ParserContainers.CreateDictionary<PdfReference, Bead>(memory);
+        List<PdfReference> beadOrder = ParserContainers.CreateList<PdfReference>(memory);
         HashSet<PdfReference> visited = ParserContainers.CreateSet<PdfReference>(scratch);
         List<(PdfReference Reference, PdfDictionary Header, PdfReference? Page)> ring =
             ParserContainers.CreateList<(PdfReference, PdfDictionary, PdfReference?)>(scratch);
@@ -59,18 +70,88 @@ internal sealed class ArticleThreads
             ring.Clear();
             if (!ReadRing(thread, first, resolver, visited, ring, limits, scratch, governor, token)) { continue; }
             int index = articles.Count;
-            ParserContainers.AddItem(memory, articles, article, IntPtr.Size);
+            ParserContainers.AddItem(memory, articles, new Article(thread, article, beadOrder.Count, ring.Count), 24L);
             for (int position = 0; position < ring.Count; position++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 var bead = ring[position];
                 ParserContainers.EnsureEntryCapacity(memory, beads, 24L);
                 beads.Add(bead.Reference, new(index, position, bead.Header, bead.Page));
+                ParserContainers.AddItem(memory, beadOrder, bead.Reference, IntPtr.Size);
             }
         }
         if (articles.Count == 0) { return null; }
-        memory.Reserve(32L);
-        return new(articles, beads);
+        memory.Reserve(64L);
+        return new(threads, articles, beads, beadOrder, memory);
+    }
+
+    internal (PdfReference? Thread, PdfReference? Bead) ResolveAction(QpdfObject? destination, QpdfObject? bead,
+        IIndirectResolver resolver, IReadOnlyDictionary<PdfReference, PdfReference> replacements,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        PdfReference? thread = CatalogCopy.ResolveValue(destination, resolver, governor, token) switch
+        {
+            PdfInteger ordinal when ordinal.Value >= 0 && ordinal.Value < _originalOrder.Count
+                => _originalOrder[(int)ordinal.Value] as PdfReference,
+            PdfByteString title => ResolveTitle(title, resolver, governor, token),
+            PdfDictionary => destination as PdfReference,
+            _ => null,
+        };
+        if (thread is null || !replacements.TryGetValue(thread, out PdfReference? projectedThread))
+        { return default; }
+        // A dead copied reference can become PDF null. Only an absent
+        // selector supplies the thread's default entry point.
+        if (bead is null) { return (projectedThread, null); }
+
+        PdfReference? reference = CatalogCopy.ResolveValue(bead, resolver, governor, token) switch
+        {
+            PdfInteger ordinal when ordinal.Value >= 0 => FindBead(thread, ordinal.Value, resolver, governor, token),
+            PdfDictionary => bead as PdfReference,
+            _ => null,
+        };
+        if (reference is null || !_beads.TryGetValue(reference, out Bead sourceBead)
+            || !_articles[sourceBead.Article].Reference.Equals(thread)
+            || !replacements.TryGetValue(reference, out PdfReference? projectedBead))
+        { return default; }
+        return (projectedThread, projectedBead);
+    }
+
+    private PdfReference? FindBead(PdfReference thread, long ordinal, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (CatalogCopy.ResolveDictionary(thread, resolver, governor, token) is not PdfDictionary header
+            || !header.TryGet(First, out QpdfObject first) || first is not PdfReference reference
+            || !_beads.TryGetValue(reference, out Bead bead)) { return null; }
+        Article article = _articles[bead.Article];
+        return ordinal < article.Count ? _beadOrder[article.FirstBead + (int)ordinal] : null;
+    }
+
+    private PdfReference? ResolveTitle(PdfByteString title, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (_titles is null)
+        {
+            _titles = ParserContainers.CreateDictionary<string, PdfReference>(_memory);
+            foreach (QpdfObject value in _originalOrder.BorrowedItems)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (value is not PdfReference reference
+                    || CatalogCopy.ResolveDictionary(reference, resolver, governor, token) is not PdfDictionary header
+                    || !PdfDictionaryLookup.TryGet(header, "I"u8, governor, token, out QpdfObject info)
+                    || CatalogCopy.ResolveDictionary(info, resolver, governor, token) is not PdfDictionary information
+                    || !PdfDictionaryLookup.TryGet(information, "Title"u8, governor, token, out QpdfObject rawTitle)
+                    || CatalogCopy.ResolveValue(rawTitle, resolver, governor, token) is not PdfByteString text)
+                { continue; }
+                using ParserMemoryScope textMemory = ParserMemoryScope.Create(governor);
+                string name = PdfText.Decode(text.ValueMemory, textMemory, governor, token);
+                if (_titles.ContainsKey(name)) { continue; }
+                ParserContainers.EnsureEntryCapacity(_memory, _titles, IntPtr.Size * 2L);
+                textMemory.TransferTo(_memory);
+                _titles.Add(name, reference);
+            }
+        }
+        using ParserMemoryScope lookup = ParserMemoryScope.Create(governor);
+        return _titles.GetValueOrDefault(PdfText.Decode(title.ValueMemory, lookup, governor, token));
     }
 
     private static bool ReadRing(PdfReference thread, PdfReference first, IIndirectResolver resolver,
@@ -180,7 +261,7 @@ internal sealed class ArticleThreads
                     if (occurrences.Count >= limits.MaxContainerSize)
                     { throw new QpdfLimitException(nameof(QpdfLimits.MaxContainerSize), occurrences.Count + 1L, limits.MaxContainerSize); }
                     PdfReference replacement = Allocate(ref nextNumber, graph);
-                    ParserContainers.AddItem(scratch, occurrences, new(bead, occurrences.Count, replacement, page), 48L);
+                    ParserContainers.AddItem(scratch, occurrences, new(bead, occurrences.Count, link, replacement, page), 56L);
                     ParserContainers.AddItem(pageScratch, refs, replacement);
                 }
                 if (refs.Count != 0) { registrations = CopyArray(refs, graph); }
@@ -192,9 +273,11 @@ internal sealed class ArticleThreads
             Store(edits, page.ObjectNumber, edited, limits, memory, governor);
         }
 
+        Dictionary<PdfReference, PdfReference>? replacements = null;
         if (source is not null && occurrences is { Count: > 0 })
         {
             GovernedSort.Sort(CollectionsMarshal.AsSpan(occurrences), new OccurrenceOrder(), governor, token);
+            replacements = ParserContainers.CreateDictionary<PdfReference, PdfReference>(scratch);
             List<QpdfObject> threads = ParserContainers.CreateList(scratch);
             int start = 0;
             while (start < occurrences.Count)
@@ -206,7 +289,9 @@ internal sealed class ArticleThreads
                 { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); end++; }
                 PdfReference newThread = Allocate(ref nextNumber, graph);
                 ParserContainers.AddItem(scratch, threads, newThread);
-                PdfDictionary thread = PdfDictionaryRebuild.ReplaceEntry(graph, source._articles[article],
+                Article original = source._articles[article];
+                Remember(replacements, original.Reference, newThread);
+                PdfDictionary thread = PdfDictionaryRebuild.ReplaceEntry(graph, original.Header,
                     "F"u8, occurrences[start].Reference);
                 edits ??= ParserContainers.CreateDictionary<int, QpdfObject>(memory);
                 Store(edits, newThread.ObjectNumber, thread, limits, memory, governor);
@@ -214,6 +299,7 @@ internal sealed class ArticleThreads
                 {
                     token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                     Occurrence current = occurrences[index];
+                    Remember(replacements, current.Source, current.Reference);
                     PdfReference previous = occurrences[index == start ? end - 1 : index - 1].Reference;
                     PdfReference next = occurrences[index + 1 == end ? start : index + 1].Reference;
                     double[]? frame = rotationFrames?.GetValueOrDefault(current.Page.ObjectNumber);
@@ -227,7 +313,25 @@ internal sealed class ArticleThreads
         else if (PdfDictionaryLookup.TryGet(catalog, "Threads"u8, governor, token, out _))
         { catalog = PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Threads"u8); }
         graph.Memory.TransferTo(memory, graph.Bytes);
+        (catalog, Dictionary<int, QpdfObject>? actionEdits) = SourceActions.ProjectArticleActions(
+            catalog, resolver, pages, source, replacements, edits, nextNumber, limits, memory, governor, token);
+        if (actionEdits is not null)
+        {
+            if (edits is null) { return (catalog, actionEdits); }
+            foreach ((int number, QpdfObject value) in actionEdits)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                Store(edits, number, value, limits, memory, governor);
+            }
+        }
         return (catalog, edits);
+
+        void Remember(Dictionary<PdfReference, PdfReference> map, PdfReference old, PdfReference replacement)
+        {
+            if (map.ContainsKey(old)) { return; }
+            ParserContainers.EnsureEntryCapacity(scratch, map, IntPtr.Size * 2L);
+            map.Add(old, replacement);
+        }
     }
 
     private static PdfDictionary BuildBead(Occurrence occurrence, PdfReference next, PdfReference previous,

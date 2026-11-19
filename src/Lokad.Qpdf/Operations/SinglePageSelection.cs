@@ -169,7 +169,8 @@ internal static class SinglePageSelection
                         ? Content.AcroFormCopy.TryCopySourceForm(document.Engine, copier, kept, true, limits, governor, copyMemory, cancellationToken, false)
                         : null;
                     (singleForm, _, IReadOnlyDictionary<PdfName, QpdfObject>? boundExtras, singleOutlines) = Content.SourceActions.BindDocument(
-                        document.Engine, copier, singleForm, singleForm, singleExtras, true, singleOutlines, governor, copyMemory, cancellationToken);
+                        document.Engine, copier, singleForm, singleForm, singleExtras, true, !settings.PreserveCatalog,
+                        singleOutlines, limits, governor, copyMemory, cancellationToken);
                     singleExtras = boundExtras ?? singleExtras;
                     IReadOnlyList<(GraphCopier Copier, Content.CopiedForm Part, int Occurrence)> rotationFields = Array.Empty<(GraphCopier, Content.CopiedForm, int)>();
                     IReadOnlyDictionary<int, double[]>? rotationFrames = null;

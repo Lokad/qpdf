@@ -341,7 +341,8 @@ internal static class MultiPageSelection
                 (Content.CopiedForm? boundForm, Content.CopiedForm? boundGateForm,
                     IReadOnlyDictionary<PdfName, QpdfObject>? boundExtras, PdfReference? boundOutlines) = Content.SourceActions.BindDocument(
                         document.Engine, copier, sourceForm, gateForms[^1], s == primaryIdx ? primaryExtras : null, !splitPages.HasValue,
-                        s == primaryIdx ? primaryOutlines : null, governor, selectionMemory, cancellationToken);
+                        s != primaryIdx || emptyPrimary || !settings.PreserveCatalog,
+                        s == primaryIdx ? primaryOutlines : null, limits, governor, selectionMemory, cancellationToken);
                 multiForms[^1] = boundForm; gateForms[^1] = boundGateForm;
                 if (s == primaryIdx)
                 {

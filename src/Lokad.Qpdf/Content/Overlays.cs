@@ -1366,7 +1366,7 @@ internal static class Overlays
             appearanceResources = PdfDictionaryRebuild.Complete(appearanceGraph, entries, bytes);
         }
 
-        SourceActions.BindPlacement(engine, source.Copier, destCopier, fresh, imports, firstImport,
+        SourceActions.BindPlacement(engine, source.Copier, destCopier, fresh, imports, firstImport, limits,
             governor, ownership, cancellationToken, ref allocator);
 
         // Generation consumes the source defaults and untransformed layout.

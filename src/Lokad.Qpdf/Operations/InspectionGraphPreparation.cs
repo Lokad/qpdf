@@ -264,7 +264,8 @@ internal static partial class InspectionGraphPreparation
                 if (!ParserContainers.AddSetItem(memory, used, page.Number, sizeof(int)))
                 {
                     Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
-                    (int id, PdfDictionary duplicate) = pool.CopyPageRoot(page.Page, null, extra, true, null);
+                    PdfDictionary header = (PdfDictionary)pool.CopiedObjects[page.Number];
+                    (int id, PdfDictionary duplicate) = pool.CopyPageRoot(header, null, extra, true, null);
                     if (catalogAssembly is not null)
                     { Content.ArticleThreads.RememberDuplicate(page.Page, id, page.Number, page.Generation, ref articleAliases, memory); }
                     page = new InspectionPage(id, 0, duplicate);
@@ -604,7 +605,7 @@ internal static partial class InspectionGraphPreparation
                 Content.CopiedForm? form = Content.AcroFormCopy.TryCopySourceForm(reader.Engine, copier, kept,
                     true, limits, governor, memory, token, false);
                 (form, _, _, _) = Content.SourceActions.BindDocument(reader.Engine, copier, form, form, null,
-                    false, null, governor, memory, token);
+                    false, true, null, limits, governor, memory, token);
                 ParserContainers.EnsureEntryCapacity(memory, catalogAssembly.Forms, IntPtr.Size);
                 catalogAssembly.Forms.Add(copier, form);
                 Content.OptionalContent.Capture(reader.Engine, copier, null, memory, governor, token);
