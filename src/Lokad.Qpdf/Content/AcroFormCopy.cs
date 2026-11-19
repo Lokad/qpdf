@@ -35,7 +35,7 @@ internal sealed record CopiedForm(
 /// `+N` collision renaming, preserve each source's field defaults through a resource
 /// union, and OR the NeedAppearances flags.
 /// </summary>
-internal static class AcroFormCopy
+internal static partial class AcroFormCopy
 {
     internal static bool HasFieldEntries(PdfDictionary node, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
@@ -1792,9 +1792,10 @@ internal static class AcroFormCopy
     {
         ownership.CheckOwner(governor);
         using ParserMemoryScope result = ParserMemoryScope.Create(governor);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         List<PdfReference> kept = ParserContainers.CreateList<PdfReference>(result);
         HashSet<int> closure = ParserContainers.CreateSet<int>(result);
-        PoolResolver? resolver = null;
+        FieldMembership? membership = null;
         foreach (PdfReference field in fields)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1804,24 +1805,14 @@ internal static class AcroFormCopy
                 continue;
             }
 
-            using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-            HashSet<int> members;
+            bool survives;
             if (pool.TryGetValue(field.ObjectNumber, out QpdfObject? raw) && raw is PdfDictionary root)
             {
-                resolver ??= PoolResolver.Create(result, pool);
-                members = WalkFieldMembers(resolver, root, field.ObjectNumber, limits, governor, traversal, cancellationToken);
+                membership ??= FieldMembership.Create(PoolResolver.Create(scratch, pool), survivingAnnots,
+                    limits, governor, scratch, cancellationToken);
+                survives = membership.Keeps(field, root, pruneUnreachableFields);
             }
-            else { members = ParserContainers.CreateSet<int>(traversal); }
-            bool survives = members.Count == 0 && !pruneUnreachableFields;
-            foreach (int member in members)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (survivingAnnots.Contains(member))
-                {
-                    survives = true;
-                    break;
-                }
-            }
+            else { survives = !pruneUnreachableFields; }
 
             if (!survives)
             {
@@ -1832,6 +1823,7 @@ internal static class AcroFormCopy
             // Field survival is independent of resource reachability. Retain
             // registration order/duplicates, but visit shared descendants once.
             if (closure.Contains(field.ObjectNumber)) { continue; }
+            using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
             AddPoolSubtree(pool, field.ObjectNumber, closure, limits, governor, result, traversal, cancellationToken);
         }
 
@@ -2006,6 +1998,8 @@ internal static class AcroFormCopy
             throw new QpdfParseException("Catalog /AcroForm /Fields must be an array.", null, null);
         }
 
+        using ParserMemoryScope analysis = ParserMemoryScope.Create(governor);
+        FieldMembership? membership = null;
         for (int i = 0; i < fields.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -2032,31 +2026,8 @@ internal static class AcroFormCopy
                 throw new QpdfParseException("Catalog /AcroForm /Fields entries must be dictionaries.", null, reference.ObjectNumber);
             }
 
-            using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-            HashSet<int> members = WalkFieldMembers(resolver, field, reference.ObjectNumber, limits, governor, traversal, cancellationToken);
-            if (members.Count == 0 && pruneUnreachableFields)
-            {
-                continue;
-            }
-
-            if (members.Count == 0)
-            {
-                ParserContainers.AddItem(memory, kept, entry);
-                continue;
-            }
-
-            bool survives = false;
-            foreach (int member in members)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                if (keptWidgets.Contains(member))
-                {
-                    survives = true;
-                    break;
-                }
-            }
-
-            if (survives)
+            membership ??= FieldMembership.Create(resolver, keptWidgets, limits, governor, analysis, cancellationToken);
+            if (membership.Keeps(reference, field, pruneUnreachableFields))
             {
                 ParserContainers.AddItem(memory, kept, entry);
             }
@@ -2094,19 +2065,7 @@ internal static class AcroFormCopy
                 throw new QpdfLimitException(nameof(QpdfLimits.MaxNestingDepth), current.Depth, limits.MaxNestingDepth);
             }
 
-            if (!current.Node.TryGet(PdfName.FromAscii("Kids"), out QpdfObject? kidsRaw) || kidsRaw is null || kidsRaw is PdfNull)
-            {
-                continue;
-            }
-
-            QpdfObject kidsTarget = kidsRaw is PdfReference kidsReference
-                && resolver.TryResolve(kidsReference, out QpdfObject? kidsResolved)
-                ? kidsResolved ?? kidsRaw
-                : kidsRaw;
-            if (kidsTarget is not PdfArray kids)
-            {
-                continue;
-            }
+            if (ReadFieldKids(current.Node, resolver) is not PdfArray kids) { continue; }
 
             for (int i = 0; i < kids.Count; i++)
             {
