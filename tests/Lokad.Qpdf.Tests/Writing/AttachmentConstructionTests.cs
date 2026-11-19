@@ -63,7 +63,7 @@ public sealed class AttachmentConstructionTests
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
         await AttachmentAssembler.AssembleAttachmentsAsync(host, existing, pool, 3, edits, compress, null, false,
-            [], QpdfRecoveryMode.Strict, limits, governor, new DiagnosticBag(governor), memory, token);
+            [], QpdfRecoveryMode.Strict, limits, governor, new DiagnosticBag(governor), null, memory, token);
 
     }
 

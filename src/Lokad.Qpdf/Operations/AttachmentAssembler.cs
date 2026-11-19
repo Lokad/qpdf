@@ -87,6 +87,7 @@ internal static class AttachmentAssembler
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
+        HashSet<int>? preservationCandidates,
         ParserMemoryScope ownership,
         CancellationToken cancellationToken)
     {
@@ -190,10 +191,20 @@ internal static class AttachmentAssembler
             ownership.Reserve(128L);
             ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
             pool[specId] = spec;
-            if (!existing.ContainsKey(key)) { ownership.Reserve(64L); }
-            else { replaced = true; }
-            PdfByteString name = existing.TryGetValue(key, out AttachmentReference original)
-                ? original.Name : AttachmentBuilder.EncodeText(key, governor, ownership, cancellationToken);
+            PdfByteString name;
+            if (existing.TryGetValue(key, out AttachmentReference original))
+            {
+                replaced = true;
+                name = original.Name;
+                // A replaced addition has no source object to preserve.
+                if (preservationCandidates is not null && original.Spec is PdfReference prior)
+                { ParserContainers.AddSetItem(ownership, preservationCandidates, prior.ObjectNumber, sizeof(int)); }
+            }
+            else
+            {
+                ownership.Reserve(64L);
+                name = AttachmentBuilder.EncodeText(key, governor, ownership, cancellationToken);
+            }
             existing[key] = new(name, new PdfReference(specId, 0));
         }
 

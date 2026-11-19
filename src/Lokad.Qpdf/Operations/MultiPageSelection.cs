@@ -507,7 +507,9 @@ internal static class MultiPageSelection
             multiSources.Add((copiers[s].SourceToDestination, sourceCompressed[s]));
         }
 
-        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, 3, settings.Edits, multiCompress, multiLevel, settings.ObjectStreams is not ("disable" or "generate"), multiSources, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken).ConfigureAwait(false);
+        AttachmentAssembly multiAttached = await AssembleAttachmentsAsync(host, primaryExisting, pool, 3, settings.Edits,
+            multiCompress, multiLevel, settings.ObjectStreams is not ("disable" or "generate"), multiSources,
+            recovery, limits, governor, diagnostics, preservationCandidates, selectionMemory, cancellationToken).ConfigureAwait(false);
 
         List<(int Index, PdfDictionary Label)> explicitItems = settings.Labels.Count > 0
             ? ResolveLabelItems(settings.Labels, kids.Count, governor, selectionMemory)

@@ -34,7 +34,7 @@ internal static partial class InspectionGraphPreparation
         Dictionary<int, QpdfObject> additions = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
         var attached = await AttachmentAssembler.AssembleAttachmentsAsync(host, existing, additions, pool.NextId, edits,
             false, null, false, ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory),
-            plan.Recovery, limits, governor, diagnostics, memory, token).ConfigureAwait(false);
+            plan.Recovery, limits, governor, diagnostics, null, memory, token).ConfigureAwait(false);
         foreach ((int number, QpdfObject value) in additions)
         {
             token.ThrowIfCancellationRequested(); governor.NoteOperation();
