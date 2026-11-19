@@ -14,6 +14,7 @@ public sealed class JsonPublicationTransformTests
         byte[] metadata = "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">METADATA-MARKER</x:xmpmeta>"u8.ToArray();
         byte[] content = "BT /F1 10 Tf 10 100 Td (PAGE-MARKER) Tj ET"u8.ToArray();
         bool signature = shape == "signature";
+        string structure = shape == "selection-labels" ? "" : " /StructTreeRoot " + Ref(6) + " /MarkInfo << /Marked true >>";
         string date = shape switch
         {
             "no-date" => "",
@@ -22,8 +23,8 @@ public sealed class JsonPublicationTransformTests
             _ => " /ModDate " + Ref(10)
         };
         List<(int, string, byte[]?)> objects = [
-            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm " + Ref(4) + " /StructTreeRoot " + Ref(6)
-                + " /MarkInfo << /Marked true >> /PageLabels " + Ref(7) + " /Metadata " + Ref(8)
+            (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm " + Ref(4) + structure
+                + " /PageLabels " + Ref(7) + " /Metadata " + Ref(8)
                 + " /Private << /Form " + Ref(4) + " /Structure " + Ref(6) + " /Labels " + Ref(7)
                 + " /Meta " + Ref(8) + " /Info " + Ref(9) + " /Catalog 1 0 R >> >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [" + Ref(3) + "] >>", null),
@@ -33,7 +34,7 @@ public sealed class JsonPublicationTransformTests
             (5, "<< /Type /Annot /Subtype /Widget /Rect [10 10 100 30] /P " + Ref(3)
                 + (signature ? " /FT /Sig /V " + Ref(13) : " /FT /Tx /V (FORM-VALUE)") + " /T (FORM-KEY) >>", null),
             (6, "<< /Type /StructTreeRoot /K [] >>", null),
-            (7, shape == "inactive-labels" ? "<< /Nums [0] >>" : "<< /Nums [0 << /S /D /St 1 /P (OLD-) >>] >>", null),
+            (7, shape is "inactive-labels" or "selection-labels" ? "<< /Nums [0] >>" : "<< /Nums [0 << /S /D /St 1 /P (OLD-) >>] >>", null),
             (8, "<< /Type /Metadata /Subtype /XML /Length " + metadata.Length + " >>", metadata),
             (9, "<< /Title (INFO-TITLE) /Producer (INFO-PRODUCER)" + date + " >>", null),
             (10, "(D:20260101000000Z)", null), (11, "<< /Length " + content.Length + " >>", content),
@@ -128,7 +129,7 @@ public sealed class JsonPublicationTransformTests
     [InlineData(true)]
     public async Task SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced(bool replace)
     {
-        using InMemoryQpdfHost host = Host(Fixture(17, "inactive-labels"));
+        using InMemoryQpdfHost host = Host(Fixture(17, "selection-labels"));
         string[] labels = replace ? ["--set-page-labels", "1:D/5/NEW-", "z:D/9/LAST-", "--"] : [];
         using JsonDocument report = await Run(host, ["input", "--json=2", "--pages", ".", "1,1", "--",
             "--remove-page-labels", .. labels]);
