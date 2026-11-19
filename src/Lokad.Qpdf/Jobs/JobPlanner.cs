@@ -787,7 +787,7 @@ internal static partial class JobPlanner
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
                 if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
-                    || importJson && (seenLabels || seenRemoveLabels)
+                    || importJson && seenLabels
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality

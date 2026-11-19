@@ -37,6 +37,95 @@ public sealed class ImportedCheckTests
         }]}
         """;
 
+    private const string RoleGraph = """
+        {"qpdf":[{"jsonversion":2,"pdfversion":"1.4"},{
+          "obj:17 9 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R","/AcroForm":"5 0 R",
+            "/Metadata":"7 0 R","/PageLabels":"8 0 R","/Audit":"9 0 R","/MarkInfo":{"/Marked":true},
+            "/StructTreeRoot":{"/Type":"/StructTreeRoot","/K":[]}}},
+          "obj:2 0 R":{"value":{"/Type":"/Pages","/Count":1,"/Kids":["3 0 R"]}},
+          "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R","/MediaBox":[0,0,100,100]}},
+          "obj:5 0 R":{"value":{"/Fields":[]}},
+          "obj:6 0 R":{"value":{"/ModDate":"u:D:20240101000000Z","/Title":"u:original"}},
+          "obj:7 0 R":{"stream":{"dict":{"/Type":"/Metadata","/Subtype":"/XML"},"data":"PHRlc3QvPg=="}},
+          "obj:8 0 R":{"value":{"/Nums":[0,{"/S":"/D","/P":"u:old-"}]}},
+          "obj:9 0 R":{"value":{"/StoredCatalog":"17 9 R","/StoredInfo":"6 0 R","/StoredLabels":"8 0 R"}},
+          "trailer":{"value":{"/Root":"17 9 R","/Info":"6 0 R","/Size":18}}
+        }]}
+        """;
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("update")]
+    [InlineData("compose")]
+    public async Task BoundCatalogRemovalsApplyBeforeCheckedListing(string operation)
+    {
+        using InMemoryQpdfHost storage = new();
+        AddJson(storage, Encoding.UTF8.GetBytes(RoleGraph));
+        storage.AddInput(Source, Pdf(false, false), QpdfInputOwnership.Transfer);
+        storage.AddInput(FollowingPatch, Encoding.UTF8.GetBytes(RoleGraph.Replace("\"/Audit\":\"9 0 R\"",
+            "\"/Audit\":\"9 0 R\",\"/Patched\":true", StringComparison.Ordinal)), QpdfInputOwnership.Transfer);
+        string[] settings = operation switch
+        {
+            "create" => ["graph", "--json-input"],
+            "update" => ["source", "--update-from-json=graph"],
+            _ => ["graph", "--json-input", "--update-from-json=patch"],
+        };
+        ObservingHost host = new(storage, null);
+        async Task<string> Show(string selector, params string[] flags)
+        {
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([.. settings, .. flags,
+                "--show-object=" + selector]), CancellationToken.None);
+            AssertClosed(storage, host, result);
+            return ObjectListing(result);
+        }
+
+        string active = await Show("17,9", "--check", "--remove-metadata", "--remove-acroform", "--remove-structure");
+        Assert.Contains("/Audit 9 0 R", active, StringComparison.Ordinal);
+        Assert.Equal(operation == "compose", active.Contains("/Patched true", StringComparison.Ordinal));
+        string unedited = await Show("17,9");
+        foreach (string role in new[] { "/Metadata", "/AcroForm", "/MarkInfo", "/StructTreeRoot" })
+        {
+            Assert.Contains(role, unedited, StringComparison.Ordinal);
+            Assert.DoesNotContain(role, active, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task BoundInfoAndLabelRemovalsKeepStoredAliases()
+    {
+        using InMemoryQpdfHost storage = new();
+        AddJson(storage, Encoding.UTF8.GetBytes(RoleGraph));
+        ObservingHost host = new(storage, null);
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"graph","jsonInput":"","removeInfo":"","removePageLabels":true,"showObject":"trailer"}
+            """, CancellationToken.None);
+        AssertClosed(storage, host, result);
+        string trailer = ObjectListing(result);
+        Assert.Contains("/Info << /ModDate (D:20240101000000Z) >>", trailer, StringComparison.Ordinal);
+        Assert.Contains("/Audit 9 0 R", trailer, StringComparison.Ordinal);
+        foreach (string retired in new[] { "/Title", "/Metadata", "/PageLabels" })
+        { Assert.DoesNotContain(retired, trailer, StringComparison.Ordinal); }
+
+        string[] flags = ["graph", "--json-input", "--remove-info", "--remove-page-labels"];
+        foreach ((string selector, string retained) in new[] {
+            ("6", "/Title (original)"), ("8", "/P (old-)"), ("9", "/StoredCatalog 17 9 R") })
+        {
+            result = await Qpdf.ExecuteAsync(host, new([.. flags, "--show-object=" + selector]), CancellationToken.None);
+            Assert.Contains(retained, ObjectListing(result), StringComparison.Ordinal);
+            AssertClosed(storage, host, result);
+        }
+        result = await Qpdf.ExecuteAsync(host, new([.. flags, "--show-object=17,0"]), CancellationToken.None);
+        Assert.Equal("null", ObjectListing(result));
+        AssertClosed(storage, host, result);
+    }
+
+    private static string ObjectListing(QpdfExecutionResult result)
+    {
+        Assert.True(result.ExitCode == QpdfExitCode.Success,
+            string.Join(Environment.NewLine, result.Diagnostics.Select(item => item.Message)));
+        return Assert.Single(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.ObjectListing).Message;
+    }
+
     [Fact]
     public async Task CreationChecksReachableStreamsAndListsExactOriginalPairs()
     {

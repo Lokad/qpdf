@@ -98,7 +98,23 @@ function Invoke-ReferenceJsonCheck {
   @{ qpdf=@(@{ jsonversion=2 },@{ "obj:$protectedContent"=@{ stream=$stream } }) } |
     ConvertTo-Json -Depth 10 | Set-Content -LiteralPath "$case/inputs/protected-patch.json"
 
+  $catalogPair = $report.qpdf[1].trailer.value['/Root']
+  $catalogSelector = ($catalogPair -replace ' R$','') -replace ' ',','
+  $catalog = $report.qpdf[1]["obj:$catalogPair"].value
+  $catalog['/AcroForm'] = @{ '/Fields'=@() }
+  $catalog['/PageLabels'] = @{ '/Nums'=@(0,@{ '/S'='/D'; '/P'='u:source-' }) }
+  @{ qpdf=$report.qpdf } | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath "$case/inputs/roles.json"
+
   $inputs = @(Get-ChildItem -LiteralPath "$case/inputs" -File | Get-FileHash)
+  $roleFlags = @('inputs/roles.json','--json-input','--remove-acroform','--remove-page-labels',"--show-object=$catalogSelector")
+  if ((Invoke-Oracle $case $roleFlags) -ne 0) { throw 'Native bound catalog inspection failed.' }
+  $nativeRole = (Get-Content -Raw -LiteralPath "$case/ora-stdout.txt").Trim()
+  $managedRole = Invoke-ReferenceProbeRequest -WorkingDirectory $case -Arguments (@('emit','--workdir',$case,'--') + $roleFlags)
+  if ($managedRole.ExitCode -ne 0 -or $nativeRole -match '/AcroForm|/PageLabels' -or $nativeRole -notmatch '/Type /Catalog' -or
+      (Get-Content -LiteralPath $managedRole.StandardOutput) -cnotcontains "emit: diagnostic ObjectListing Info $nativeRole") {
+    throw 'Bound catalog removals did not produce the same active object listing.'
+  }
+  Write-Output '[json-check/catalog-roles] the declared pair displays the catalog after form and label removal.'
   foreach ($row in @(
     @{ Name='standalone'; Args=@('inputs/model.json','--json-input',"--show-object=$selector",'--show-pages','--show-npages');
        Code=0; Page=$page; Content=$content; Standalone=$true },

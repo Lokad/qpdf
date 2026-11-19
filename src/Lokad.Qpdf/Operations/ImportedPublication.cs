@@ -49,8 +49,9 @@ internal static class ImportedPublication
     }
 
     internal static ImportedModel Apply(ImportedModel model, DocumentPublicationPolicy policy, QpdfLimits limits,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token, out PdfReference? replacedCatalog)
     {
+        replacedCatalog = null;
         if (!policy.HasRemovals) { return model; }
         // Retirement must not hide an over-limit imported object table.
         JsonImport.CheckObjectCount(model, limits);
@@ -63,7 +64,10 @@ internal static class ImportedPublication
             PdfDictionary selected = policy.SelectCatalog(catalog, graph);
             // A fresh catalog role leaves private aliases of the original intact.
             if (!ReferenceEquals(selected, catalog))
-            { trailer = PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, selected); }
+            {
+                trailer = PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, selected);
+                replacedCatalog = root as PdfReference;
+            }
         }
         if (policy.RemoveInfo)
         {

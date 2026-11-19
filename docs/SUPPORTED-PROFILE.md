@@ -315,10 +315,13 @@ source before binding the patch.
 Page counts, pages with images, objects and attachments use the bound graph and
 its declared generations. Encryption reports describe the authenticated source.
 [Attachment extraction](#attachment-extraction)
+Document-role removals, including page-label removal, apply before text
+checking and listing. The source catalog pair selects the active role, and
+private references retain their stored values.
 Optional `--check` validates the effective page tree, reachable streams, page
 content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
-inspections. Page edits and physical-layout listings are unavailable here.
+inspections. Page-tree transforms and physical-layout listings are unavailable here.
 
 Text inspection of a PDF applies content coalescing, document-role removals
 and authored page labels before checking or listing the effective graph.

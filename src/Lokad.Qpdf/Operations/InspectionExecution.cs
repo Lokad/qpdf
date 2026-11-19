@@ -699,6 +699,8 @@ internal static class InspectionExecution
         using ParserMemoryScope graph = ParserMemoryScope.Create(governor);
         Json.ImportedModel model = await JsonExecution.BindInspectionModelAsync(host, imported, engine, source.Header,
             limits, governor, graph, token).ConfigureAwait(false);
+        model = ImportedPublication.Apply(model, plan.PublicationPolicy, limits, graph, governor, token,
+            out PdfReference? replacedCatalog);
 
         using ParserMemoryScope inspection = ParserMemoryScope.Create(governor);
         Content.PoolResolver resolver = Content.PoolResolver.Create(inspection, model.Objects);
@@ -726,7 +728,7 @@ internal static class InspectionExecution
             {
                 QpdfObject? target = trailer ? model.Trailer : null;
                 if (!trailer && model.OriginalPairs is not null && model.OriginalPairs.TryGetValue((number, generation), out int bound))
-                { target = model.Objects.GetValueOrDefault(bound); }
+                { target = replacedCatalog?.ObjectNumber == bound ? catalog : model.Objects.GetValueOrDefault(bound); }
                 if (target is PdfStream stream && (plan.RawStreamData || plan.FilteredStreamData))
                 {
                     if ((plan.RunCheck || plan.ShowNpages || plan.ShowEncryption) && plan.AttachmentKey is null)

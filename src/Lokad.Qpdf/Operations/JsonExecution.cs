@@ -320,7 +320,7 @@ internal static class JsonExecution
             {
                 model = ImportedPublication.Apply(model,
                     new(settings.RemoveInfo, settings.RemoveMetadata, settings.RemoveAcroform, settings.RemoveStructure, settings.RemoveLabels),
-                    limits, memory, governor, token);
+                    limits, memory, governor, token, out _);
             }
             Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
             _ = ReadBoundCatalog(model, resolver, governor, token);
@@ -539,7 +539,7 @@ internal static class JsonExecution
     {
         DocumentPublicationPolicy policy = writer.Labels.Count == 0 ? writer.Publication
             : writer.Publication with { RemoveLabels = true };
-        model = ImportedPublication.Apply(model, policy, limits, memory, governor, token);
+        model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         IIndirectResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);

@@ -7443,6 +7443,8 @@
         "interaction": [
           "ShowObjectTests.JobShowObjectMatchesArgv",
           "AttachmentEditInspectionTests.TextInspectionSelectsTheFinalCatalogAndPreservesPrivateAliases",
+          "ImportedCheckTests.BoundCatalogRemovalsApplyBeforeCheckedListing",
+          "ImportedCheckTests.BoundInfoAndLabelRemovalsKeepStoredAliases",
           "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent",
           "ImportedCheckTests.StandaloneObjectStreamReturnsTheExactDeclaredPayload"
         ],
