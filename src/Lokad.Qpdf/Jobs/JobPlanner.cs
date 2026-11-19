@@ -787,7 +787,7 @@ internal static partial class JobPlanner
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
                 if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
-                    || seenLabels || seenRemoveLabels
+                    || importJson && (seenLabels || seenRemoveLabels)
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
@@ -824,6 +824,12 @@ internal static partial class JobPlanner
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
                     CoalesceContents = coalesceContents,
+                    RemoveInfo = removeInfo,
+                    RemoveMetadata = removeMetadata,
+                    RemoveAcroform = removeAcroform,
+                    RemoveStructure = removeStructure,
+                    RemoveLabels = removeLabels,
+                    Labels = labels,
                     AttachmentsToAdd = attachmentsToAdd,
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,

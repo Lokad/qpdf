@@ -49,6 +49,7 @@ internal static partial class InspectionGraphPreparation
     {
         private QpdfDocument? _document;
         private ParserMemoryScope? _memory;
+        internal PdfReference? ReplacedCatalog { get; set; }
 
         internal InspectionGraph(QpdfDocument document, ParserMemoryScope memory)
         {
@@ -61,6 +62,7 @@ internal static partial class InspectionGraphPreparation
             if (_document is null) { return; }
             _document.SetInspectionPages(null);
             _document.Engine.SetInspectionObjects(null);
+            ReplacedCatalog = null;
             _document = null;
             _memory?.Dispose();
             _memory = null;
@@ -74,10 +76,8 @@ internal static partial class InspectionGraphPreparation
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
         bool content = plan.CoalesceContents || plan is JsonPlan && (externalize || plan.OptimizeImages);
-        JsonPlan? json = plan as JsonPlan;
-        bool authoredLabels = json is not null && json.Labels.Count > 0;
-        bool publication = json is not null && (authoredLabels || json.RemoveInfo || json.RemoveMetadata
-            || json.RemoveAcroform || json.RemoveStructure || json.RemoveLabels);
+        bool authoredLabels = plan.Labels.Count > 0;
+        bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
         bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels;
         if (!preparePages && !publication && !editAttachments) { return null; }
@@ -89,7 +89,7 @@ internal static partial class InspectionGraphPreparation
         InspectionGraph? lifetime = null;
         try
         {
-            memory.Reserve(32L);
+            memory.Reserve(40L);
             lifetime = new(document, memory);
             using ParserMemoryScope? pruningMemory = pruning ? ParserMemoryScope.Create(governor) : null;
             Content.ContentPrunePolicy? prunePolicy = null;
@@ -138,8 +138,8 @@ internal static partial class InspectionGraphPreparation
                 document.Engine.SetInspectionObjects(pool.CopiedObjects);
                 document.Engine.InspectionCalledAllPages = false;
                 document.Engine.InspectionPushedInheritedResources = false;
-                if (publication && json is not null)
-                { ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken); }
+                if (publication)
+                { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
                 if (editAttachments)
                 { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
                 return lifetime;
@@ -203,7 +203,7 @@ internal static partial class InspectionGraphPreparation
             }
 
             InspectionCatalog? catalogAssembly = plan.AssembleCatalog && plan.Sources.Count > 0 ? new(memory) : null;
-            bool preserveLabels = catalogAssembly is not null && !authoredLabels && json?.RemoveLabels != true;
+            bool preserveLabels = catalogAssembly is not null && !authoredLabels && !plan.PublicationPolicy.RemoveLabels;
             if (catalogAssembly is not null)
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, document, governor, cancellationToken); }
             List<List<InspectionPage>> groups = await PrepareInspectionSourcesAsync(host, document, original,
@@ -450,8 +450,8 @@ internal static partial class InspectionGraphPreparation
                 ParserContainers.AddItem(memory, transformed, new PageLocation(new PdfReference(selected.Number, selected.Generation), page), 16L);
             }
             document.SetInspectionPages(transformed);
-            if (publication && json is not null)
-            { ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken); }
+            if (publication)
+            { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
             if (editAttachments)
             { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
             return lifetime;

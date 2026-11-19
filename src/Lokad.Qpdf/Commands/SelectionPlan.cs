@@ -85,6 +85,8 @@ internal abstract record JobPlan(QpdfPath Input)
     public bool RemoveStructure { get; init; }
 
     public bool RemoveMetadata { get; init; }
+    public Writing.DocumentPublicationPolicy PublicationPolicy
+        => new(RemoveInfo, RemoveMetadata, RemoveAcroform, RemoveStructure, RemoveLabels);
 
     public bool CoalesceContents { get; init; }
 
@@ -246,6 +248,8 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
 /// <summary>Validated object inspection.</summary>
 internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input)
 {
+    internal Objects.PdfReference? ReplacedCatalog { get; init; }
+
     public bool RejectStreamAfterInfo { get; init; }
 
     public QpdfPath? Output { get; init; }

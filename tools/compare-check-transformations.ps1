@@ -67,6 +67,11 @@ $cases = @(
   @{N='collation';Sources=@(@{file='.';range='1,2'},@{file='inputs/b.pdf';range='1,2'});Collate='1';O='2';ImportedIdentities=@{9=10;10=11;11=9}},
   @{N='nested-first';Nested=$true;R='1';O='3,2';Pattern='/MediaBox 9 0 R'},
   @{N='coalesced-listing';Nested=$true;ContentGenerations=$true;Coalesce=$true;O='3,2';Pattern='/Contents 9 0 R'},
+  @{N='catalog-form-removal';Fixture='forms-1page.pdf';O='1';Settings=@{removeAcroform=''};Arguments=@('--remove-acroform');Forbidden='/AcroForm'},
+  @{N='catalog-structure-removal';Fixture='struct-preserve-1page.pdf';O='1';Settings=@{removeStructure=''};Arguments=@('--remove-structure');Forbidden='/StructTreeRoot|/MarkInfo'},
+  @{N='catalog-metadata-removal';Fixture='meta-1page.pdf';O='1';Settings=@{removeMetadata=''};Arguments=@('--remove-metadata');Forbidden='/Metadata'},
+  @{N='catalog-label-removal';Fixture='labels-2page.pdf';O='1';Settings=@{removePageLabels=''};Arguments=@('--remove-page-labels');Forbidden='/PageLabels'},
+  @{N='catalog-label-replacement';Fixture='labels-2page.pdf';O='1';Settings=@{removePageLabels='';setPageLabels=@('1:a/5/ch-')};Arguments=@('--remove-page-labels','--set-page-labels','1:a/5/ch-','--');Pattern='/P \(ch-\) /S /a /St 5'},
   @{N='nested-root';Nested=$true;R='1';O='2';Line='<< /Count 1 /Kids [ 3 2 R ] /Type /Pages >>'},
   @{N='nested-box';Nested=$true;R='1';O='9';Line='[ 0 0 600 800 ]'},
   @{N='nested-resources';Nested=$true;R='1';O='10';Line='<< /ProcSet [ /PDF ] >>'},
@@ -88,7 +93,7 @@ $cases = @(
 # tests observe selected-content checking and count managed output attempts.
 $checkRoutes = @{
   'first'='argv'; 'collation'='job'; 'content-generations'='mixed'; 'coalesced-listing'='job';
-  'range-bounds'='job'; 'missing-source'='mixed'
+  'range-bounds'='job'; 'missing-source'='mixed'; 'catalog-form-removal'='job'
 }
 $records = foreach ($item in $cases) {
   $variants = @(@{Route='argv';Check=$false})
@@ -100,7 +105,10 @@ $records = foreach ($item in $cases) {
     if (Test-Path -LiteralPath $case) { throw "Existing case output: $case" }
     New-Item -ItemType Directory -Path "$case/inputs" | Out-Null
     if ($item.Nested) { Write-AuthoredPdf "$case/inputs/a.pdf" ([bool]$item.ContentGenerations) }
-    else { Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/a.pdf" }
+    else {
+      $fixture = if ($item.Fixture) { $item.Fixture } else { 'minimal-2page.pdf' }
+      Copy-Item -LiteralPath "$FixtureDirectory/$fixture" -Destination "$case/inputs/a.pdf"
+    }
     Copy-Item -LiteralPath "$FixtureDirectory/minimal-2page.pdf" -Destination "$case/inputs/b.pdf"
     $settings = @{showNpages='';showPages='';showXref='';showObject=$item.O}
     [string[]]$argv = @('inputs/a.pdf','--show-npages','--show-pages','--show-xref',('--show-object='+$item.O))
@@ -108,6 +116,10 @@ $records = foreach ($item in $cases) {
     if ($item.Coalesce) { $settings.coalesceContents=''; $argv += '--coalesce-contents' }
     if ($item.Rotate) { $settings.rotate=@($item.Rotate); $argv += ('--rotate='+$item.Rotate) }
     if ($item.Collate) { $settings.collate=$item.Collate; $argv += ('--collate='+$item.Collate) }
+    if ($item.Settings) {
+      foreach ($key in $item.Settings.Keys) { $settings[$key] = $item.Settings[$key] }
+      $argv += $item.Arguments
+    }
     $sources = if ($item.Sources) { $item.Sources } elseif ($item.R) { @(@{file=$(if ($item.Source) {$item.Source} else {'.'});range=$item.R}) } else { @() }
     if ($sources.Count -gt 0) {
       $settings.pages=@($sources); $argv += '--pages'

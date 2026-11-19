@@ -61,15 +61,6 @@ public sealed class RemoveAcroformTests
         AssertFormDictionaryGone(pdf);
     }
 
-    [Fact]
-    public async Task IgnoredWithCheck()
-    {
-        InMemoryQpdfHost host = await HostWithFixture("inputs/a.pdf", "forms-1page.pdf");
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(
-            host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--remove-acroform"]), CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-    }
-
     [Theory]
     [InlineData("inputs/a.pdf", "--remove-acroform", "--remove-acroform")]
     [InlineData("inputs/a.pdf", "--remove-acroform=x")]

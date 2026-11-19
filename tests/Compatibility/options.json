@@ -6465,7 +6465,7 @@
         "interaction": [
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "RemoveAcroformTests.MergeDropsFormDictionary",
-          "RemoveAcroformTests.IgnoredWithCheck",
+          "DocumentRoleInspectionTests.CatalogRemovalsApplyBeforeCheckedObjectListing",
           "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
           "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
           "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
@@ -6478,6 +6478,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-acroform",
           "diff:forms-preserve"
@@ -6568,6 +6569,7 @@
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
+          "DocumentRoleInspectionTests.InfoRemovalPublishesOnlyTheLiveModificationDateInTheActiveRole",
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "JsonPublicationTransformTests.RemoveInfoOmittedForNonLiveModificationDate",
           "JsonPublicationTransformTests.AuthenticatedExportKeepsTheDecryptedDate",
@@ -6624,6 +6626,7 @@
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
         "interaction": [
+          "DocumentRoleInspectionTests.CatalogRemovalsApplyBeforeCheckedObjectListing",
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "MetadataTests.BothRemovalsDropBoth",
           "MetadataTests.MergeKeepsPrimaryInfo",
@@ -6640,6 +6643,7 @@
           "JsonMetadataPolicyTests.ImportMetadataPreparationRefundsAndPreservesActualTargets"
         ],
         "oracle": [
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-metadata"
         ]
@@ -6676,6 +6680,7 @@
           "LabelTests.ArgvLabelFormsFailExplicitly"
         ],
         "interaction": [
+          "DocumentRoleInspectionTests.LabelRemovalAndReplacementFollowEffectivePageOrder",
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
           "LabelTests.JobRemovePageLabelsBehavesLikeArgv",
@@ -6691,6 +6696,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-page-labels"
         ]
@@ -6771,7 +6777,7 @@
         "interaction": [
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "RemoveStructureTests.MergeDropsStructureTree",
-          "RemoveStructureTests.IgnoredWithCheck",
+          "DocumentRoleInspectionTests.CatalogRemovalsApplyBeforeCheckedObjectListing",
           "JsonCatalogRemovalTests.JobAndNestedImportsProjectCatalogRemoval",
           "JsonCatalogRemovalTests.PrivateRootsKeepTheirOriginalCatalogData",
           "JsonCatalogRemovalTests.CatalogAndMetadataPoliciesComposeWithoutRemovingWidgets",
@@ -6784,6 +6790,7 @@
           "JsonCatalogRemovalTests.CatalogPreparationRefundsAndPreservesTheActualTarget"
         ],
         "oracle": [
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:remove-structure"
         ]
@@ -7136,6 +7143,7 @@
           "PageLabelSpecTests.ExplicitInvalidStartsAndStylesStillReject"
         ],
         "interaction": [
+          "DocumentRoleInspectionTests.LabelRemovalAndReplacementFollowEffectivePageOrder",
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
           "JsonPublicationTransformTests.JobLabelsUpdateTheTreeAndFullReportDescriptors",
@@ -7153,6 +7161,7 @@
           "PageLabelSpecTests.DefaultStartLabelPreparationKeepsAdmissionAndPublicationBoundaries"
         ],
         "oracle": [
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:labels",
           "diff:labels-merge",

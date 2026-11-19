@@ -238,19 +238,6 @@ public sealed class JsonOperationCompatibilityTests
         Assert.Equal(0, storage.OpenLeaseCount);
     }
 
-    [Fact]
-    public async Task PreserveDocumentedCheckingWriterIgnores()
-    {
-        using InMemoryQpdfHost storage = CreateHost();
-        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(storage,
-            """{"inputFile":"input","check":"","showObject":"1","qdf":true,"removeAcroform":true,"removeStructure":true}""", CancellationToken.None);
-        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        Assert.Contains(result.Diagnostics, d => d.Message.Contains("/AcroForm", StringComparison.Ordinal)
-            && d.Message.Contains("/StructTreeRoot", StringComparison.Ordinal));
-        Assert.False(storage.TryGetOutput(QpdfPath.From("output"), out _));
-        Assert.Equal(0, storage.OpenLeaseCount);
-    }
-
     [Theory]
     [InlineData("inspect", "argv")]
     [InlineData("inspect", "job")]

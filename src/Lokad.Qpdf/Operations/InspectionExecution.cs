@@ -344,9 +344,18 @@ internal static class InspectionExecution
         {
             target = document.Engine.Trailer;
         }
-        else if (generation >= 0 && ((IIndirectResolver)document.Engine).TryResolve(new PdfReference(number, generation), out QpdfObject? resolved))
+        else if (generation >= 0)
         {
-            target = resolved;
+            PdfReference reference = new(number, generation);
+            if (showObject.ReplacedCatalog is PdfReference former && former.ObjectNumber == number && former.Generation == generation
+                && PdfDictionaryLookup.TryGet(document.Engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject root)
+                && root is PdfReference active)
+            {
+                // The selector addresses the input catalog role. Other edges
+                // still resolve the original catalog with its stored values.
+                reference = active;
+            }
+            if (((IIndirectResolver)document.Engine).TryResolve(reference, out QpdfObject? resolved)) { target = resolved; }
         }
 
         bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;
@@ -529,7 +538,7 @@ internal static class InspectionExecution
             if (plan.Import is null && plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
-                && !plan.HasAttachmentEdits
+                && !plan.HasAttachmentEdits && !plan.PublicationPolicy.HasRemovals && plan.Labels.Count == 0
                 && !plan.CoalesceContents && plan.Sources.Count == 0 && plan.Rotations.Count == 0
                 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
             {
@@ -577,6 +586,7 @@ internal static class InspectionExecution
                             using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
                             ReadOnlyMemory<byte>? payload = ShowObject(document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
                             {
+                                ReplacedCatalog = inspection?.ReplacedCatalog,
                                 RawStreamData = plan.RawStreamData,
                                 FilteredStreamData = plan.FilteredStreamData,
                                 NormalizeContent = plan.NormalizeContent,
