@@ -3671,6 +3671,8 @@
       "evidence": {
         "positive": [
           "FlattenRotationTests.Flatten90RotatesBoxesAndWrapsContent",
+          "ReportRotationTests.ReportsSeeTheBakedBoxAndWrappedProgram",
+          "ReportRotationTests.BakingAnInheritedRotationClearsItFromTheRecreatedTree",
           "FlattenRotationTests.Flatten180KeepsMediaBox",
           "FlattenRotationTests.AnnotationRectanglesMoveWithPage",
           "AnnotationCoordinateTests.AbsoluteSubtypePointsFollowThePageFrameAndRetainOriginalAliases",
@@ -3690,6 +3692,7 @@
         ],
         "negative": [
           "FlattenRotationTests.MalformedFlattenFlagsFail",
+          "ReportRotationTests.UnsupportedRetainedDestinationKeepsThePriorReport",
           "ViewportRotationTests.UnusableViewportMeasurementRefusesBeforePublication",
           "RotationAppearanceTests.DamagedAppearanceReferencesStayBounded",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
@@ -3697,6 +3700,7 @@
         ],
         "interaction": [
           "FlattenRotationTests.JobRoundTripMatchesArgv",
+          "ReportRotationTests.RecreatedReportKeepsRotatedNavigationAndTheOriginalPrivateDestination",
           "AppearanceRoleTests.RotationTransformsActualAppearancesAndKeepsPrivateAPValuesOpaque",
           "RotationDestinationContextTests.FieldRegistrationsAndCanonicalTargetsSurviveAssemblyAndSplit",
           "RotationDestinationProfileTests.SplitDoesNotInterpretNavigationInDiscardedCatalogExtras",

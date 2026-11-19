@@ -14,6 +14,7 @@ internal interface IInspectionGraphPlan
     IReadOnlyList<OverlaySpec> Underlays { get; }
     string? FlattenAnnotations { get; }
     bool GenerateAppearances { get; }
+    bool FlattenRotation { get; }
     bool CoalesceContents { get; }
     bool ExternalizeInlineImages { get; }
     long IiMinBytes { get; }

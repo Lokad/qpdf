@@ -81,8 +81,9 @@ internal static partial class InspectionGraphPreparation
         bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
         bool editAppearances = plan.GenerateAppearances || plan.FlattenAnnotations is not null;
+        bool pushInherited = plan.Sources.Count > 0 || overlay || plan.FlattenRotation;
         bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels
-            || editAppearances;
+            || editAppearances || plan.FlattenRotation;
         if (!preparePages && !publication && !editAttachments) { return null; }
         if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
             && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
@@ -113,11 +114,11 @@ internal static partial class InspectionGraphPreparation
                     { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
                 }
             }
-            bool promoteEditedPages = (plan.Rotations.Count > 0 || editAppearances) && plan.Sources.Count == 0;
+            bool promoteEditedPages = (plan.Rotations.Count > 0 || editAppearances || plan.FlattenRotation) && plan.Sources.Count == 0;
             using ParserMemoryScope? preparation = content || authoredLabels || promoteEditedPages
                 ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
-                : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
+                : PageTreePreparation.PrepareForInspection(document.Engine, pushInherited,
                     limits, memory, preparation, governor, cancellationToken);
             if (prepared is not null)
             {
@@ -273,7 +274,7 @@ internal static partial class InspectionGraphPreparation
                     page = new InspectionPage(id, 0, duplicate);
                     if (!ReferenceEquals(pageOwner, pool)) { StoreInspectionObject(pageOwner, id, duplicate); }
                 }
-                if (catalogAssembly is not null) { hasBeads |= Content.ArticleThreads.HasPageBeads(page.Page); }
+                if (catalogAssembly is not null || plan.FlattenRotation) { hasBeads |= Content.ArticleThreads.HasPageBeads(page.Page); }
                 ParserContainers.AddItem(memory, selectedPages, page, 16L);
                 if (pruneGroups?[source] == true && pruningMemory is not null)
                 {
@@ -317,7 +318,7 @@ internal static partial class InspectionGraphPreparation
             if (prepared is not null)
             {
                 document.Engine.SetInspectionTrailer(prepared.Trailer);
-                document.Engine.InspectionPushedInheritedResources = plan.Sources.Count > 0 || overlay;
+                document.Engine.InspectionPushedInheritedResources = pushInherited;
             }
             if (labelOccurrences is not null)
             {
@@ -377,8 +378,8 @@ internal static partial class InspectionGraphPreparation
             {
                 AssembleInspectionCatalog(document, pool, catalogAssembly, occurrences, duplicatedFields,
                     memory, limits, governor, diagnostics, cancellationToken);
-                ProjectInspectionArticles(document, pool, selectedPages, hasBeads, articleAliases, lifetime,
-                    limits, memory, governor, cancellationToken);
+                if (!plan.FlattenRotation)
+                { ProjectInspectionArticles(document, pool, selectedPages, hasBeads, articleAliases, null, lifetime, limits, memory, governor, cancellationToken); }
                 if (document.Engine.Trailer.TryGet(InspectionRoot, out QpdfObject root)
                     && Content.CatalogCopy.ResolveDictionary(root, document.Engine, governor, cancellationToken) is PdfDictionary catalog
                     && catalog.TryGet(Content.PrintPageRanges.ViewerPreferences, out QpdfObject rawPreferences))
@@ -470,6 +471,13 @@ internal static partial class InspectionGraphPreparation
             {
                 ApplyInspectionAppearances(document, pool, selectedPages, plan, lifetime, memory,
                     limits, governor, cancellationToken, diagnostics, placementEdits);
+            }
+            if (plan.FlattenRotation)
+            {
+                IReadOnlyDictionary<int, double[]>? frames = ApplyInspectionRotation(document, pool, selectedPages,
+                    plan, lifetime, memory, limits, governor, diagnostics, cancellationToken);
+                ProjectInspectionArticles(document, pool, selectedPages, hasBeads, articleAliases, frames, lifetime,
+                    limits, memory, governor, cancellationToken);
             }
             List<PageLocation> transformed = ParserContainers.CreateList<PageLocation>(memory);
             foreach (InspectionPage selected in selectedPages)

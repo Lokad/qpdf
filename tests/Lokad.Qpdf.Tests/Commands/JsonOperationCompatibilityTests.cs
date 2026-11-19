@@ -45,7 +45,7 @@ public sealed class JsonOperationCompatibilityTests
             string key = setting.Key;
             if (key is not ("linearize" or "qdf" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
-            if (key is "qdf" or "linearize" or "flattenRotation" or "overlay" or "underlay")
+            if (key is "qdf" or "linearize" or "overlay" or "underlay")
             { yield return [key, "inspect", "argv"]; }
         }
 
@@ -54,7 +54,7 @@ public sealed class JsonOperationCompatibilityTests
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
             ("generateAppearances", "bound-inspect", "job"),
             ("overlay", "create", "job"),
-            ("flattenRotation", "inspect", "job"),
+            ("flattenRotation", "bound-inspect", "job"),
             ("flattenAnnotations", "update", "mixed"),
             ("underlay", "json-output", "argv"),
         ];

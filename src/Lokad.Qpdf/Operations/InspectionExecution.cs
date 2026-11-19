@@ -511,7 +511,7 @@ internal static class InspectionExecution
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
                 && !plan.HasAttachmentEdits && !plan.PublicationPolicy.HasRemovals && plan.Labels.Count == 0
-                && plan.FlattenAnnotations is null && !plan.GenerateAppearances
+                && plan.FlattenAnnotations is null && !plan.GenerateAppearances && !plan.FlattenRotation
                 && !plan.CoalesceContents && !plan.ExternalizeInlineImages && !plan.OptimizeImages
                 && plan.Sources.Count == 0 && plan.Rotations.Count == 0
                 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)

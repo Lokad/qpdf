@@ -398,9 +398,9 @@ xref-offset and linearization checks as skipped. `--coalesce-contents` joins pag
 programs after binding and before checking or listing. Physical-layout listings
 require a PDF input.
 Text inspection of a PDF applies content coalescing, [image transforms](#image-transform-outputs),
-appearance generation, annotation flattening, document-role removals and
-authored page labels before checking or listing. Header rotation preserves
-earlier edits to page content and resources.
+appearance generation, annotation flattening, rotation baking, document-role
+removals and authored page labels before checking or listing. Header rotation
+preserves earlier edits to page content and resources.
 Page selection assembles labels, form registrations and source context for
 the effective catalog. Resource pruning uses each selected source's `yes`,
 `no`, or `auto` policy. Whole-file text reports keep their resource bindings.
@@ -481,7 +481,8 @@ bytes. Unsupported programs retain their original bytes and report a warning.
 PDF-to-JSON export can generate appearances and flatten annotations. When both
 are requested, flattening paints the generated programs. The active form
 retains surviving fields and clears NeedAppearances after successful generation.
-Rotation baking applies during PDF publication.
+Baking rotation before PDF-to-JSON projection updates page boxes, page programs,
+annotation geometry, viewports and active navigation together.
 Export from a PDF can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)

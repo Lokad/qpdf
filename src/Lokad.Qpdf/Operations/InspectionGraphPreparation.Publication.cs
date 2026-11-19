@@ -98,7 +98,7 @@ internal static partial class InspectionGraphPreparation
     }
 
     private static void ProjectInspectionArticles(QpdfDocument document, GraphCopier pool, List<InspectionPage> pages,
-        bool hasBeads, Dictionary<int, PdfReference>? canonicalPages, InspectionGraph lifetime,
+        bool hasBeads, Dictionary<int, PdfReference>? canonicalPages, IReadOnlyDictionary<int, double[]>? frames, InspectionGraph lifetime,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionary trailer = document.Engine.Trailer;
@@ -119,7 +119,7 @@ internal static partial class InspectionGraphPreparation
             references.Add(new PdfReference(page.Number, page.Generation));
         }
         (PdfDictionary projected, Dictionary<int, QpdfObject>? edits) = ArticleThreads.Project(threads, catalog,
-            document.Engine, CollectionsMarshal.AsSpan(references), canonicalPages, null, null,
+            document.Engine, CollectionsMarshal.AsSpan(references), canonicalPages, frames, null,
             pool.NextId - 1, limits, memory, governor, token);
         if (edits is not null)
         {

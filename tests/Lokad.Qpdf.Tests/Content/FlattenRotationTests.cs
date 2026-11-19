@@ -246,12 +246,15 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 }
 [Fact]
-public async Task FlattenRejectedWithInspection()
+public async Task UnrotatedInspectionPreservesTheCheckResult()
 {
 byte[] fixture = ContentFixture(string.Empty);
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
+QpdfExecutionResult baseline = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check"]), CancellationToken.None);
 QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--flatten-rotation"]), CancellationToken.None);
-Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Equal(baseline.Diagnostics, result.Diagnostics);
+Assert.Equal(0L, host.OpenLeaseCount);
 }
 [Fact]
 public async Task JobRoundTripMatchesArgv()

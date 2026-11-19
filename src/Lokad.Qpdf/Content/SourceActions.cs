@@ -99,16 +99,23 @@ internal static partial class SourceActions
         if (frames is null || frames.Count == 0) { return (registrations, form, extras, outlines); }
         copier.UseOutputPool(pool, token);
         using Binding binding = new(copier, frames, governor, ownership, token);
-        foreach (PdfReference reference in pages)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (pool.TryGetValue(reference.ObjectNumber, out QpdfObject? value) && value is PdfDictionary page)
-            { binding.AddPage(reference.ObjectNumber, page); }
-        }
+        binding.AddRotationPages(copier, pages);
         binding.Add(form, Role.Form, null); binding.AddExtras(extras); binding.Add(outlines, Role.Outline, null);
         binding.Apply();
         return (binding.MapForm(registrations), binding.Map(form, Role.Form) as PdfDictionary, binding.MapExtras(extras),
             binding.Map(outlines, Role.Outline) as PdfReference);
+    }
+
+    internal static PdfDictionary BindCatalogRotation(GraphCopier copier, IReadOnlyList<PdfReference> pages,
+        PdfDictionary catalog, IReadOnlyDictionary<int, double[]> frames, ResourceGovernor governor,
+        ParserMemoryScope ownership, CancellationToken token)
+    {
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        using Binding binding = new(copier, copier.CreateResolver(scratch), frames, governor, ownership, token);
+        binding.AddRotationPages(copier, pages);
+        binding.Add(catalog, Role.Catalog, null);
+        binding.Apply();
+        return binding.Map(catalog, Role.Catalog) as PdfDictionary ?? catalog;
     }
 
     internal static (PdfDictionary? Form, Dictionary<int, QpdfObject>? Objects) ProjectForm(
@@ -237,8 +244,22 @@ internal static partial class SourceActions
 
         internal Binding(GraphCopier copier, IReadOnlyDictionary<int, double[]> frames,
             ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
-            : this(new PoolResolver(copier.CopiedObjects), governor, ownership, token)
+            : this(copier, new PoolResolver(copier.CopiedObjects), frames, governor, ownership, token) { }
+
+        internal Binding(GraphCopier copier, IIndirectResolver resolver, IReadOnlyDictionary<int, double[]> frames,
+            ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+            : this(resolver, governor, ownership, token)
         { _copier = copier; _frames = frames; }
+
+        internal void AddRotationPages(GraphCopier copier, IReadOnlyList<PdfReference> pages)
+        {
+            foreach (PdfReference reference in pages)
+            {
+                Check();
+                if (copier.CopiedObjects.TryGetValue(reference.ObjectNumber, out QpdfObject? value) && value is PdfDictionary page)
+                { AddPage(reference.ObjectNumber, page); }
+            }
+        }
 
         internal Binding(PoolResolver resolver, Dictionary<int, PdfArray> fieldKids, PdfArray? calculationOrder,
             ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
