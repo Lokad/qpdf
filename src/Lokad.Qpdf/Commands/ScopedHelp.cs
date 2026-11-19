@@ -3,12 +3,18 @@ namespace Lokad.Qpdf.Commands;
 /// <summary>Standalone help for the managed qpdf commands.</summary>
 internal static class ScopedHelp
 {
-    private static readonly Dictionary<string, string> Options = BuildOptions();
-    private static readonly Dictionary<string, string> Topics = BuildTopics();
+    private static readonly (Dictionary<string, string> Options, string Completion) OptionHelp = BuildOptions();
+    private static Dictionary<string, string> Options => OptionHelp.Options;
+    internal static string CompletionFlags => OptionHelp.Completion;
+
+    private static class TopicHelp
+    {
+        internal static readonly Dictionary<string, string> Topics = BuildTopics();
+    }
 
     internal static bool TryGet(ReadOnlySpan<char> subject, out string text)
     {
-        Dictionary<string, string> entries = subject.StartsWith("--", StringComparison.Ordinal) ? Options : Topics;
+        Dictionary<string, string> entries = subject.StartsWith("--", StringComparison.Ordinal) ? Options : TopicHelp.Topics;
         if (subject.Length <= 64 && entries.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(subject, out string? found))
         {
             text = found;
@@ -18,29 +24,30 @@ internal static class ScopedHelp
         return false;
     }
 
-    private static Dictionary<string, string> BuildOptions()
+    private static (Dictionary<string, string>, string) BuildOptions()
     {
         Dictionary<string, string> options = new(StringComparer.Ordinal);
+        List<string> topLevel = [];
         foreach (string line in HelpText.Help.Split('\n'))
         {
             ReadOnlySpan<char> item = line.AsSpan().Trim();
             if (!item.StartsWith("--", StringComparison.Ordinal)) { continue; }
             int end = 2;
             while (end < item.Length && (char.IsAsciiLetterOrDigit(item[end]) || item[end] == '-')) { end++; }
-            options.Add(item[..end].ToString(), item.ToString());
+            string flag = item[..end].ToString();
+            options.Add(flag, item.ToString());
+            // Nested options in the synopsis have an extra indentation level.
+            if (line.StartsWith("  --", StringComparison.Ordinal)) { topLevel.Add(flag); }
         }
-        options["--pages"] = "--pages [--file=]file [--password=text] [--range=]range ... --\nSelect and assemble pages in the specified source order. Use . for the primary input.";
-        options["--file"] = "--file=path  Start a source inside a --pages block.";
-        options["--range"] = "--range=range  Set the current source's page range inside a --pages block.";
+        options["--pages"] = "--pages [--file=]file [--password=text] [range|--range=range] ... --\nSelect and assemble pages in the specified source order. Use . for the primary input.";
+        options["--file"] = "--file=path  Select a source inside a --pages, --overlay, or --underlay block.";
+        options["--range"] = "--range=range  Select pages from the current --pages source. The default selects all its pages.";
         options["--split-pages"] = "--split-pages[=n]\nWrite consecutive groups of n pages. n defaults to 1 and must be positive. " +
             "Replace %d in the target name with the page or page range. When there is no %d, insert the range before a .pdf suffix or append it to the target name.";
         options["--to"] = "--to=range  Choose destination pages for an overlay or underlay.";
         options["--from"] = "--from=range  Choose source pages for an overlay or underlay.";
         options["--repeat"] = "--repeat=range  Repeat these placement source pages when the initial range runs out.";
         options["--check"] = "--check  Check document structure, streams and supported page content. Skipped checks are reported separately.";
-        options["--empty"] = "--empty  Start with a document containing zero pages.";
-        options["--job-json-file"] = "--job-json-file=file  Read equivalent job settings from a host input.";
-        options["--json-key"] = "--json-key=key  Include the named top-level section in a JSON report.";
         options["--key"] = "--key=key  Set the attachment key in an add block. An empty key uses the payload basename.";
         options["--filename"] = "--filename=name  Set the stored attachment filename. An empty name uses the payload basename.";
         options["--description"] = "--description=text  Set the attachment description.";
@@ -61,7 +68,7 @@ internal static class ScopedHelp
         options["--form"] = "--form=y|n  Control form filling under fresh password protection.";
         options["--modify-other"] = "--modify-other=y|n  Control other document edits under fresh password protection.";
         options["--zopfli"] = "--zopfli  Zopfli compression is unavailable. Ordinary Flate compression is supported.";
-        return options;
+        return (options, string.Join(' ', topLevel));
     }
 
     private static Dictionary<string, string> BuildTopics()
@@ -81,7 +88,7 @@ internal static class ScopedHelp
             ["inspection"] = Topic("Read structure and effective page data.", "--check", "--show-pages", "--show-object", "--show-xref"),
             ["json"] = Topic("Inspect a PDF, author a graph, or patch a PDF with qpdf JSON.", "--json", "--json-output", "--json-input", "--update-from-json"),
             ["modification"] = Topic("Edit pages, resources and document data.", "--pages", "--rotate", "--overlay", "--flatten-annotations", "--optimize-images"),
-            ["overlay-underlay"] = Topic("Place pages from a separate input above or below the destination program.", "--overlay", "--underlay", "--to", "--from", "--repeat"),
+            ["overlay-underlay"] = Topic("Place pages from a separate input above or below the destination program.", "--overlay", "--underlay", "--file", "--to", "--from", "--repeat"),
             ["page-ranges"] = Topic("Page ranges use one-based endpoints, inclusive spans, and comma-separated selections. z selects the final page.", "--range", "--pages"),
             ["page-selection"] = Topic("Select, reorder, merge or split page sources.", "--pages", "--file", "--range", "--collate", "--split-pages"),
             ["pdf-dates"] = Topic("Write attachment dates in PDF date format beginning with D: and a four-digit year.", "--creationdate", "--moddate"),

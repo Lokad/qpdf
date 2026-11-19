@@ -8578,6 +8578,7 @@
           "InvocationTests.HelpAndVersionAreIdentityRequests",
           "ScopedHelpTests.OptionTopicAndAllDescribeDistinctScopes",
           "ScopedHelpTests.EveryImplementedInventoryFlagHasOptionHelp",
+          "ScopedHelpTests.FileHelpIncludesTheNamedPlacementForm",
           "InvocationTests.HelpDescribesRemovePageLabelsAsPrune"
         ],
         "negative": [

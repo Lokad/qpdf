@@ -68,6 +68,27 @@ public sealed class ScopedHelpTests
         }
     }
 
+    [Fact]
+    public async Task FileHelpIncludesTheNamedPlacementForm()
+    {
+        using InMemoryQpdfHost host = new();
+        string option = await Help(host, "--help=--file");
+        Assert.Contains("--pages", option, StringComparison.Ordinal);
+        Assert.Contains("--overlay", option, StringComparison.Ordinal);
+        Assert.Contains("--underlay", option, StringComparison.Ordinal);
+        string placement = await Help(host, "--help=overlay-underlay");
+        Assert.Contains(option, placement, StringComparison.Ordinal);
+
+        byte[] pdf = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "minimal-1page.pdf"));
+        host.AddInput(QpdfPath.From("base.pdf"), pdf, QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("overlay.pdf"), pdf, QpdfInputOwnership.Copy);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["base.pdf", "--overlay", "--file=overlay.pdf", "--to=1", "--", "result.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("result.pdf"), out _));
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
     private static async Task<string> Help(InMemoryQpdfHost host, string argument)
     {
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([argument]), CancellationToken.None);

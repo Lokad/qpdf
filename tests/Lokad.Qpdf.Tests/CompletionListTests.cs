@@ -1,39 +1,25 @@
-using System.Text.RegularExpressions;
+using System.Text.Json;
+using Lokad.Qpdf.Commands;
 
 namespace Lokad.Qpdf.Tests;
 
 public sealed class CompletionListTests
 {
     [Fact]
-    public void CompletionListsOnlyRecognizedFlags()
+    public void CompletionMatchesTheReviewedTopLevelOptions()
     {
-        string sources = Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf");
-        HashSet<string> literals = new(StringComparer.Ordinal);
-        foreach (string file in Directory.EnumerateFiles(sources, "*.cs", SearchOption.AllDirectories))
-        {
-            string source = File.ReadAllText(file);
-            foreach (Match match in Regex.Matches(source, "\"(--[a-z0-9][a-z0-9-]*)\""))
-            {
-                literals.Add(match.Groups[1].Value);
-            }
-            // The layered argv reader dispatches on OptionName, which has
-            // already removed the leading dashes.
-            if (Path.GetFileName(file) == "ArgvConfigurationReader.cs")
-            {
-                foreach (Match match in Regex.Matches(source, "\"([a-z][a-z0-9-]*)\""))
-                { literals.Add("--" + match.Groups[1].Value); }
-            }
-        }
-
-        List<string> unknown = new();
-        foreach (string flag in Lokad.Qpdf.Commands.HelpText.CompletionFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (!literals.Contains(flag))
-            {
-                unknown.Add(flag);
-            }
-        }
-
-        Assert.True(unknown.Count == 0, "Completion flags without a parser literal: " + string.Join(", ", unknown));
+        using JsonDocument inventory = JsonDocument.Parse(File.ReadAllBytes(
+            Path.Combine(AppContext.BaseDirectory, "Compatibility", "options.json")));
+        string[] expected = inventory.RootElement.GetProperty("options").EnumerateArray()
+            .Where(entry => entry.GetProperty("context").GetString() is "main" or "help" or "global" or "parser")
+            .Where(entry => entry.GetProperty("status").GetString() is "complete" or "partial")
+            .Select(entry => entry.GetProperty("flag").GetString())
+            .OfType<string>()
+            // The Zopfli response only reports that the codec is unavailable.
+            .Where(flag => flag.StartsWith("--", StringComparison.Ordinal) && flag != "--zopfli")
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        string[] actual = ScopedHelp.CompletionFlags.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(expected, actual);
     }
 }

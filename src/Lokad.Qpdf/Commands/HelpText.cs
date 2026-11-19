@@ -13,6 +13,10 @@ internal static class HelpText
           qpdf input --check
           qpdf --job-json-file file
         Options:
+          --empty                start with zero pages
+          --pages [--file=]file [range] ... --  select and assemble pages
+          --check                check document structure, streams and supported content
+          --job-json-file=file   read equivalent job settings from a host input
           --suppress-recovery   fail on damaged cross-references instead of bounded repair
           --password=text       primary-input password
           --password-file=path  first password line from a host input (- is host-mapped)
@@ -67,8 +71,8 @@ internal static class HelpText
           --preserve-unreferenced-resources   keep page resources (same as --remove-unreferenced-resources=no)
           --externalize-inline-images       lift large inline images to XObjects
           --ii-min-bytes=size-in-bytes      inline-image threshold (default 1024)
-          --overlay file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
-          --underlay file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages below
+          --overlay [--file=]file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages on top
+          --underlay [--file=]file [--password=text] [--to=range] [--from=range] [--repeat=range] --  stamp pages below
           --flatten-rotation                  bake page rotation into content
           --flatten-annotations=all|print|screen  push annotations into content
           --generate-appearances              regenerate widget appearances
@@ -90,6 +94,7 @@ internal static class HelpText
           --remove-attachment=key       drop an embedded file
           --copy-attachments-from file [--password=text] [--prefix=] --  copy embedded files
           --json[=1|2|latest] [--json-key=key] --  write document JSON
+          --json-key=key         include the named top-level section
           --json-help[=1|2|latest]  show JSON format
           --test-json-schema            validate JSON output against its format description
           --report-memory-usage         report peak memory usage
@@ -303,16 +308,14 @@ internal static class HelpText
         return false;
     }
 
-    internal const string CompletionFlags = "--show-crypto --remove-restrictions --encrypt --decrypt --copy-encryption --encryption-file-password --password-file --password-mode --suppress-password-recovery --show-encryption --is-encrypted --requires-password --password --suppress-recovery --warning-exit-0 --no-warn --rotate --split-pages --replace-input --collate --set-page-labels --min-version --force-version --deterministic-id --static-id --newline-before-endstream --object-streams --preserve-unreferenced --stream-data --compress-streams --decode-level --recompress-flate --compression-level --remove-info --remove-metadata --coalesce-contents --normalize-content --remove-unreferenced-resources --preserve-unreferenced-resources --externalize-inline-images --ii-min-bytes --overlay --underlay --flatten-rotation --flatten-annotations --generate-appearances --remove-acroform --remove-structure --qdf --no-original-object-ids --linearize --linearize-pass1 --optimize-images --oi-min-width --oi-min-height --oi-min-area --keep-inline-images --jpeg-quality --list-attachments --show-attachment --add-attachment --remove-attachment --copy-attachments-from --max-stream-filters --parser-max-nesting --parser-max-container-size --parser-max-container-size-damaged --parser-max-errors --no-default-limits --global --ignore-xref-streams --empty --json --json-help --json-object --json-stream-data --json-stream-prefix --json-output --json-input --update-from-json --check-linearization --show-npages --show-pages --with-images --show-object --raw-stream-data --filtered-stream-data --show-xref --show-linearization --remove-page-labels --help --version --copyright --job-json-help --completion-bash --completion-zsh --check --pages --job-json-file --json-key --test-json-schema --report-memory-usage --verbose --progress --keep-files-open --keep-files-open-threshold";
-
     internal static string BashCompletion()
     {
-        return "# Lokad.qpdf bash completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local flags=\"" + CompletionFlags + "\"\n    COMPREPLY=($(compgen -W \"$flags\" -- \"${COMP_WORDS[COMP_CWORD]}\"))\n}\ncomplete -F _qpdf_complete qpdf\n";
+        return "# Lokad.qpdf bash completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local flags=\"" + ScopedHelp.CompletionFlags + "\"\n    COMPREPLY=($(compgen -W \"$flags\" -- \"${COMP_WORDS[COMP_CWORD]}\"))\n}\ncomplete -F _qpdf_complete qpdf\n";
     }
 
     internal static string ZshCompletion()
     {
-        return "#compdef qpdf\n# Lokad.qpdf zsh completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local -a flags\n    flags=(" + CompletionFlags + ")\n    compadd -a flags\n}\ncompdef _qpdf_complete qpdf\n";
+        return "#compdef qpdf\n# Lokad.qpdf zsh completion (supported subset of qpdf 12.4.2; static script with no executable or environment lookup).\n_qpdf_complete() {\n    local -a flags\n    flags=(" + ScopedHelp.CompletionFlags + ")\n    compadd -a flags\n}\ncompdef _qpdf_complete qpdf\n";
     }
 
     internal static bool TryMatchCompletionBash(IReadOnlyList<string> argv, out string text)
