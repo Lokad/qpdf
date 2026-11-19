@@ -22,6 +22,7 @@ if ([string]::IsNullOrWhiteSpace($QpdfExe)) {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $fixtureDir = Join-Path $repoRoot 'tests/Fixtures'
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+. (Join-Path $PSScriptRoot 'ReferenceEvidence.ps1')
 
 $root = if ([string]::IsNullOrWhiteSpace($WorkRoot)) {
   Join-Path $repoRoot ('artifacts/reference-checks/' + [Guid]::NewGuid().ToString('N'))
@@ -107,6 +108,10 @@ try {
   }
   Invoke-ReferenceStage 'parser' {
     & (Join-Path $PSScriptRoot 'run-parser-checks.ps1') -QpdfExe $results.Oracle -ProbeDll $results.Probe -WorkRoot (Join-Path $root 'parser')
+  }
+  Invoke-ReferenceStage 'oracle-evidence' {
+    $results.OracleCases = Read-ReferenceEvidence -WorkRoot $root
+    Write-Output "Verified $($results.OracleCases.Count) registered oracle outcomes."
   }
   $results.Status = 'passed'
 } catch {

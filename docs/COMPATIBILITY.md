@@ -4,8 +4,11 @@ Lokad.qpdf targets **qpdf 12.4.2** structural operations, with R2–R6 password-
 The supported profile defines the caller contract. The option inventory covers
 140 flags in 157 contexts and the fix-QDF and zlib-flate companions. It records
 forms, JSON mappings, exclusions, gaps and executable evidence.
+The pinned reference lane records the log and line for each registered oracle
+outcome.
 [Supported profile](SUPPORTED-PROFILE.md) ·
-[Option inventory](../tests/Compatibility/options.json) · [Changelog](../CHANGELOG.md)
+[Option inventory](../tests/Compatibility/options.json) ·
+[Oracle evidence](../tests/Compatibility/oracle-evidence.json) · [Changelog](../CHANGELOG.md)
 
 ## Limitations that affect callers
 

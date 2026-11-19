@@ -120,6 +120,35 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
+    public void OracleEvidenceNamesResolveToRegisteredOutcomes()
+    {
+        using JsonDocument registry = JsonDocument.Parse(File.ReadAllBytes(
+            Path.Combine(AppContext.BaseDirectory, "Compatibility", "oracle-evidence.json")));
+        HashSet<string> registered = new(StringComparer.Ordinal);
+        foreach (JsonProperty stage in registry.RootElement.EnumerateObject())
+        {
+            Assert.Contains(stage.Name, new[] { "differential", "parser" });
+            foreach (JsonProperty entry in stage.Value.EnumerateObject())
+            {
+                Assert.False(string.IsNullOrWhiteSpace(entry.Value.GetString()), entry.Name);
+                Assert.True(registered.Add(entry.Name), entry.Name);
+            }
+        }
+        using JsonDocument inventory = ReadInventory();
+        HashSet<string> referenced = new(StringComparer.Ordinal);
+        foreach (JsonElement option in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            foreach (JsonElement entry in option.GetProperty("evidence").GetProperty("oracle").EnumerateArray())
+            {
+                string id = Assert.IsType<string>(entry.GetString());
+                Assert.Contains(id, registered);
+                referenced.Add(id);
+            }
+        }
+        Assert.Empty(registered.Except(referenced));
+    }
+
+    [Fact]
     public void EvidenceNamesResolveToRealTests()
     {
         var discovered = new HashSet<string>(StringComparer.Ordinal);

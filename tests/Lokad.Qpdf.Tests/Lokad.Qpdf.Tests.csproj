@@ -25,6 +25,7 @@
     <ProjectReference Include="../../tools/QpdfProbe/QpdfProbe.csproj" />
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Compatibility/oracle-evidence.json" Link="Compatibility/oracle-evidence.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../tools/Lokad.Qpdf.Image/Lokad.Qpdf.Image.csproj" />
   </ItemGroup>
