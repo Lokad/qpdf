@@ -64,6 +64,9 @@ constructors remain caller-managed; fund them as an aggregate when needed.
 Fileless binary inspection can transfer an exact-size staging array to the
 execution result. Results expose only initialized payload bytes. Their backing
 stays admitted under the caller's scope.
+Single decoded attachments can transfer their own backing to the result or
+named publication. Raw and combined payloads keep their source or staging
+owner until publication or result preparation finishes.
 
 ## Host transaction flow
 

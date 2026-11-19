@@ -523,13 +523,14 @@ internal static class InspectionExecution
             }
             using GovernedBufferStream output = new(governor, limits.MaxOutputBytes, nameof(QpdfLimits.MaxOutputBytes),
                 cancellationToken, 1);
-            using ParserMemoryScope? payloadOwner = plan.Import is null && plan.PayloadOutput.HasValue ? ParserMemoryScope.Create(governor) : null;
+            using ParserMemoryScope? payloadOwner = plan.AttachmentKey is not null || plan.Import is null && plan.PayloadOutput.HasValue
+                ? ParserMemoryScope.Create(governor) : null;
             ReadOnlyMemory<byte>? directPayload = null;
             bool hasPayload = false;
             if (plan.Import is ImportedInspectionInput imported)
             {
-                hasPayload = await InspectImportedAsync(host, plan, imported, password, limits, governor, diagnostics,
-                    output, cancellationToken).ConfigureAwait(false);
+                (hasPayload, directPayload) = await InspectImportedAsync(host, plan, imported, password, limits, governor, diagnostics,
+                    output, payloadOwner, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -588,16 +589,12 @@ internal static class InspectionExecution
                         if (plan.AttachmentKey is not null)
                         {
                             using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-                            ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(document.Engine, plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
-                            if (payloadOwner is not null && !hasPayload && inspection is null)
-                            {
-                                // Keep raw/decrypted/decoded backing funded across input close and publication.
-                                governor.ChargeOutputBytes(payload.Length);
-                                attachmentMemory.TransferTo(payloadOwner);
-                                document.Engine.TransferExclusiveValuesTo(payloadOwner);
-                                directPayload = payload;
-                            }
-                            else { AppendInspectionBytes(output, payload, governor); }
+                            (ReadOnlyMemory<byte> payload, bool detached) = EmbeddedFiles.ExtractAttachment(document.Engine,
+                                plan.AttachmentKey, limits, governor, diagnostics, attachmentMemory, cancellationToken);
+                            bool keepRaw = !detached && !hasPayload && inspection is null && plan.PayloadOutput.HasValue;
+                            directPayload = CollectAttachmentBytes(output, payload, hasPayload, detached, keepRaw,
+                                attachmentMemory, payloadOwner, governor);
+                            if (keepRaw && payloadOwner is not null) { document.Engine.TransferExclusiveValuesTo(payloadOwner); }
                             hasPayload = true;
                         }
                     }
@@ -608,8 +605,8 @@ internal static class InspectionExecution
                 return await PublishInspectionPayloadAsync(host, payloadTarget, directPayload ?? output.WrittenMemory,
                     plan.PublishesObjectStream, governor, diagnostics, cancellationToken).ConfigureAwait(false);
             }
-            using ParserMemoryScope? resultStorage = hasPayload ? ParserMemoryScope.Create(governor) : null;
-            ReadOnlyMemory<byte>? bytes = null;
+            using ParserMemoryScope? resultStorage = hasPayload && directPayload is null ? ParserMemoryScope.Create(governor) : null;
+            ReadOnlyMemory<byte>? bytes = directPayload;
             if (resultStorage is not null)
             {
                 bytes = output.FinishBytes(resultStorage, cancellationToken);
@@ -618,6 +615,7 @@ internal static class InspectionExecution
             ExecutionOutcome result = CompleteWithPresentation(governor);
             if (result.Status != QpdfExecutionStatus.Completed) { bytes = null; }
             else if (resultStorage is not null) { resultStorage.PrepareResultStorage(resultStorage.ReservedBytes); }
+            else if (directPayload is not null && payloadOwner is not null) { payloadOwner.PrepareResultStorage(payloadOwner.ReservedBytes); }
             return result.WithOutputBytes(bytes);
         }
         catch (QpdfException ex)
@@ -667,9 +665,29 @@ internal static class InspectionExecution
         output.Write(payload.Span);
     }
 
-    private static async ValueTask<bool> InspectImportedAsync(IQpdfHost host, CheckPlan plan,
+    private static ReadOnlyMemory<byte>? CollectAttachmentBytes(GovernedBufferStream output, ReadOnlyMemory<byte> payload,
+        bool hasPayload, bool detached, bool keepRaw, ParserMemoryScope source, ParserMemoryScope? destination,
+        ResourceGovernor governor)
+    {
+        if (hasPayload || destination is null || (!detached && !keepRaw))
+        {
+            AppendInspectionBytes(output, payload, governor);
+            return null;
+        }
+
+        governor.ChargeOutputBytes(payload.Length);
+        if (detached)
+        {
+            long bytes = payload.IsEmpty ? 0L : payload.Length + (long)GovernedBufferStream.ArrayOverheadBytes;
+            source.TransferTo(destination, bytes);
+        }
+        else { source.TransferTo(destination); }
+        return payload;
+    }
+
+    private static async ValueTask<(bool HasPayload, ReadOnlyMemory<byte>? Direct)> InspectImportedAsync(IQpdfHost host, CheckPlan plan,
         ImportedInspectionInput imported, QpdfPassword? password, QpdfLimits limits, ResourceGovernor governor,
-        DiagnosticBag diagnostics, GovernedBufferStream output, CancellationToken token)
+        DiagnosticBag diagnostics, GovernedBufferStream output, ParserMemoryScope? payloadOwner, CancellationToken token)
     {
         await using IQpdfInput? input = imported.Update
             ? await GovernedHost.OpenInputAsync(host, plan.Input, governor, token).ConfigureAwait(false) : null;
@@ -694,7 +712,7 @@ internal static class InspectionExecution
             ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token) : []);
         if (plan.RunCheck && !DocumentCheck.CheckImported(resolver, model.Trailer, pages, model.Objects, originalIds,
             limits, governor, diagnostics, token))
-        { return false; }
+        { return (false, null); }
 
         if (plan.ShowNpages)
         {
@@ -734,12 +752,11 @@ internal static class InspectionExecution
         if (plan.AttachmentKey is string key)
         {
             using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-            ReadOnlyMemory<byte> payload = EmbeddedFiles.ExtractAttachment(resolver, model.Trailer, key, limits,
+            (ReadOnlyMemory<byte> payload, bool detached) = EmbeddedFiles.ExtractAttachment(resolver, model.Trailer, key, limits,
                 governor, diagnostics, attachmentMemory, token);
-            AppendInspectionBytes(output, payload, governor);
-            hasPayload = true;
+            return (true, CollectAttachmentBytes(output, payload, hasPayload, detached, false, attachmentMemory, payloadOwner, governor));
         }
-        return hasPayload;
+        return (hasPayload, null);
     }
 
     internal static void ShowEncryption(EncryptionInspection inspection, DiagnosticBag diagnostics)

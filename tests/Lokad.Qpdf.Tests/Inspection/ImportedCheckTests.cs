@@ -326,6 +326,44 @@ public sealed class ImportedCheckTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DecodedBoundAttachmentSurvivesSourceRetirement(bool named)
+    {
+        ReadOnlyMemory<byte> bytes;
+        using (InMemoryQpdfHost storage = new())
+        {
+            string graph = AttachmentGraph.Replace("\"/Type\":\"/EmbeddedFile\"", "\"/Type\":\"/EmbeddedFile\",\"/Filter\":\"/ASCIIHexDecode\"", StringComparison.Ordinal);
+            AddJson(storage, Encoding.UTF8.GetBytes(graph));
+            storage.AddInput(Payload, Encoding.ASCII.GetBytes(Convert.ToHexString(AttachmentBytes) + ">"), QpdfInputOwnership.Transfer);
+            ObservingHost host = new(storage, null);
+            string[] operation = ["graph", "--json-input", "--show-attachment=key"];
+            QpdfLimits limits = QpdfLimits.Default with { MaxOutputBytes = AttachmentBytes.Length };
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(named ? [.. operation, Output.Value] : operation),
+                new(limits), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(AttachmentBytes.Length, result.Counters.TotalDecodedBytes);
+            Assert.Equal(AttachmentBytes.Length, result.Counters.TotalOutputBytes);
+            Assert.Equal(0L, result.Counters.OpenHandles);
+            Assert.Equal(0L, storage.OpenLeaseCount);
+            if (named)
+            {
+                Assert.Null(result.OutputBytes);
+                Assert.Equal(1, host.Outputs);
+                Assert.Equal(0L, host.OpenLeasesAtStaging);
+                Assert.True(storage.TryGetOutput(Output, out byte[] output));
+                bytes = output;
+            }
+            else
+            {
+                Assert.Equal(0, host.Outputs);
+                bytes = Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes);
+            }
+        }
+        Assert.Equal(AttachmentBytes, bytes.ToArray());
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("patch")]
     [InlineData("second-payload")]

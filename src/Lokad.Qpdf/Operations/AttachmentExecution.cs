@@ -125,7 +125,8 @@ internal static class AttachmentExecution
             ? await QpdfDocument.OpenEmptyDocument(inputPath, limits, governor, diagnostics, recovery, cancellationToken, true).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, inputPath, password, limits, governor, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         using ParserMemoryScope attachmentMemory = ParserMemoryScope.Create(governor);
-        ReadOnlyMemory<byte> data = EmbeddedFiles.ExtractAttachment(document.Engine, key, limits, governor, diagnostics, attachmentMemory, cancellationToken);
+        (ReadOnlyMemory<byte> data, bool ownsBacking) = EmbeddedFiles.ExtractAttachment(document.Engine, key,
+            limits, governor, diagnostics, attachmentMemory, cancellationToken);
         if (data.Length > limits.MaxOutputBytes)
         {
             throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), data.Length, limits.MaxOutputBytes);
@@ -133,7 +134,7 @@ internal static class AttachmentExecution
 
         // Match targeted command extraction: preserve the payload's backing,
         // then finish input cleanup before any output can be published.
-        document.Engine.TransferExclusiveValuesTo(attachmentMemory);
+        if (!ownsBacking) { document.Engine.TransferExclusiveValuesTo(attachmentMemory); }
         await document.DisposeAsync().ConfigureAwait(false);
         await PublicationInputAliases.Active(governor).ValidateTargetAsync(host, outputPath,
             null, "Binary", cancellationToken).ConfigureAwait(false);

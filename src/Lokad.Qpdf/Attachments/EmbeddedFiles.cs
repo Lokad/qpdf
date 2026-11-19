@@ -38,7 +38,7 @@ internal static class EmbeddedFiles
         QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, ParserMemoryScope entriesMemory, CancellationToken token)
         => ReadEntries(engine, engine.Trailer, removes, limits, governor, memory, entriesMemory, token);
 
-    internal static ReadOnlyMemory<byte> ExtractAttachment(DocumentEngine engine, string key,
+    internal static (ReadOnlyMemory<byte> Bytes, bool OwnsBacking) ExtractAttachment(DocumentEngine engine, string key,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
         => ExtractAttachment(engine, engine.Trailer, key, limits, governor, diagnostics, memory, token);
 
@@ -121,7 +121,7 @@ internal static class EmbeddedFiles
         return left.Length.CompareTo(right.Length);
     }
 
-    internal static ReadOnlyMemory<byte> ExtractAttachment(IIndirectResolver resolver, PdfDictionary trailer, string key,
+    internal static (ReadOnlyMemory<byte> Bytes, bool OwnsBacking) ExtractAttachment(IIndirectResolver resolver, PdfDictionary trailer, string key,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
         ParserMemoryScope memory, CancellationToken token)
     {
@@ -143,7 +143,7 @@ internal static class EmbeddedFiles
         return ExtractData(stream, reference?.ObjectNumber ?? -1, resolver, limits, governor, diagnostics, memory, token);
     }
 
-    internal static ReadOnlyMemory<byte> ExtractData(
+    internal static (ReadOnlyMemory<byte> Bytes, bool OwnsBacking) ExtractData(
         PdfStream stream,
         int number,
         IIndirectResolver resolver,
@@ -187,14 +187,14 @@ internal static class EmbeddedFiles
         {
             using FilterPlan stages = FilterChain.ResolveScoped(stream.Dictionary, resolver, governor, cancellationToken);
             // The open document funds raw storage until the caller consumes it.
-            if (stages.Count == 0) { return stream.RawMemory; }
+            if (stages.Count == 0) { return (stream.RawMemory, false); }
             byte[] raw = stream.ArrayData(memory, governor, cancellationToken);
-            return FilterChain.Decode(raw, stages, limits, governor, memory, cancellationToken);
+            return (FilterChain.Decode(raw, stages, limits, governor, memory, cancellationToken), true);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException))
         {
             diagnostics.AddParts(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, ["Stream ", number, " extracted raw: decode unavailable."]);
-            return stream.RawMemory;
+            return (stream.RawMemory, false);
         }
     }
 

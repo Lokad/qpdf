@@ -23,9 +23,10 @@ public sealed class AttachmentStorageTests
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 1024 }, CancellationToken.None);
         using DocumentEngine engine = Engine();
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        ReadOnlyMemory<byte> result = EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
+        (ReadOnlyMemory<byte> result, bool ownsBacking) = EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
             governor, new(governor), memory, CancellationToken.None);
         Assert.Equal(stream.RawMemory, result);
+        Assert.False(ownsBacking);
         Assert.Equal(0L, memory.ReservedBytes);
         GC.KeepAlive(stream); // The caller keeps the source document alive through consumption.
     }
@@ -57,9 +58,10 @@ public sealed class AttachmentStorageTests
         using DocumentEngine engine = Engine();
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
-            ReadOnlyMemory<byte> result = EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
+            (ReadOnlyMemory<byte> result, bool ownsBacking) = EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
                 governor, new(governor), memory, CancellationToken.None);
             Assert.Equal("abc"u8.ToArray(), result.ToArray());
+            Assert.True(ownsBacking);
             Assert.True(memory.ReservedBytes >= result.Length + 32L);
             Assert.True(governor.Snapshot().LiveMemoryBytes >= result.Length + 32L);
         }
@@ -75,8 +77,10 @@ public sealed class AttachmentStorageTests
         using DocumentEngine engine = Engine();
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         DiagnosticBag diagnostics = new(governor);
-        Assert.Equal(stream.RawMemory, EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
-            governor, diagnostics, memory, CancellationToken.None));
+        (ReadOnlyMemory<byte> result, bool ownsBacking) = EmbeddedFiles.ExtractData(stream, 1, engine, QpdfLimits.Default,
+            governor, diagnostics, memory, CancellationToken.None);
+        Assert.Equal(stream.RawMemory, result);
+        Assert.False(ownsBacking);
         Assert.Contains("extracted raw", Assert.Single(diagnostics.Entries).Message);
         using CancellationTokenSource source = new(); source.Cancel();
         Assert.ThrowsAny<OperationCanceledException>(() => EmbeddedFiles.ExtractData(stream, 1, engine,

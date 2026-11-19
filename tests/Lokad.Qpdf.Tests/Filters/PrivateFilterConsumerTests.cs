@@ -36,8 +36,10 @@ public sealed class PrivateFilterConsumerTests
             else
             {
                 using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-                ReadOnlyMemory<byte> result = EmbeddedFiles.ExtractData(stream, 5, document.Engine, limits, governor, diagnostics, memory, CancellationToken.None);
+                (ReadOnlyMemory<byte> result, bool ownsBacking) = EmbeddedFiles.ExtractData(stream, 5, document.Engine, limits,
+                    governor, diagnostics, memory, CancellationToken.None);
                 Assert.Equal(raw, result.ToArray());
+                Assert.False(ownsBacking);
             }
         }
         Assert.Same(raw, stream.AllocationCarrier);
