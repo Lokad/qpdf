@@ -77,29 +77,29 @@ internal sealed class PublicationInputAliases : IDisposable
 
     internal ValueTask ValidateTargetAsync(IQpdfHost host, QpdfPath target, QpdfPath? capture,
         string outputKind, CancellationToken token)
-        => ValidateTargetsCoreAsync(host, target, Array.Empty<string>(), capture, outputKind, token);
+        => ValidateTargetsCoreAsync(host, target, Array.Empty<QpdfPath>(), static path => path, capture, outputKind, token);
 
-    internal ValueTask ValidateTargetsAsync(IQpdfHost host, IReadOnlyList<string> names, QpdfPath? capture,
-        string outputKind, CancellationToken token)
-        => ValidateTargetsCoreAsync(host, null, names, capture, outputKind, token);
-
-    private async ValueTask ValidateTargetsCoreAsync(IQpdfHost host, QpdfPath? target, IReadOnlyList<string> names,
+    internal ValueTask ValidateTargetsAsync<T>(IQpdfHost host, IReadOnlyList<T> targets, Func<T, QpdfPath> path,
         QpdfPath? capture, string outputKind, CancellationToken token)
+        => ValidateTargetsCoreAsync(host, null, targets, path, capture, outputKind, token);
+
+    private async ValueTask ValidateTargetsCoreAsync<T>(IQpdfHost host, QpdfPath? target, IReadOnlyList<T> targets,
+        Func<T, QpdfPath> pathOf, QpdfPath? capture, string outputKind, CancellationToken token)
     {
         // Target probes must stay out of the set of graph inputs.
         _governor.PublicationInputs = null;
         try
         {
-            if (target is null && names.Count == 0) { return; }
+            if (target is null && targets.Count == 0) { return; }
             if (target is QpdfPath main) { CheckPath(main.Value, false); }
-            foreach (string name in names) { CheckPath(name, false); }
+            foreach (T entry in targets) { CheckPath(pathOf(entry).Value, false); }
             if (capture is QpdfPath firstPass) { CheckPath(firstPass.Value, true); }
 
             using ParserMemoryScope targetMemory = ParserMemoryScope.Create(_governor);
-            HashSet<string>? claimed = capture.HasValue || names.Count > 1
+            HashSet<string>? claimed = capture.HasValue || targets.Count > 1
                 ? ParserContainers.CreateSet<string>(targetMemory) : null;
             if (target is QpdfPath pdf) { await Probe(pdf, false).ConfigureAwait(false); }
-            foreach (string name in names) { await Probe(QpdfPath.From(name), false).ConfigureAwait(false); }
+            foreach (T entry in targets) { await Probe(pathOf(entry), false).ConfigureAwait(false); }
             if (capture is QpdfPath pass) { await Probe(pass, true).ConfigureAwait(false); }
 
             async ValueTask Probe(QpdfPath path, bool isCapture)

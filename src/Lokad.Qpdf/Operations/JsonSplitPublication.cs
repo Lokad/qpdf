@@ -25,9 +25,9 @@ internal static class JsonSplitPublication
         PublicationInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         using ParserMemoryScope split = ParserMemoryScope.Create(governor);
-        List<string> names = GenerateSplitNames(outputPath.Value, pages.Count, groupSize, split, governor);
+        List<SplitGroup> groups = PrepareGroups(outputPath.Value, pages.Count, groupSize, split, governor);
         QpdfPath? capture = writer.Linearize ? writer.LinearizePass1 : null;
-        await inputs.ValidateTargetsAsync(host, names, capture, "Split", token).ConfigureAwait(false);
+        await inputs.ValidateTargetsAsync(host, groups, static group => group.Target, capture, "Split", token).ConfigureAwait(false);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         if (pages.Count != 0)
         {
@@ -61,12 +61,11 @@ internal static class JsonSplitPublication
             pool.Remove(1);
             HashSet<int> compressed = originalPacking
                 ?? ObjectStreamPreparation.ResolveGeneratedCompressedSet(pool, 1, pagesNumber, split, governor, token);
-            List<(int First, int Last)> groups = PartitionGroups(pages.Count, groupSize, split, governor);
             int? projectionMaximum = null;
             for (int group = 0; group < groups.Count; group++)
             {
                 using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
-                (int first, int last) = groups[group];
+                (int first, int last, QpdfPath target) = groups[group];
                 SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, printRanges, form, detachedRoots, first, last,
                     ref projectionMaximum, limits, groupMemory, governor, token);
                 HashSet<int> packing = originalPacking is null && part.ProjectedGraph
@@ -80,7 +79,7 @@ internal static class JsonSplitPublication
                     groupMemory, governor, token);
                 PreparedSplitPublication publication = await PreparePresentationOutputAsync(version, output.Model,
                     output.ObjectStreams, false, null, part.Info, originalId, writer.StaticId, writer.NewlineBeforeEndstream,
-                    writer.Qdf, ids, writer.Linearize, capture, QpdfPath.From(names[group]), limits, governor, token,
+                    writer.Qdf, ids, writer.Linearize, capture, target, limits, governor, token,
                     groupSecurity, output.EncryptionObject, part.Metadata).ConfigureAwait(false);
                 preparation.Add(publication);
             }

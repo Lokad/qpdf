@@ -665,10 +665,9 @@ internal static class MultiPageSelection
             return (new MultiPageSelectionOutcome(kids.Count, resultMapping, resultCounts, resultPaths, ResultWarningSnapshot.Read(resultWarnings, diagnostics)), multiAttached.FinalCount);
         }
 
-        List<string> names = GenerateSplitNames(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
-        await inputs.ValidateTargetsAsync(host, names, capture, "Split", cancellationToken).ConfigureAwait(false);
+        List<SplitGroup> groups = PrepareGroups(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
+        await inputs.ValidateTargetsAsync(host, groups, static group => group.Target, capture, "Split", cancellationToken).ConfigureAwait(false);
 
-        List<(int First, int Last)> groups = PartitionGroups(kids.Count, splitPages.Value, selectionMemory, governor);
         HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(selectionMemory);
         foreach (var source in perSource)
         {
@@ -695,7 +694,7 @@ internal static class MultiPageSelection
         {
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
             cancellationToken.ThrowIfCancellationRequested();
-            (int first, int last) = groups[g];
+            (int first, int last, QpdfPath path) = groups[g];
             List<QpdfObject> roots = ParserContainers.CreateList(groupMemory);
             HashSet<int> groupPageNumbers = ParserContainers.CreateSet<int>(groupMemory);
             for (int slot = first - 1; slot < last; slot++)
@@ -740,7 +739,6 @@ internal static class MultiPageSelection
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
             AppendGroupObjects(sub, resolver, numbers, pageNumbers, groupMemory, governor, cancellationToken);
-            QpdfPath path = QpdfPath.From(names[g]);
             HashSet<int> groupCompressed = multiStreamMode == "generate" && edits is not null
                 ? ResolveGeneratedCompressedSet(sub, groupMemory, governor, cancellationToken)
                 : RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
@@ -760,11 +758,12 @@ internal static class MultiPageSelection
         using PublicationReservation publicationAdmission = preparation.ReservePublication(governor);
         IReadOnlyList<PdfPageSelectionMapping> splitMapping = ResultCollectionStorage.Copy(selectionMemory, mapping, IntPtr.Size, governor, cancellationToken);
         IReadOnlyList<int> splitCounts = ResultCollectionStorage.Copy(selectionMemory, sourceCounts, sizeof(int), governor, cancellationToken);
-        List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory);
-        foreach (string name in names)
+        List<QpdfPath> outputPaths = ParserContainers.CreateList<QpdfPath>(selectionMemory, groups.Count, IntPtr.Size);
+        foreach (SplitGroup group in groups)
         {
-            ParserContainers.AddItem(selectionMemory, outputPaths, QpdfPath.From(name), IntPtr.Size);
-            if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(GovernedText.StringBytes(name.Length)); }
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            outputPaths.Add(group.Target);
+            if (governor.HasTypedResult) { selectionMemory.PrepareResultStorage(GovernedText.StringBytes(group.Target.Value.Length)); }
         }
         IReadOnlyList<QpdfPath> splitPaths = ResultCollectionStorage.Copy(selectionMemory, outputPaths, IntPtr.Size, governor, cancellationToken);
         await preparation.PublishAsync(host, publicationAdmission, governor, cancellationToken).ConfigureAwait(false);

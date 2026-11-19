@@ -8,26 +8,14 @@ namespace Lokad.Qpdf.Operations;
 
 internal static class SplitAssembly
 {
-    internal static List<(int First, int Last)> PartitionGroups(int total, int groupSize,
+    internal readonly record struct SplitGroup(int First, int Last, QpdfPath Target);
+
+    internal static List<SplitGroup> PrepareGroups(string pattern, int total, int groupSize,
         ParserMemoryScope memory, ResourceGovernor governor)
     {
         memory.CheckOwner(governor);
-        List<(int First, int Last)> groups = ParserContainers.CreateList<(int, int)>(memory);
-        for (int first = 1; first <= total;)
-        {
-            governor.CheckCancellation();
-            int last = (int)Math.Min(total, (long)first + groupSize - 1L);
-            ParserContainers.AddItem(memory, groups, (first, last), 8L);
-            if (last == total) { break; }
-            first = last + 1;
-        }
-
-        return groups;
-    }
-
-    internal static List<string> GenerateSplitNames(string pattern, int total, int groupSize,
-        ParserMemoryScope memory, ResourceGovernor governor)
-    {
+        ArgumentOutOfRangeException.ThrowIfNegative(total);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(groupSize);
         int width = 1;
         for (int remaining = total; remaining >= 10; remaining /= 10) { width++; }
         governor.CheckCancellation();
@@ -35,15 +23,17 @@ internal static class SplitAssembly
         bool extension = marker < 0 && pattern.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
         int prefix = marker >= 0 ? marker : extension ? pattern.Length - 4 : pattern.Length;
         int suffix = marker >= 0 ? marker + 2 : prefix;
-        List<string> names = ParserContainers.CreateList<string>(memory);
+        int singleLength = checked(pattern.Length - (suffix - prefix) + (marker < 0 ? 1 : 0) + width);
+        int maxLength = checked(singleLength + (total > 1 && groupSize > 1 ? width + 1 : 0));
+        if (total != 0 && maxLength > QpdfPath.MaxLength)
+        { throw new QpdfParseException("A split output name exceeds the path budget.", null, null); }
+        int groupCount = total == 0 ? 0 : 1 + (total - 1) / groupSize;
+        List<SplitGroup> groups = ParserContainers.CreateList<SplitGroup>(memory, groupCount, 2L * sizeof(int) + IntPtr.Size);
         for (int first = 1; first <= total;)
         {
             governor.CheckCancellation();
             int last = (int)Math.Min(total, (long)first + groupSize - 1L);
-            int length = checked(prefix + pattern.Length - suffix + (marker < 0 ? 1 : 0)
-                + width + (first == last ? 0 : width + 1));
-            if (length > QpdfPath.MaxLength)
-            { throw new QpdfParseException("A split output name exceeds the path budget.", null, null); }
+            int length = checked(singleLength + (first == last ? 0 : width + 1));
             memory.Reserve(GovernedText.StringBytes(length));
             string name = string.Create(length, (pattern, prefix, suffix, marker, first, last, width, governor),
                 static (target, state) =>
@@ -61,14 +51,14 @@ internal static class SplitAssembly
                     }
                     CopySplitNamePart(state.pattern.AsSpan(state.suffix), target[position..], state.governor);
                 });
-            ParserContainers.AddItem(memory, names, name, IntPtr.Size);
+            groups.Add(new(first, last, QpdfPath.From(name)));
             if (last == total) { break; }
             first = last + 1;
         }
-        return names;
+        return groups;
     }
 
-    internal static void CopySplitNamePart(ReadOnlySpan<char> source, Span<char> target, ResourceGovernor governor)
+    private static void CopySplitNamePart(ReadOnlySpan<char> source, Span<char> target, ResourceGovernor governor)
     {
         for (int offset = 0; offset < source.Length; offset += Math.Min(256, source.Length - offset))
         {
@@ -78,7 +68,7 @@ internal static class SplitAssembly
         }
     }
 
-    internal static void WriteSplitNumber(Span<char> target, int value, ResourceGovernor governor)
+    private static void WriteSplitNumber(Span<char> target, int value, ResourceGovernor governor)
     {
         governor.CheckCancellation();
         target.Fill('0');

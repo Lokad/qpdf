@@ -7633,6 +7633,8 @@
           "JsonSplitTests.SharedResourceMemberIsPackedInEachPart",
           "SplitReplaceTests.SplitGroupsShareNamingRule",
           "SplitReplaceTests.SplitPercentDPatternApplies",
+          "SplitPreparationTests.PreparedGroupsKeepTheNameAndRangeTogether",
+          "SplitPreparationTests.PathLimitUsesTheLongestTargetInThePlan",
           "SplitReplaceTests.SplitPrunesUnsharedObjects",
           "SplitReplaceTests.SplitSizeAndNumericOutputHaveExplicitPrecedence",
           "SplitReplaceTests.JobSplitDefaultsToOnePageInThePlan",
