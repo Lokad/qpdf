@@ -1,4 +1,4 @@
-# Permission words and setter order through both public command adapters.
+# Representative permission publication and setter order.
 function Invoke-SecurityPermissionCase {
   param([string] $Name, [string] $Route, [string[]] $Options, [System.Collections.IDictionary] $Permissions,
     [int] $Expected, [bool] $DecryptLast, [bool] $MixedJob)
@@ -30,19 +30,21 @@ function Invoke-SecurityPermissionCase {
 }
 
 function Invoke-ReferenceSecurityPermissions {
+  # EncryptionPermissionTests owns the complete scalar permission table.
   foreach ($choice in @(
-    @('modify', 'all', -4), @('modify', 'annotate', -12), @('modify', 'form', -44),
-    @('modify', 'assembly', -300), @('modify', 'none', -1324),
-    @('print', 'none', -2056), @('print', 'low', -2052), @('print', 'full', -4),
-    @('accessibility', 'n', -4), @('accessibility', 'y', -4),
-    @('extract', 'n', -20), @('extract', 'y', -4), @('annotate', 'n', -36), @('annotate', 'y', -4),
-    @('assemble', 'n', -1028), @('assemble', 'y', -4), @('form', 'n', -260), @('form', 'y', -4),
-    @('modify-other', 'n', -12), @('modify-other', 'y', -4)
+    @('modify', 'none', -1324, 'argv'),
+    @('print', 'low', -2052, 'job'),
+    @('accessibility', 'n', -4, 'argv'),
+    @('extract', 'n', -20, 'argv'),
+    @('annotate', 'n', -36, 'argv'),
+    @('assemble', 'n', -1028, 'argv'),
+    @('form', 'n', -260, 'job'),
+    @('modify-other', 'n', -12, 'argv'),
+    @('modify-other', 'n', -12, 'job')
   )) {
     $key = if ($choice[0] -eq 'modify-other') { 'modifyOther' } else { $choice[0] }
-    foreach ($route in @('argv', 'job')) {
-      Invoke-SecurityPermissionCase "security-permission-$($choice[0])-$($choice[1])-$route" $route @("--$($choice[0])=$($choice[1])") @{ $key = $choice[1] } $choice[2] $false $false
-    }
+    $route = $choice[3]
+    Invoke-SecurityPermissionCase "security-permission-$($choice[0])-$($choice[1])-$route" $route @("--$($choice[0])=$($choice[1])") @{ $key = $choice[1] } $choice[2] $false $false
   }
   foreach ($order in @(
     @('--modify=none', '--form=y', -1068), @('--form=y', '--modify=none', -1324),
