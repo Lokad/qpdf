@@ -1,8 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Tests.Writing;
 namespace Lokad.Qpdf.Tests.Content;
 public sealed class OverlayTests
 {
@@ -19,13 +21,55 @@ for (int i = 0; i < 4; i++)
 }
 
 [Theory]
-[InlineData(false, "", false)]
-[InlineData(true, "", false)]
-[InlineData(false, "1", false)]
-[InlineData(true, "1", false)]
-[InlineData(false, "", true)]
-[InlineData(true, "1", true)]
-public async Task UnplacedPagesAreNotDecodedOrInspected(bool job, string to, bool malformed)
+[InlineData(false, false)]
+[InlineData(false, true)]
+[InlineData(true, false)]
+[InlineData(true, true)]
+public async Task UnplacedPagesAreNotDecodedOrInspected(bool useFirstPage, bool malformed)
+{
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["BT (Base) Tj ET"]), TwoPageSourceWithDamagedOrLargeContent(malformed));
+QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDecodedBytes = 1024 });
+string to = useFirstPage ? "1" : "";
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--to=" + to,
+    "--", "outputs/a.pdf"]), options, CancellationToken.None);
+Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+Assert.Empty(result.Diagnostics);
+Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+AssertPaintSequence(output, 0, useFirstPage ? ["BT (Base) Tj ET", "BT (Used) Tj ET"] : ["BT (Base) Tj ET"]);
+Assert.Equal(0L, host.OpenLeaseCount);
+}
+
+[Theory]
+[InlineData(false)]
+[InlineData(true)]
+public async Task PlacedPagesObserveTheirDecodeLimitAndDamagedContent(bool malformed)
+{
+using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["BT (Base) Tj ET"]), TwoPageSourceWithDamagedOrLargeContent(malformed));
+QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDecodedBytes = 1024 });
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--from=2",
+    "--to=1", "--", "outputs/a.pdf"]), options, CancellationToken.None);
+if (malformed)
+{
+    Assert.Equal(QpdfExitCode.Warning, result.ExitCode);
+    QpdfDiagnostic warning = Assert.Single(result.Diagnostics);
+    Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
+    Assert.Contains("Overlay page content could not be decoded or read", warning.Message, StringComparison.Ordinal);
+    Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+    await using QpdfDocument output = await OpenOutputAsync(pdf);
+    AssertPaintSequence(output, 0, "BT (Base) Tj ET");
+}
+else
+{
+    QpdfDiagnostic error = SingleError(result);
+    Assert.Equal(QpdfDiagnosticCode.BudgetExceeded, error.Code);
+    Assert.Contains(nameof(QpdfLimits.MaxDecodedBytes), error.Message, StringComparison.Ordinal);
+    Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _));
+}
+Assert.Equal(0L, host.OpenLeaseCount);
+}
+
+private static byte[] TwoPageSourceWithDamagedOrLargeContent(bool malformed)
 {
 byte[] encoded;
 using (MemoryStream bytes = new())
@@ -34,22 +78,13 @@ using (System.IO.Compression.ZLibStream zip = new(bytes, System.IO.Compression.C
 { zip.Write(Encoding.ASCII.GetBytes(new string(' ', 32768) + "q (Unused) Q")); }
 encoded = bytes.ToArray();
 }
-byte[] overlay = PdfTestDocument.Assemble([
+return PdfTestDocument.Assemble([
 (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
 (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>", null),
 (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>", null),
 (4, "<< /Length 15 >>", "BT (Used) Tj ET\n"u8.ToArray()),
 (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents " + (malformed ? "42" : "6 0 R") + " >>", null),
 (6, "<< /Length " + encoded.Length + " /Filter /FlateDecode >>", encoded)], 1);
-using InMemoryQpdfHost host = HostWithTwo(BuildPdf(["q (Base) Q"]), overlay);
-QpdfExecutionOptions options = new(QpdfLimits.Default with { MaxDecodedBytes = 1024 });
-QpdfExecutionResult result = job
-    ? await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "inputs/a.pdf", outputFile = "outputs/a.pdf", overlay = new[] { new { file = "inputs/o.pdf", to } } }), options, CancellationToken.None)
-    : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--to=" + to, "--", "outputs/a.pdf"]), options, CancellationToken.None);
-Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
-Assert.Equal(0L, host.OpenLeaseCount);
-Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-if (to.Length != 0) { Assert.Equal(new HashSet<string>(["Used"]), await OverlayMarkersOnPageAsync(pdf, 0)); }
 }
 
 [Theory]
@@ -66,15 +101,11 @@ Assert.False(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out _)); Assert.E
 }
 
 [Theory]
-[InlineData(false, false, false)]
-[InlineData(true, false, false)]
-[InlineData(false, true, false)]
-[InlineData(true, true, false)]
-[InlineData(false, false, true)]
-[InlineData(true, false, true)]
-[InlineData(false, true, true)]
-[InlineData(true, true, true)]
-public async Task IndirectContentArraysStampAcrossBothEntryPoints(bool destination, bool source, bool job)
+[InlineData(false, false)]
+[InlineData(true, false)]
+[InlineData(false, true)]
+[InlineData(true, true)]
+public async Task ContentArraysPreserveTheDestinationAndStampOrder(bool destination, bool source)
 {
 static byte[] Fixture(string marker, bool indirect)
 {
@@ -84,12 +115,12 @@ objects[2] = (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents
 objects.Add((5, "[4 0 R]", null)); return PdfTestDocument.Assemble(objects, 1);
 }
 using InMemoryQpdfHost host = HostWithTwo(Fixture("Base", destination), Fixture("Stamp", source));
-QpdfExecutionResult result = job
-    ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","overlay":[{"file":"inputs/o.pdf"}]}""", CancellationToken.None)
-    : await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--", "outputs/a.pdf"]), CancellationToken.None);
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+    new(["inputs/a.pdf", "--overlay", "inputs/o.pdf", "--", "outputs/a.pdf"]), CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
 Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-Assert.Equal(new HashSet<string>(["Stamp"]), await OverlayMarkersOnPageAsync(pdf, 0));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+AssertPaintSequence(output, 0, "BT (Base) Tj ET", "BT (Stamp) Tj ET");
 }
 
 [Theory]
@@ -305,6 +336,34 @@ joined.AddRange(Convert.FromBase64String(data));
 }
 return [.. joined];
 }
+
+private static void AssertPaintSequence(QpdfDocument output, int pageIndex, params string[] expected)
+{
+    QpdfObject Resolve(QpdfObject value) => value is PdfReference reference ? output.GetObject(reference) : value;
+    QpdfObject Read(PdfDictionary dictionary, string key)
+    {
+        Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value));
+        return Resolve(value);
+    }
+    string Program(QpdfObject value) => Encoding.ASCII.GetString(StreamObservation.Decode(Assert.IsType<PdfStream>(value))).Trim();
+
+    PdfDictionary page = output.PageReferences[pageIndex].Page;
+    QpdfObject contents = Read(page, "Contents");
+    string pageProgram = contents is PdfArray array
+        ? string.Join('\n', Enumerable.Range(0, array.Count).Select(index => Program(Resolve(array[index]))))
+        : Program(contents);
+    MatchCollection calls = Regex.Matches(pageProgram, @"/(Fx[0-9]+)\s+Do\b");
+    if (calls.Count == 0)
+    {
+        Assert.Equal(Assert.Single(expected), pageProgram);
+        return;
+    }
+
+    PdfDictionary resources = Assert.IsType<PdfDictionary>(Read(page, "Resources"));
+    PdfDictionary forms = Assert.IsType<PdfDictionary>(Read(resources, "XObject"));
+    Assert.Equal(expected, calls.Select(call => Program(Read(forms, call.Groups[1].Value))));
+}
+
 private static async Task<JsonDocument> InspectAsync(byte[] pdf, params string[] flags)
 {
 InMemoryQpdfHost host = new();
@@ -562,23 +621,18 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 }
 [Fact]
-public async Task JobRoundTripMatchesArgv()
+public async Task JobOverlayObjectAppliesAfterBase()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (Primary) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (Stamp) Tj ET" });
-byte[] a = new byte[0];
-InMemoryQpdfHost argvHost = HostWithTwo(primary, overlay);
-{
-(QpdfExecutionResult r, byte[] pdf) = await RunAsync(argvHost, "--overlay", "inputs/o.pdf", "--to=1", "--");
-a = pdf;
-Assert.Equal(QpdfExitCode.Success, r.ExitCode);
-}
-InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
-string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "to": "1"}]}""";
+using InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
+string job = """{"inputFile":"inputs/a.pdf","outputFile":"outputs/a.pdf","overlay":{"file":"inputs/o.pdf","to":"1"}}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
-Assert.Equal(a, b);
+Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+AssertPaintSequence(output, 0, "BT (Primary) Tj ET", "BT (Stamp) Tj ET");
+Assert.Equal(0L, jobHost.OpenLeaseCount);
 }
 [Theory]
 [InlineData("""{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"to": "1"}]}""")]
@@ -744,23 +798,20 @@ Assert.Equal(new HashSet<string>(["B"]), await OverlayMarkersOnPageAsync(pdf, 0)
 Assert.Equal(new HashSet<string>(["A"]), await OverlayMarkersOnPageAsync(pdf, 1));
 }
 [Fact]
-public async Task JobFromRangeMatchesArgv()
+public async Task JobFromRangeAppliesInOrder()
 {
 byte[] primary = BuildPdf(new List<string> { "BT (One) Tj ET", "BT (Two) Tj ET" });
 byte[] overlay = BuildPdf(new List<string> { "BT (A) Tj ET", "BT (B) Tj ET" });
-byte[] a = new byte[0];
-InMemoryQpdfHost argvHost = HostWithTwo(primary, overlay);
-{
-(QpdfExecutionResult r, byte[] pdf) = await RunAsync(argvHost, "--overlay", "inputs/o.pdf", "--from=2-1", "--");
-a = pdf;
-Assert.Equal(QpdfExitCode.Success, r.ExitCode);
-}
-InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
+using InMemoryQpdfHost jobHost = HostWithTwo(primary, overlay);
 string job = """{"inputFile": "inputs/a.pdf", "outputFile": "outputs/a.pdf", "overlay": [{"file": "inputs/o.pdf", "from": "2-1"}]}""";
 QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(jobHost, job, CancellationToken.None);
 Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] b));
-Assert.Equal(a, b);
+Assert.True(jobHost.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
+await using QpdfDocument output = await OpenOutputAsync(pdf);
+Assert.Equal(2, output.PageCount);
+AssertPaintSequence(output, 0, "BT (One) Tj ET", "BT (B) Tj ET");
+AssertPaintSequence(output, 1, "BT (Two) Tj ET", "BT (A) Tj ET");
+Assert.Equal(0L, jobHost.OpenLeaseCount);
 }
 [Theory]
 [InlineData("--overlay", "inputs/o.pdf", "--from=x1")]

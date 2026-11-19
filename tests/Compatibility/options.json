@@ -5699,7 +5699,7 @@
           "OverlayTests.FromOddPositionsMapInOrder",
           "OverlayTests.ToOddRestrictsDestinations",
           "OverlayTests.RepeatRangesCycleAfterFromPages",
-          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.JobFromRangeAppliesInOrder",
           "OverlayTests.OverlayCopiesTextAnnotation",
           "OverlayTests.OverlayAnnotationsJobMatchesArgv",
           "OverlayTests.UnderlayCopiesAnnotations",
@@ -5752,8 +5752,9 @@
           "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
-          "OverlayTests.JobRoundTripMatchesArgv",
-          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.ContentArraysPreserveTheDestinationAndStampOrder",
+          "OverlayTests.JobOverlayObjectAppliesAfterBase",
+          "OverlayTests.JobFromRangeAppliesInOrder",
           "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
           "OverlayBackgroundTests.EmptyStampKeepsOriginalContentCoordinatesAndVisibleBounds",
@@ -5768,6 +5769,8 @@
           "OverlayInheritanceTests.GeometryIsValidatedBeforeUnusedResources"
         ],
         "resource": [
+          "OverlayTests.UnplacedPagesAreNotDecodedOrInspected",
+          "OverlayTests.PlacedPagesObserveTheirDecodeLimitAndDamagedContent",
           "ResourceEnforcementTests.OverlayYieldsToExhaustedBudget",
           "AnnotationCoordinateFailureTests.PointArraysAdmitBeforeAllocatingAndHonorBothCancellationRoutes",
           "SinglePartContentOwnershipTests.OwnedPartMovesWithoutASecondPayloadAllocation",
@@ -8573,7 +8576,7 @@
           "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [
-          "OverlayTests.JobRoundTripMatchesArgv"
+          "OverlayTests.JobOverlayObjectAppliesAfterBase"
         ],
         "resource": [
           "ResourceEnforcementTests.OverlayFileYieldsToExhaustedBudget"
@@ -8613,7 +8616,7 @@
           "OverlayTests.FromRelativeSelectsLastOverlayPage",
           "OverlayTests.FromExclusionSkipsOverlayPage",
           "OverlayTests.FromOddPositionsMapInOrder",
-          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.JobFromRangeAppliesInOrder",
           "OverlayTests.OverlayCopiesTextAnnotation",
           "OverlayTests.OverlayAnnotationsJobMatchesArgv",
           "OverlayTests.UnderlayCopiesAnnotations",
@@ -8636,8 +8639,8 @@
           "OverlayTests.OverlayBlockOptionsRequireEqualsForm"
         ],
         "interaction": [
-          "OverlayTests.JobRoundTripMatchesArgv",
-          "OverlayTests.JobFromRangeMatchesArgv",
+          "OverlayTests.JobOverlayObjectAppliesAfterBase",
+          "OverlayTests.JobFromRangeAppliesInOrder",
           "RangeGroupScopeTests.SelectionRotationAndPlacementMatchTheNativeGroupScope"
         ],
         "resource": [
