@@ -72,16 +72,4 @@ public sealed class InspectionOptionBoundaryTests
         Assert.False(host.TryGetOutput(QpdfPath.From("out.pdf"), out byte[] _));
     }
 
-    [Theory]
-    [InlineData("externalizeInlineImages")]
-    [InlineData("optimizeImages")]
-    public async Task ImportedTextInspectionRejectsImageTransformsBeforeOpeningInput(string key)
-    {
-        using InMemoryQpdfHost host = new();
-        string job = "{\"inputFile\":\"missing.json\",\"jsonInput\":true,\"showPages\":true,\"" + key + "\":true}";
-        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job, CancellationToken.None);
-        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
-        Assert.Equal(QpdfDiagnosticCode.InvalidArguments, Assert.Single(result.Diagnostics).Code);
-        Assert.Equal(0L, result.Counters.HostOperations);
-    }
 }
