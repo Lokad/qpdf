@@ -323,6 +323,10 @@ internal static class PageAssembly
 
     internal static Dictionary<string, List<int>> GroupPageSources(IReadOnlyList<PdfPageSource> sources,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+        => GroupPageSources(sources, null, memory, governor, token);
+
+    internal static Dictionary<string, List<int>> GroupPageSources(IReadOnlyList<PdfPageSource> sources,
+        string? primaryPath, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.CheckOwner(governor);
         Dictionary<string, List<int>> grouped = ParserContainers.CreateDictionary<string, List<int>>(memory);
@@ -330,6 +334,7 @@ internal static class PageAssembly
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             string path = sources[index].Input.Value;
+            if (path == "." && primaryPath is not null) { path = primaryPath; }
             if (!grouped.TryGetValue(path, out List<int>? groups))
             {
                 groups = ParserContainers.CreateList<int>(memory);

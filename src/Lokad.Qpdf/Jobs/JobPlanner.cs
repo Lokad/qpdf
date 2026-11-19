@@ -925,7 +925,7 @@ internal static partial class JobPlanner
             bool wantJsonOutput = seenJsonOutput || seenJson;
             // Bound graphs do not use the physical page assembly path.
             if ((importJson || seenJson || seenJsonOutput)
-                && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate)
+                && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate && !hasPages)
                     || importJson && !wantJsonOutput && (flattenAnnotations is not null || generateAppearances || flattenRotation)
                     || (wantJsonOutput && (qdf || linearize))))
             {
@@ -933,14 +933,14 @@ internal static partial class JobPlanner
             }
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
-                || wantJsonOutput && removeUnreferencedResources is not (null or "no")
+                || wantJsonOutput && !hasPages && removeUnreferencedResources is not (null or "no")
                 || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
             {
                 throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
             }
 
-            if (importJson && (hasPages || (wantJsonOutput && (empty || labels.Count > 0))))
+            if (importJson && wantJsonOutput && (empty || labels.Count > 0))
             {
                 throw new QpdfParseException("These page transformations cannot be combined with bound JSON inspection or import.", 0L, null);
             }
@@ -966,8 +966,12 @@ internal static partial class JobPlanner
                 QpdfPath importInput = SelectionPlan.CheckedPath(input ?? throw new QpdfParseException("Job JSON requires \"inputFile\".", 0L, null));
                 QpdfPath? patch = !seenUpdateFromJson ? null : SelectionPlan.CheckedPath(updateFromJson
                     ?? throw new InvalidOperationException("Missing validated JSON patch path."));
+                IReadOnlyList<PdfPageSource> importSources = hasPages
+                    ? ParseInspectionSources(pages, input, empty, passwordMode, suppressPasswordRecovery, textStorage, governor) : [];
                 return new JsonImportPlan(importInput, patch, jsonInput, SelectionPlan.CheckedPath(output), recovery) with
                 {
+                    Sources = importSources,
+                    Collation = hasPages && seenCollate ? ParseInspectionCollation(collationSizes, importSources.Count, textStorage) : null,
                     ReplaceInput = replaceInput,
                     SplitPages = splitPages,
                     PreserveUnreferenced = preserveUnreferenced,

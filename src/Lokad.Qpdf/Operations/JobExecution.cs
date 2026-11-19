@@ -242,6 +242,8 @@ internal static class JobExecution
                 Edits = import.HasAttachmentEdits ? import.Edits() : AttachmentEdits.Empty,
                 Underlays = import.Underlays,
                 Overlays = import.Overlays,
+                Sources = import.Sources,
+                Collation = import.Collation,
                 ExternalizeInlineImages = import.ExternalizeInlineImages,
                 InlineImageMinimumBytes = import.IiMinBytes,
                 Images = import.OptimizeImages
@@ -404,13 +406,16 @@ internal static class JobExecution
             bool empty = plan.EmptyDocument || plan is MergePlan { EmptyInput: true };
             if (!empty) { Check(plan.Input.Value); }
             if (plan is JsonImportPlan { Patch: QpdfPath update }) { Check(update.Value); }
-            if (plan is MergePlan merge)
+            IReadOnlyList<PdfPageSource> pageSources = plan switch
             {
-                foreach (PdfPageSource source in merge.Sources)
-                {
-                    if (source.Input.Value == ".") { if (!empty) { Check(plan.Input.Value); } }
-                    else { Check(source.Input.Value); }
-                }
+                MergePlan merge => merge.Sources,
+                JsonImportPlan bound => bound.Sources,
+                _ => [],
+            };
+            foreach (PdfPageSource source in pageSources)
+            {
+                if (source.Input.Value == ".") { if (!empty) { Check(plan.Input.Value); } }
+                else { Check(source.Input.Value); }
             }
             foreach (OverlaySpec overlay in plan.Overlays) { Check(overlay.File); }
             foreach (OverlaySpec underlay in plan.Underlays) { Check(underlay.File); }

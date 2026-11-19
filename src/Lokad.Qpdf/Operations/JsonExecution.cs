@@ -30,6 +30,8 @@ internal readonly record struct JsonImportWriterSettings(
     internal AttachmentEdits Edits { get; init; } = AttachmentEdits.Empty;
     internal IReadOnlyList<OverlaySpec> Underlays { get; init; } = [];
     internal IReadOnlyList<OverlaySpec> Overlays { get; init; } = [];
+    internal IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
+    internal PdfPageCollation? Collation { get; init; }
 
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
@@ -362,18 +364,30 @@ internal static class JsonExecution
             ? json : null;
         bool bake = editing?.FlattenRotation == true;
         JsonPlan? placing = plan is JsonPlan placement && (placement.Underlays.Count != 0 || placement.Overlays.Count != 0) ? placement : null;
+        JsonPlan? selecting = plan is JsonPlan { Sources.Count: > 0 } selection ? selection : null;
+        bool coalesceSelection = coalesce && selecting is not null;
         bool push = bake || placing is not null;
         IReadOnlyList<OutputRotation> rotations = plan?.Rotations ?? [];
-        if (!transformImages && !normalize && !coalesce && editing is null && placing is null && rotations.Count == 0 && !needsPages) { return (model, null); }
-        (PdfDictionary trailer, List<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases) = PrepareBoundPages(model, resolver, ids, coalesce, push,
+        if (!transformImages && !normalize && !coalesce && editing is null && placing is null && selecting is null
+            && rotations.Count == 0 && !needsPages) { return (model, null); }
+        (PdfDictionary trailer, List<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases) = PrepareBoundPages(model, resolver, ids, coalesce && !coalesceSelection, push,
             limits, memory, governor, diagnostics, token);
+        PdfVersion version = model.HeaderVersion;
+        if (selecting is not null)
+        {
+            BoundPageSelection.Prepared selected = await BoundPageSelection.SelectAsync(host, input, model, trailer, pages, articleAliases,
+                resolver, selecting.Sources, selecting.Collation, !selecting.RemoveLabels, true, selecting.RemoveUnreferencedResources, selecting.Recovery,
+                limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+            trailer = selected.Trailer; pages = selected.Pages; version = selected.Version; articleAliases = null;
+            RegisterTransformedBoundPairs(model, ids, selected.FirstId, selected.NextId, memory, governor, token);
+        }
         ApplyBoundRotations(model.Objects, resolver, pages, rotations, limits, memory, governor, token);
-        if (plan is not null && (transformImages || normalize))
+        if (plan is not null && (transformImages || normalize || coalesceSelection))
         {
             using ParserMemoryScope requests = ParserMemoryScope.Create(governor);
             requests.Reserve(104L);
             bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
-            Content.ContentTransformRequest request = new(false, normalize, false, null, externalize, plan.IiMinBytes)
+            Content.ContentTransformRequest request = new(coalesceSelection, normalize, false, null, externalize, plan.IiMinBytes)
             { BoundPageContent = true, DeferImageEncoding = true };
             Content.ImageOptimizeRequest images = new(plan.OptimizeImages, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea,
                 plan.KeepInlineImages, plan.JpegQuality) { PrepareIdentityCrypt = true };
@@ -382,12 +396,11 @@ internal static class JsonExecution
             Json.JsonImport.CheckObjectCount(model, limits);
             RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
         }
-        PdfVersion version = model.HeaderVersion;
         Content.OverlayApplication? placements = null;
         if (placing is not null)
         {
             (trailer, version, placements, int first, int next) = await PlacementCatalog.ApplyBoundAsync(host, input, model,
-                trailer, resolver, pages, placing.Underlays, placing.Overlays, placing.GenerateAppearances, placing.Recovery,
+                trailer, resolver, pages, version, placing.Underlays, placing.Overlays, placing.GenerateAppearances, placing.Recovery,
                 limits, memory, governor, diagnostics, token).ConfigureAwait(false);
             Json.JsonImport.CheckObjectCount(model, limits);
             RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
@@ -399,7 +412,7 @@ internal static class JsonExecution
             Json.JsonImport.CheckObjectCount(model, limits);
             RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
         }
-        if (transformImages || normalize || editing is not null || placing is not null)
+        if (transformImages || normalize || coalesceSelection || editing is not null || placing is not null)
         {
             for (int i = 0; i < pages.Count; i++)
             {
@@ -410,7 +423,7 @@ internal static class JsonExecution
         }
         memory.Reserve(Json.ImportedModel.AllocationBytes);
         return (model with { Trailer = trailer, HeaderVersion = version, CalledAllPages = true,
-            PushedInheritedResources = model.PushedInheritedResources || push }, pages);
+            PushedInheritedResources = model.PushedInheritedResources || push || selecting is not null }, pages);
     }
 
     private static void RegisterTransformedBoundPairs(Json.ImportedModel model, Dictionary<int, (int Number, int Generation)> ids,
@@ -707,6 +720,7 @@ internal static class JsonExecution
         DocumentPublicationPolicy policy = writer.Labels.Count == 0 ? writer.Publication
             : writer.Publication with { RemoveLabels = true };
         bool placing = writer.Underlays.Count != 0 || writer.Overlays.Count != 0;
+        bool selecting = writer.Sources.Count != 0;
         if (!placing) { model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _); }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         Content.PoolResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
@@ -717,34 +731,45 @@ internal static class JsonExecution
         Content.ImageOptimizeRequest images = writer.Images ?? Content.ImageOptimizeRequest.Disabled;
         bool pruneBeforeOptimization = pruneSplitResources && images.Optimize;
         bool externalize = writer.ExternalizeInlineImages || images.Optimize && !images.KeepInline;
-        bool transformContent = normalizePages || externalize || images.Optimize;
-        if (writer.Rotations.Count > 0 || transformContent || placing)
+        bool coalesceSelection = writer.CoalesceContents && selecting;
+        bool transformContent = normalizePages || externalize || images.Optimize || coalesceSelection;
+        if (writer.Rotations.Count > 0 || transformContent || placing || selecting)
         {
             using ParserMemoryScope? retirement = (transformContent || placing) && writer.DetachedObjects == JsonDetachedObjects.Preserve
                 ? ParserMemoryScope.Create(governor) : null;
-            HashSet<int>? before = retirement is null ? null : GraphReachability.Find(resolver, model.Trailer, retirement, governor);
-            (PdfDictionary trailer, List<PageLocation> locations, _) = PrepareBoundPages(model, resolver, null, (transformContent || placing) && writer.CoalesceContents, placing,
+            HashSet<int>? before = retirement is null || selecting ? null : GraphReachability.Find(resolver, model.Trailer, retirement, governor);
+            (PdfDictionary trailer, List<PageLocation> locations, var articleAliases) = PrepareBoundPages(model, resolver, null,
+                (transformContent || placing) && writer.CoalesceContents && !coalesceSelection, placing,
                 limits, memory, governor, diagnostics, token);
+            PdfVersion preparedVersion = model.HeaderVersion;
+            if (selecting)
+            {
+                BoundPageSelection.Prepared selected = await BoundPageSelection.SelectAsync(host, input, model, trailer, locations,
+                    articleAliases, resolver, writer.Sources, writer.Collation, !policy.RemoveLabels,
+                    writer.DetachedObjects == JsonDetachedObjects.Preserve, writer.RemoveUnreferencedResources, recovery,
+                    limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+                trailer = selected.Trailer; locations = selected.Pages; preparedVersion = selected.Version;
+                if (retirement is not null) { before = GraphReachability.Find(resolver, trailer, retirement, governor); }
+            }
             ApplyBoundRotations(model.Objects, resolver, locations, writer.Rotations, limits, memory, governor, token);
             if (transformContent)
             {
-                Content.ContentTransformRequest request = new(false, normalizePages, false, null, externalize, writer.InlineImageMinimumBytes)
+                Content.ContentTransformRequest request = new(coalesceSelection, normalizePages, false, null, externalize, writer.InlineImageMinimumBytes)
                 { BoundPageContent = true, DeferImageEncoding = true };
                 ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, pruneBeforeOptimization,
                     limits, memory, governor, diagnostics, token);
             }
-            PdfVersion preparedVersion = model.HeaderVersion;
             if (placing)
             {
                 (trailer, preparedVersion, _, _, _) = await PlacementCatalog.ApplyBoundAsync(host, input, model,
-                    trailer, resolver, locations, writer.Underlays, writer.Overlays, false, recovery,
+                    trailer, resolver, locations, preparedVersion, writer.Underlays, writer.Overlays, false, recovery,
                     limits, memory, governor, diagnostics, token).ConfigureAwait(false);
             }
             if (retirement is not null && before is not null)
             { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }
             memory.Reserve(Json.ImportedModel.AllocationBytes);
             model = model with { Trailer = trailer, HeaderVersion = preparedVersion, CalledAllPages = true,
-                PushedInheritedResources = model.PushedInheritedResources || placing };
+                PushedInheritedResources = model.PushedInheritedResources || placing || selecting };
         }
         if (placing) { model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _); }
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);

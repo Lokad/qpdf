@@ -4373,11 +4373,12 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Page selection is unavailable on bound input.",
         "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {
         "positive": [
+          "BoundPageSelectionTests.BoundSelectionReportRecreatesAnAuthenticatedSecondaryPage",
+          "BoundPageSelectionTests.BoundSelectionCoalescesAndPrunesOnlyTheActivePageRoles",
           "JsonImportTests.CreateFromMinimalJson",
           "BoundAttachmentEditTests.BoundFullReportEditsTheActiveTreeAndKeepsDeclaredPrivatePairs",
           "JsonSplitTests.CreationSplitsInheritedPagesAndContinuesLabels",
@@ -5898,6 +5899,9 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "BoundPageSelectionTests.CreationCollatesRepeatedRangesFromTheAuthoredTree",
+          "BoundPageSelectionTests.BoundReportKeepsTheDeclaredPagePairAndMovesItsLabel",
+          "BoundPageSelectionTests.BoundReportRepeatedWidgetsGetSeparateActiveRegistrations",
           "PageSelectionTests.OrderedSelectionPreservesOrderAndDuplicates",
           "AdapterTests.ArgvNamedFormsSucceed",
           "MergeCommandTests.ArgvMultiFileMergesInOrder",
@@ -5951,6 +5955,8 @@
           "EmptyRangeCommandTests.EmptyFiltersWorkThroughTheCommandOperationBranches"
         ],
         "negative": [
+          "BoundPageSelectionTests.OutOfRangeBoundSelectionPreservesTheNamedDestination",
+          "BoundPageSelectionTests.BoundSelectionProtectsTheNamedSecondaryFromPublication",
           "AdapterTests.ArgvRangeErrorsFail",
           "MergeCommandTests.ArgvMergeErrorsAreExplicit",
           "SignatureSelectionTests.StructuralAndCyclicReferencesStillFailWithoutPublishing",
@@ -5975,6 +5981,7 @@
           "JsonPageAssemblyTests.ExportRetainsTheSelectedSourcesVersionFloor"
         ],
         "resource": [
+          "BoundPageSelectionTests.BoundPagePreparationKeepsThePriorTargetOnAdmissionAndCommitFailures",
           "MergeCommandTests.CollateYieldsToStructuralCardinalityBound",
           "SimplifiedExecutionTests.ExpandedSelectionsKeepTheirStructuralCardinalityBound",
           "SignatureSelectionTests.FailedCopyRefundsStorageAndPreservesPriorOutput",
@@ -8157,11 +8164,11 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Page selection is unavailable on bound input.",
         "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {
         "positive": [
+          "BoundPageSelectionTests.UpdateSelectsThePageInThePatchedOrderBeforePlacement",
           "JsonImportTests.UpdateChangesValues",
           "BoundAttachmentEditTests.BoundMinimalReportUsesThePatchedAttachmentTreeAndAnAuthenticatedCopy",
           "JsonImportTests.UpdateKeepsStreamData",

@@ -743,9 +743,7 @@ public sealed class JsonImportTests
     [Theory]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"\"}")]
     [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": 5}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"pages\": [{\"file\": \".\", \"range\": \"1\"}]}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"json\": \"2\"}")]
-    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\", \"addAttachment\": [{\"file\": \"f\"}]}")]
+    [InlineData("{\"inputFile\": \"inputs/a.pdf\", \"outputFile\": \"outputs/a.pdf\", \"updateFromJson\": \"inputs/u.json\"}")]
     public async Task JobUpdateMalformedFails(string jobJson)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());

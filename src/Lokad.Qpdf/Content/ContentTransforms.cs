@@ -178,7 +178,7 @@ internal static class ContentTransforms
             if (coalesced is not null && coalescingResolver is not null && addCoalesced is not null)
             {
                 PdfDictionary replacement = CoalescePage(page, coalescingResolver, addCoalesced, coalesced, request.Compress,
-                    request.Level, false, phase, limits, governor, diagnostics, cancellationToken);
+                    request.Level, request.BoundPageContent, phase, limits, governor, diagnostics, cancellationToken);
                 if (!ReferenceEquals(page, replacement))
                 {
                     copier.ReplaceCopiedObject(pageId, replacement);

@@ -330,7 +330,11 @@ internal sealed record JsonInspection(
 }
 
 /// <summary>Validated PDF publication from a JSON document or a patch to the input PDF.</summary>
-internal sealed record JsonImportPlan(QpdfPath Input, QpdfPath? Patch, bool Create, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input);
+internal sealed record JsonImportPlan(QpdfPath Input, QpdfPath? Patch, bool Create, QpdfPath Output, QpdfRecoveryMode Recovery) : JobPlan(Input)
+{
+    internal IReadOnlyList<PdfPageSource> Sources { get; init; } = [];
+    internal PdfPageCollation? Collation { get; init; }
+}
 
 /// <summary>One multi-source group: a raw file token plus its range text.</summary>
 internal sealed record PageGroup(string File, string? Range)

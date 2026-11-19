@@ -94,11 +94,11 @@ internal static class OptionalContent
         ResourceGovernor governor, CancellationToken token)
         => CombineCore(primaryCopier, sources, placements, null, extras, pool, governor, token);
 
-    internal static QpdfObject? CombinePlacementLayers(PdfDictionary catalog, GraphCopier primary, PoolResolver resolver,
-        IReadOnlyList<GraphCopier> placements, ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
+    internal static QpdfObject? CombineImportedLayers(PdfDictionary catalog, GraphCopier primary, PoolResolver resolver,
+        IReadOnlyList<GraphCopier> imported, ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
     {
         bool hasLayers = false;
-        foreach (GraphCopier source in placements)
+        foreach (GraphCopier source in imported)
         { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); hasLayers |= source.OptionalContent is not null; }
         if (!hasLayers) { return null; }
 
@@ -120,7 +120,7 @@ internal static class OptionalContent
             primary.OptionalContent = new(role ?? properties, OptionalContentFailure.None);
             registeredPrimary = primary;
         }
-        return CombineCore(registeredPrimary, [], placements, role, null, primary.CopiedObjects, governor, token);
+        return CombineCore(registeredPrimary, [], imported, role, null, primary.CopiedObjects, governor, token);
     }
 
     private static QpdfObject? CombineCore(GraphCopier? primaryCopier, IReadOnlyList<GraphCopier> sources,

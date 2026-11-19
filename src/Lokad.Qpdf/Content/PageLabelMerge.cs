@@ -98,7 +98,20 @@ internal static class PageLabelMerge
         SortedDictionary<int, QpdfObject> raw = hasTree
             ? DocumentJson.ReadLabelTree(engine, limits, governor, rawMemory, cancellationToken)
             : new SortedDictionary<int, QpdfObject>();
-        IIndirectResolver resolver = (IIndirectResolver)engine;
+        return BuildSourceLabels(raw, hasTree, engine, copier, governor, cancellationToken);
+    }
+
+    internal static SourceLabels ReadBoundSource(IIndirectResolver resolver, PdfDictionary catalog, QpdfLimits limits,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        using ParserMemoryScope rawMemory = ParserMemoryScope.Create(governor);
+        SortedDictionary<int, QpdfObject> raw = DocumentJson.ReadLabelTree(resolver, catalog, limits, governor, rawMemory, token, out bool hasTree);
+        return BuildSourceLabels(raw, hasTree, resolver, null, governor, token);
+    }
+
+    private static SourceLabels BuildSourceLabels(SortedDictionary<int, QpdfObject> raw, bool hasTree, IIndirectResolver resolver,
+        GraphCopier? copier, ResourceGovernor governor, CancellationToken cancellationToken)
+    {
         using ParserMemoryScope metadata = ParserMemoryScope.Create(governor);
         metadata.Reserve(32L); // Source-label wrapper.
         (int Index, SourceLabelEntry Entry)[] entries = Array.Empty<(int, SourceLabelEntry)>();

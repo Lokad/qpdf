@@ -15,11 +15,10 @@ internal static class PlacementCatalog
 {
     internal static async ValueTask<(PdfDictionary Trailer, PdfVersion Version, OverlayApplication? Placements, int First, int Next)> ApplyBoundAsync(
         IQpdfHost host, QpdfPath input, ImportedModel model, PdfDictionary trailer, PoolResolver resolver,
-        IReadOnlyList<PageLocation> pages, IReadOnlyList<OverlaySpec> underlays, IReadOnlyList<OverlaySpec> overlays,
+        IReadOnlyList<PageLocation> pages, PdfVersion version, IReadOnlyList<OverlaySpec> underlays, IReadOnlyList<OverlaySpec> overlays,
         bool generateAppearances, QpdfRecoveryMode recovery, QpdfLimits limits, ParserMemoryScope memory,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        PdfVersion version = model.HeaderVersion;
         if (pages.Count == 0) { return (trailer, version, null, 0, 0); }
         if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, token, out QpdfObject root)
             || CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
@@ -79,20 +78,26 @@ internal static class PlacementCatalog
 
     internal static PdfDictionary Apply(PdfDictionary catalog, GraphCopier pool, PoolResolver resolver,
         OverlayApplication placements, ref PdfVersion version, ParserMemoryScope memory, OwnedAllocationBatch graph)
+        => ApplySources(catalog, pool, resolver, placements.Copiers, placements.Version, placements.ExtensionLevel,
+            ref version, memory, graph);
+
+    internal static PdfDictionary ApplySources(PdfDictionary catalog, GraphCopier pool, PoolResolver resolver,
+        IReadOnlyList<GraphCopier> imported, QpdfDocument.VersionParts? sourceVersion, int sourceExtension,
+        ref PdfVersion version, ParserMemoryScope memory, OwnedAllocationBatch graph)
     {
         ResourceGovernor governor = graph.Governor;
         CancellationToken token = graph.Token;
         PdfDictionary updated = catalog;
         PdfVersion baseline = version;
         int extension = CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);
-        IncludeVersionRequirement(ref version, ref extension, placements.Version, placements.ExtensionLevel, governor);
-        QpdfObject? optional = OptionalContent.CombinePlacementLayers(catalog, pool, resolver, placements.Copiers, memory, governor, token);
+        IncludeVersionRequirement(ref version, ref extension, sourceVersion, sourceExtension, governor);
+        QpdfObject? optional = OptionalContent.CombineImportedLayers(catalog, pool, resolver, imported, memory, governor, token);
         if (optional is not null)
         {
             IncludeVersionRequirement(ref version, ref extension, new(1, 5), 0, governor);
             updated = PdfDictionaryRebuild.ReplaceEntry(graph, updated, "OCProperties"u8, optional);
         }
-        if (version.Major != baseline.Major || version.Minor != baseline.Minor || placements.ExtensionLevel > 0)
+        if (version.Major != baseline.Major || version.Minor != baseline.Minor || sourceExtension > 0)
         {
             PdfDictionaryLookup.TryGet(updated, "Extensions"u8, governor, token, out QpdfObject role);
             QpdfObject? extensions = PrepareExtensions(role, resolver, version, extension, graph);

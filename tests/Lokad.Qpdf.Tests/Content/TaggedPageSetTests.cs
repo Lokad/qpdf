@@ -91,16 +91,28 @@ public sealed class TaggedPageSetTests
     }
 
     [Theory]
-    [InlineData("1,2", true, 1, 2)]
-    [InlineData("2,1", false, 2, 1)]
-    [InlineData("2", false, 2)]
-    public async Task RecreatedPageReportsKeepTagsOnlyForTheOriginalSequence(string range, bool tagged, params int[] pages)
+    [InlineData("1,2", true, false, 1, 2)]
+    [InlineData("2,1", false, false, 2, 1)]
+    [InlineData("2", false, false, 2)]
+    [InlineData("1,2", true, true, 1, 2)]
+    [InlineData("2", false, true, 2)]
+    public async Task RecreatedPageReportsKeepTagsOnlyForTheOriginalSequence(string range, bool tagged, bool bound, params int[] pages)
     {
         using InMemoryQpdfHost host = new();
         QpdfPath input = QpdfPath.From("input.pdf"), report = QpdfPath.From("report.json"), output = QpdfPath.From("output.pdf");
         host.AddInput(input, Fixture(), QpdfInputOwnership.Transfer);
+        string[] source = [input.Value];
+        if (bound)
+        {
+            QpdfExecutionResult seed = await Qpdf.ExecuteAsync(host,
+                new([input.Value, "--json-output", "--json-stream-data=inline"]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, seed.ExitCode);
+            host.AddInput(QpdfPath.From("source.json"), System.Text.Encoding.UTF8.GetBytes(Assert.IsType<string>(seed.OutputText)),
+                QpdfInputOwnership.Transfer);
+            source = ["source.json", "--json-input"];
+        }
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
-            new([input.Value, "--pages", ".", range, "--", "--json-output", "--json-stream-data=inline"]), CancellationToken.None);
+            new([.. source, "--pages", ".", range, "--", "--json-output", "--json-stream-data=inline"]), CancellationToken.None);
         Assert.Equal(tagged ? QpdfExitCode.Success : QpdfExitCode.Warning, result.ExitCode);
         Assert.Equal(tagged ? 0 : 1, result.Diagnostics.Count(item => item.Code == QpdfDiagnosticCode.PageStructureWarning));
         host.AddInput(report, System.Text.Encoding.UTF8.GetBytes(result.OutputText ?? throw new InvalidOperationException()), QpdfInputOwnership.Transfer);
