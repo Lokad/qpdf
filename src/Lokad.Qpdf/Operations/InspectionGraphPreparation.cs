@@ -155,41 +155,46 @@ internal static partial class InspectionGraphPreparation
             List<InspectionPage> original = ParserContainers.CreateList<InspectionPage>(memory);
             memory.Reserve(96L);
             Dictionary<QpdfObject, PdfReference> promoted = new(ReferenceEqualityComparer.Instance);
-            foreach (PageLocation location in document.PageReferences)
+            bool materialize = plan.Sources.Count > 0 || overlay;
+            using (PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(materialize && document.PageReferences.Count > 1,
+                document.Engine, InspectionInherited, limits, governor, cancellationToken))
             {
-                governor.NoteOperation();
-                Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
-                if (plan.Sources.Count > 0 || overlay)
+                foreach (PageLocation location in document.PageReferences)
                 {
-                    PageInheritance.InheritedValues inheritedValues = PageInheritance.FindAncestors(document.Engine, location,
-                        InspectionInherited, limits, governor, cancellationToken);
-                    for (int index = 0; index < InspectionInherited.Length; index++)
+                    governor.NoteOperation();
+                    Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
+                    if (materialize)
                     {
-                        PdfName key = InspectionInherited[index];
-                        QpdfObject? inherited = inheritedValues[index];
-                        if (inherited is null) { continue; }
-                        QpdfObject kept = inherited;
-                        if (inherited is PdfArray or PdfDictionary)
+                        PageInheritance.InheritedValues inheritedValues = ancestry?.Find(location) ?? PageInheritance.FindAncestors(document.Engine, location,
+                            InspectionInherited, limits, governor, cancellationToken);
+                        for (int index = 0; index < InspectionInherited.Length; index++)
                         {
-                            if (!promoted.TryGetValue(inherited, out PdfReference? reference))
+                            PdfName key = InspectionInherited[index];
+                            QpdfObject? inherited = inheritedValues[index];
+                            if (inherited is null) { continue; }
+                            QpdfObject kept = inherited;
+                            if (inherited is PdfArray or PdfDictionary)
                             {
-                                ParserContainers.EnsureEntryCapacity(memory, promoted, IntPtr.Size);
-                                reference = pool.AddIndirectObjectWithId(inherited, pool.NextId);
-                                promoted.Add(inherited, reference);
+                                if (!promoted.TryGetValue(inherited, out PdfReference? reference))
+                                {
+                                    ParserContainers.EnsureEntryCapacity(memory, promoted, IntPtr.Size);
+                                    reference = pool.AddIndirectObjectWithId(inherited, pool.NextId);
+                                    promoted.Add(inherited, reference);
+                                }
+                                if (inherited is PdfArray) { kept = reference; }
                             }
-                            if (inherited is PdfArray) { kept = reference; }
+                            SetInspectionEntry(extra, key, kept, memory);
                         }
-                        SetInspectionEntry(extra, key, kept, memory);
                     }
+                    else if (externalize || plan.OptimizeImages)
+                    {
+                        PdfName key = PdfName.FromAscii("Resources");
+                        QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
+                        if (resources is not null) { SetInspectionEntry(extra, key, resources, memory); }
+                    }
+                    (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true, null);
+                    ParserContainers.AddItem(memory, original, new InspectionPage(id, location.Source?.Generation ?? 0, page), 16L);
                 }
-                else if (externalize || plan.OptimizeImages)
-                {
-                    PdfName key = PdfName.FromAscii("Resources");
-                    QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
-                    if (resources is not null) { SetInspectionEntry(extra, key, resources, memory); }
-                }
-                (int id, PdfDictionary page) = pool.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, true, null);
-                ParserContainers.AddItem(memory, original, new InspectionPage(id, location.Source?.Generation ?? 0, page), 16L);
             }
 
             if (overlay)
@@ -514,7 +519,7 @@ internal static partial class InspectionGraphPreparation
             using ParserMemoryScope ranges = ParserMemoryScope.Create(governor);
             List<(int Group, IReadOnlyList<int> Pages, bool Included)> requests =
                 ParserContainers.CreateList<(int, IReadOnlyList<int>, bool)>(ranges);
-            bool hasPages = false;
+            long includedPages = 0L;
             foreach (int group in source.Value)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -522,7 +527,7 @@ internal static partial class InspectionGraphPreparation
                     reader.PageCount, limits.MaxContainerSize, governor, ranges);
                 bool included = InspectionGroupIncluded(plan, group);
                 ParserContainers.AddItem(ranges, requests, (group, pages, included), 24L);
-                hasPages |= included && pages.Count > 0;
+                if (included) { includedPages += pages.Count; }
                 if (primary || !included) { continue; }
                 foreach (int number in pages)
                 {
@@ -530,6 +535,7 @@ internal static partial class InspectionGraphPreparation
                     copier.RegisterPageRoot(reader.PageReferences[number - 1].Source?.ObjectNumber);
                 }
             }
+            bool hasPages = includedPages != 0L;
             bool prune = primary ? prunePrimary
                 : hasPages && prunePolicy is not null && prunePolicy.ShouldPrune(reader.Engine, limits, governor, token);
             Content.SourceLabels? sourceLabels = preserveLabels && hasPages
@@ -538,30 +544,34 @@ internal static partial class InspectionGraphPreparation
             { Content.CatalogCopy.IncludeSourceVersion(ref catalogAssembly.Version, ref catalogAssembly.Extension, reader, governor, token); }
             List<PageLocation>? kept = catalogAssembly is not null && !primary && hasPages
                 ? ParserContainers.CreateList<PageLocation>(ranges) : null;
-            foreach ((int group, IReadOnlyList<int> pages, bool included) in requests)
+            using (PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(!primary && includedPages > 1L,
+                reader.Engine, WriterInherited, limits, governor, token))
             {
-                if (!included) { continue; }
-                if (pruneGroups is not null) { pruneGroups[group] = prune; }
-                foreach (int number in pages)
+                foreach ((int group, IReadOnlyList<int> pages, bool included) in requests)
                 {
-                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    InspectionPage selected;
-                    if (primary) { selected = original[number - 1]; }
-                    else
+                    if (!included) { continue; }
+                    if (pruneGroups is not null) { pruneGroups[group] = prune; }
+                    foreach (int number in pages)
                     {
-                        PageLocation location = reader.PageReferences[number - 1];
-                        if (kept is not null) { ParserContainers.AddItem(ranges, kept, location, 16L); }
-                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(reader.Engine,
-                            location, copier, governor, limits, token, memory);
-                        (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, null);
-                        selected = new(id, 0, page);
-                    }
-                    ParserContainers.AddItem(memory, groups[group], selected, 16L);
-                    if (catalogAssembly is not null)
-                    {
-                        if (!catalogAssembly.Pages.ContainsKey(selected.Number))
-                        { ParserContainers.EnsureEntryCapacity(memory, catalogAssembly.Pages, 24L); }
-                        catalogAssembly.Pages[selected.Number] = (sourceLabels, number, copier);
+                        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                        InspectionPage selected;
+                        if (primary) { selected = original[number - 1]; }
+                        else
+                        {
+                            PageLocation location = reader.PageReferences[number - 1];
+                            if (kept is not null) { ParserContainers.AddItem(ranges, kept, location, 16L); }
+                            IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(reader.Engine,
+                                location, copier, governor, limits, token, memory, ancestry);
+                            (int id, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, null);
+                            selected = new(id, 0, page);
+                        }
+                        ParserContainers.AddItem(memory, groups[group], selected, 16L);
+                        if (catalogAssembly is not null)
+                        {
+                            if (!catalogAssembly.Pages.ContainsKey(selected.Number))
+                            { ParserContainers.EnsureEntryCapacity(memory, catalogAssembly.Pages, 24L); }
+                            catalogAssembly.Pages[selected.Number] = (sourceLabels, number, copier);
+                        }
                     }
                 }
             }

@@ -34,6 +34,34 @@ public sealed class JsonSplitTests
     }
 
     [Fact]
+    public async Task ReplacingAVisitedParentInTheBoundPoolInvalidatesItsAncestry()
+    {
+        using RecordingJobHost host = new(null, null, "success", true);
+        await SeedOutputs(host.Inner);
+        host.Inner.AddInput(JsonPath, """
+            {"qpdf":[{"jsonversion":2,"pdfversion":"1.7"},{
+              "obj:1 0 R":{"value":{"/Type":"/Catalog","/Pages":"2 0 R"}},
+              "obj:2 0 R":{"value":{"/Type":"/Pages","/Kids":["3 0 R","4 0 R","5 0 R"],"/Count":3,"/MediaBox":[0,0,10,10]}},
+              "obj:3 0 R":{"value":{"/Type":"/Page","/Parent":"6 0 R"}},
+              "obj:4 0 R":{"value":{"/Type":"/Page","/Parent":"2 0 R"}},
+              "obj:5 0 R":{"value":{"/Type":"/Page","/Parent":"6 0 R"}},
+              "obj:6 0 R":{"value":{"/Type":"/Pages","/Parent":"4 0 R"}},
+              "trailer":{"value":{"/Root":"1 0 R","/Size":7}}
+            }]}
+            """u8.ToArray(), QpdfInputOwnership.Transfer);
+
+        QpdfExecutionResult result = await Create(host, JsonPath, QpdfLimits.Default, CancellationToken.None);
+
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments
+            && item.Message.Contains("Unresolvable page parent.", StringComparison.Ordinal));
+        Assert.Empty(host.CreatedPaths);
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, First));
+        Assert.Equal("prior"u8.ToArray(), Output(host.Inner, Last));
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Fact]
     public async Task JobUpdateSplitsThePatchedPageOrder()
     {
         using InMemoryQpdfHost host = new();

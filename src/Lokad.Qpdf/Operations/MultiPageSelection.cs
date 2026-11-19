@@ -232,20 +232,25 @@ internal static class MultiPageSelection
                     }
                 }
                 copier.HintPageCapacity(kept.Count);
-                for (int group = 0; group < sourceGroupIndices.Count; group++)
+                using (PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(kept.Count > 1,
+                    document.Engine, WriterInherited, limits, governor, cancellationToken))
                 {
-                    IReadOnlyList<int> requested = requests[group].Included ? requests[group].Pages : Array.Empty<int>();
-                    List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
-                    perSource[sourceGroupIndices[group]] = taken;
-                    foreach (int pageNumber in requested)
+                    for (int group = 0; group < sourceGroupIndices.Count; group++)
                     {
-                        cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
-                        PageLocation location = document.PageReferences[pageNumber - 1];
-                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, selectionMemory);
-                        if (outputParent is null) { selectionMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
-                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
-                        RequireMediaBox(page);
-                        taken.Add((copier, pageId, pageNumber));
+                        IReadOnlyList<int> requested = requests[group].Included ? requests[group].Pages : Array.Empty<int>();
+                        List<(GraphCopier Copier, int Id, int SourcePage)> taken = ParserContainers.CreateList<(GraphCopier, int, int)>(selectionMemory, requested.Count, 16L);
+                        perSource[sourceGroupIndices[group]] = taken;
+                        foreach (int pageNumber in requested)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
+                            PageLocation location = document.PageReferences[pageNumber - 1];
+                            IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location,
+                                copier, governor, limits, cancellationToken, selectionMemory, ancestry);
+                            if (outputParent is null) { selectionMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
+                            (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
+                            RequireMediaBox(page);
+                            taken.Add((copier, pageId, pageNumber));
+                        }
                     }
                 }
 

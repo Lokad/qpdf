@@ -562,11 +562,11 @@ internal static class PageAssembly
     internal static IReadOnlyDictionary<PdfName, QpdfObject> MaterializeAncestors(
         DocumentEngine engine, PageLocation location, GraphCopier copier,
         ResourceGovernor governor, QpdfLimits limits, CancellationToken cancellationToken,
-        ParserMemoryScope ownership)
+        ParserMemoryScope ownership, PageInheritance.Batch? ancestry)
     {
         ownership.CheckOwner(governor);
         Dictionary<PdfName, QpdfObject>? extra = null;
-        PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(engine, location, WriterInherited,
+        PageInheritance.InheritedValues inherited = ancestry?.Find(location) ?? PageInheritance.FindAncestors(engine, location, WriterInherited,
             limits, governor, cancellationToken);
         for (int index = 0; index < WriterInherited.Length; index++)
         {

@@ -6,7 +6,7 @@ using Lokad.Qpdf.Syntax;
 namespace Lokad.Qpdf.Reading;
 
 /// <summary>Shared bounded lookup of a page attribute through its ancestry.</summary>
-internal static class PageInheritance
+internal static partial class PageInheritance
 {
     internal static QpdfObject? Find(IIndirectResolver engine, PageLocation location, PdfName name,
         QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
@@ -87,6 +87,11 @@ internal static class PageInheritance
     // only the nearest non-null value for keys absent (or null) on the leaf.
     internal static InheritedValues FindAncestors(IIndirectResolver engine, PageLocation location,
         ReadOnlySpan<PdfName> names, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
+        => FindAncestors(engine, location, names, limits, governor, cancellationToken, null);
+
+    private static InheritedValues FindAncestors(IIndirectResolver engine, PageLocation location,
+        ReadOnlySpan<PdfName> names, QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken,
+        Batch? batch)
     {
         if (names.Length > 4) { throw new ArgumentOutOfRangeException(nameof(names)); }
         InheritedValues values = default;
@@ -98,24 +103,34 @@ internal static class PageInheritance
                 || Resolve(engine, value, limits, governor) is PdfNull) { missing |= 1 << index; }
         }
         if (missing == 0) { return values; }
-        Ancestors ancestors = new(engine, location, limits, governor, cancellationToken);
+        Ancestors ancestors = new(engine, location, limits, governor, cancellationToken, batch);
+        Depths foundAt = default;
+        // A stored suffix contains only known pairs. Replaying it is safe
+        // while the active prefix, including the leaf, has no known pair.
+        bool canReplay = batch is not null && !batch.Knows(location.Source);
         try
         {
             ancestors.MoveNext(out _); // The leaf has already been checked.
-            while (ancestors.MoveNext(out PdfDictionary current))
+            while (ancestors.MoveNext(out PdfDictionary current, out Observation? observation, out bool knownPair))
             {
+                if (canReplay && observation is not null
+                    && observation.TryReplay(missing, ancestors.Depth, limits.MaxNestingDepth, ref values, ref foundAt))
+                { missing = 0; break; }
+                canReplay &= !knownPair;
+                if (observation is not null) { batch?.Observe(observation, ancestors.Depth, missing); }
                 for (int index = 0; index < names.Length; index++)
                 {
                     if ((missing & (1 << index)) == 0) { continue; }
                     if (PdfDictionaryLookup.TryGet(current, names[index].RawSpan, governor, cancellationToken, out QpdfObject value)
                         && Resolve(engine, value, limits, governor) is not PdfNull)
-                    { values[index] = value; missing &= ~(1 << index); }
+                    { values[index] = value; foundAt[index] = ancestors.Depth; missing &= ~(1 << index); }
                 }
                 if (missing == 0) { break; }
             }
+            batch?.Complete(values, foundAt, missing, ancestors.Depth);
             return values;
         }
-        finally { ancestors.Dispose(); }
+        finally { ancestors.Dispose(); batch?.EndLookup(); }
     }
 
     internal static bool HasDictionaryAncestor(DocumentEngine engine, PageLocation location, ReadOnlySpan<byte> name,
@@ -158,6 +173,7 @@ internal static class PageInheritance
         private readonly QpdfLimits _limits;
         private readonly ResourceGovernor _governor;
         private readonly CancellationToken _token;
+        private readonly Batch? _batch;
         private PdfDictionary _current;
         private int _depth;
         private bool _started;
@@ -167,16 +183,25 @@ internal static class PageInheritance
 
         internal Ancestors(IIndirectResolver engine, PageLocation location, QpdfLimits limits,
             ResourceGovernor governor, CancellationToken token)
+            : this(engine, location, limits, governor, token, null) { }
+
+        internal Ancestors(IIndirectResolver engine, PageLocation location, QpdfLimits limits,
+            ResourceGovernor governor, CancellationToken token, Batch? batch)
         {
             _engine = engine; _location = location; _limits = limits;
-            _governor = governor; _token = token; _current = location.Page;
+            _governor = governor; _token = token; _current = location.Page; _batch = batch;
         }
 
         internal ParserMemoryScope Memory => _memory ??= ParserMemoryScope.Create(_governor);
+        internal int Depth => _depth;
 
         internal bool MoveNext(out PdfDictionary current)
+            => MoveNext(out current, out _, out _);
+
+        internal bool MoveNext(out PdfDictionary current, out Observation? observation, out bool knownPair)
         {
             _token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+            observation = null; knownPair = false;
             if (_started)
             {
                 if (!PdfDictionaryLookup.TryGet(_current, "Parent"u8, _governor, _token, out QpdfObject raw) || raw is PdfNull)
@@ -206,7 +231,10 @@ internal static class PageInheritance
                         if (!ParserContainers.AddSetItem(owner, _visited, (reference.ObjectNumber, reference.Generation), 8L))
                         { throw new QpdfParseException("Page ancestry contains a cycle.", null, reference.ObjectNumber); }
                     }
-                    if (!_engine.TryResolve(reference, out QpdfObject? resolved) || resolved is not PdfDictionary parent)
+                    PdfDictionary? parent = _batch is null
+                        ? (_engine.TryResolve(reference, out QpdfObject? resolved) ? resolved as PdfDictionary : null)
+                        : _batch.ResolveParent(reference, out observation, out knownPair);
+                    if (parent is null)
                     { throw new QpdfParseException("Unresolvable page parent.", null, reference.ObjectNumber); }
                     _current = parent;
                 }

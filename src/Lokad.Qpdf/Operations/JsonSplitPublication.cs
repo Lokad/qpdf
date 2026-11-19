@@ -90,13 +90,15 @@ internal static class JsonSplitPublication
         memory.Reserve(32L);
         PdfReference parent = new(pagesNumber, 0);
         using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, token);
+        using PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(pages.Count > 1, resolver,
+            PageAssembly.WriterInherited, limits, governor, token);
         foreach (PageLocation location in pages)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int number = location.Source?.ObjectNumber ?? checked(++maximum);
             if (number == 1 || pageNumbers.Contains(number)) { number = checked(++maximum); }
             ParserContainers.AddSetItem(memory, pageNumbers, number, sizeof(int));
-            PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(resolver, location,
+            PageInheritance.InheritedValues inherited = ancestry?.Find(location) ?? PageInheritance.FindAncestors(resolver, location,
                 PageAssembly.WriterInherited, limits, governor, token);
             PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(headers, out long allocation);
             using PdfDictionary.EntryEnumerator original = location.Page.GetEntryEnumerator();
@@ -110,6 +112,11 @@ internal static class JsonSplitPublication
             }
             PdfDictionary page = PdfDictionaryRebuild.Complete(headers, entries, allocation);
             PageAssembly.RequireMediaBox(page);
+            // Replacing a visited parent changes its dictionary. A newly
+            // resolvable value can also change an earlier absence observation.
+            if (ancestry is not null && (ancestry.Knows(number, 0)
+                || !pool.TryGetValue(number, out QpdfObject? previous) || previous is not PdfDictionary))
+            { ancestry.Clear(); }
             GovernedCollections.Assign(memory, governor, pool, number, page, IntPtr.Size);
             memory.Reserve(32L);
             kids.Add(new PdfReference(number, 0));

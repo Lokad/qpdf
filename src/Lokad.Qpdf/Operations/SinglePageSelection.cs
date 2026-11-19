@@ -87,17 +87,22 @@ internal static class SinglePageSelection
                     copyMemory.Reserve(checked(24L * requested.Count));
                     List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(copyMemory, requested.Count, 16L);
                     PdfReference? outputParent = null;
-                    foreach (int pageNumber in requested)
+                    using (PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(requested.Count > 1,
+                        document.Engine, WriterInherited, limits, governor, cancellationToken))
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        governor.NoteOperation();
-                        PageLocation location = document.PageReferences[pageNumber - 1];
-                        IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location, copier, governor, limits, cancellationToken, copyMemory);
-                        if (outputParent is null) { copyMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
-                        (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
-                        RequireMediaBox(page);
-                        kids.Add(new PdfReference(pageId, 0));
-                        occurrences.Add((copier, pageId));
+                        foreach (int pageNumber in requested)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            governor.NoteOperation();
+                            PageLocation location = document.PageReferences[pageNumber - 1];
+                            IReadOnlyDictionary<PdfName, QpdfObject> extra = MaterializeAncestors(document.Engine, location,
+                                copier, governor, limits, cancellationToken, copyMemory, ancestry);
+                            if (outputParent is null) { copyMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
+                            (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
+                            RequireMediaBox(page);
+                            kids.Add(new PdfReference(pageId, 0));
+                            occurrences.Add((copier, pageId));
+                        }
                     }
 
                     if (settings.Rotations.Count != 0)
