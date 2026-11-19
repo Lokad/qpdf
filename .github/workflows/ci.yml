@@ -79,6 +79,7 @@ jobs:
       - name: Inspect package boundary
         run: |
           ./tools/verify-package.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE `
+            -ReleaseReceiptPath artifacts/ci/logs/package-build.json `
             2>&1 | Tee-Object artifacts/ci/logs/package.log
       - name: Verify fresh artifact consumer
         run: |
@@ -86,7 +87,7 @@ jobs:
             2>&1 | Tee-Object artifacts/ci/logs/consumer.log
       - name: Test consumer verification rejections
         run: |
-          ./tools/test-package-consumer.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE `
+          ./tools/test-package-consumer.ps1 -PackagePath $env:LOKAD_QPDF_CANDIDATE -CheckReleaseBuild `
             2>&1 | Tee-Object artifacts/ci/logs/consumer-rejections.log
       - name: Capture failure process diagnostics
         if: failure()

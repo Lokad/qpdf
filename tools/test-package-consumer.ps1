@@ -8,7 +8,9 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [string] $PackagePath
+    [string] $PackagePath,
+    [switch] $CheckReleaseBuild,
+    [string] $ArtifactsPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,8 +47,8 @@ function Copy-PackageCase([string] $name) {
 }
 
 function Assert-Rejection {
-    param([string] $Name, [string] $ExpectedPattern, [string] $ToolPath, [string] $ArtifactPath)
-    $output = & pwsh -NoProfile -File $ToolPath -PackagePath $ArtifactPath 2>&1 | Out-String
+    param([string] $Name, [string] $ExpectedPattern, [string] $ToolPath, [string] $ArtifactPath, [string[]] $ExtraArguments)
+    $output = & pwsh -NoProfile -File $ToolPath -PackagePath $ArtifactPath @ExtraArguments 2>&1 | Out-String
     $code = $LASTEXITCODE
     [System.IO.File]::WriteAllText((Join-Path $testRoot ($Name + '.log')), $output)
     if ($code -eq 0 -or $output -notmatch $ExpectedPattern -or
@@ -186,6 +188,31 @@ try {
     try { $manifest.Save($stream) } finally { $stream.Dispose() }
 } finally { $archive.Dispose() }
 Assert-Rejection 'wrong-symbol-package-version' 'Symbol package identity/version must match' $packageVerifier $artifact
+
+if ($CheckReleaseBuild) {
+    $name = 'other-matching-build-pair'
+    $artifact = Copy-PackageCase $name
+    foreach ($extension in @('dll','pdb')) {
+        $path = if ($extension -eq 'dll') { $artifact } else { [IO.Path]::ChangeExtension($artifact, '.snupkg') }
+        $member = "Lokad.Qpdf.$extension"
+        $archive = [IO.Compression.ZipFile]::Open($path, [IO.Compression.ZipArchiveMode]::Update)
+        try {
+            $archive.GetEntry("lib/net10.0/$member").Delete()
+            $stream = $archive.CreateEntry("lib/net10.0/$member").Open()
+            try {
+                $other = $archive.GetEntry("lib/net11.0/$member").Open()
+                try { $other.CopyTo($stream) } finally { $other.Dispose() }
+            } finally { $stream.Dispose() }
+        } finally { $archive.Dispose() }
+    }
+    $paired = & pwsh -NoProfile -File $packageVerifier -PackagePath $artifact 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) { throw "Expected the substituted DLL and PDB to match: $paired" }
+    $receipt = Join-Path $testRoot "$name.json"
+    $extra = @('-ReleaseReceiptPath', $receipt)
+    if ($ArtifactsPath) { $extra += @('-ArtifactsPath', $ArtifactsPath) }
+    Assert-Rejection $name 'differs from the tested Release build for net10.0' $packageVerifier $artifact $extra
+    if (Test-Path -LiteralPath $receipt) { throw 'A rejected package produced a Release receipt.' }
+}
 
 foreach ($case in @(
     @{ Name='packaged-link'; Readme='[license](LICENSE.txt)'; Reject=$false },

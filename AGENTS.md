@@ -22,12 +22,14 @@ dotnet restore Lokad.Qpdf.slnx --locked-mode
 dotnet build Lokad.Qpdf.slnx -c Release --no-restore
 dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
 $package = ./tools/pack-release.ps1
-./tools/verify-package.ps1 -PackagePath $package
+./tools/verify-package.ps1 -PackagePath $package -ReleaseReceiptPath (Join-Path (Split-Path $package) 'package-build.json')
 ./tools/verify-package-consumer.ps1 -PackagePath $package
-./tools/test-package-consumer.ps1 -PackagePath $package
+./tools/test-package-consumer.ps1 -PackagePath $package -CheckReleaseBuild
 ```
 
 Run the package guards against the fresh artifact returned by the pack helper.
+The Release receipt checks the packaged DLLs and PDBs against the copies used
+by the test project on both targets.
 The consumer uses an isolated feed and cache with the reviewed lock. Its project
 defines the sources and fixtures staged for both targets.
 

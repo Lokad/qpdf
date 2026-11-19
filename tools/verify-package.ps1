@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string] $PackagePath
+    [string] $PackagePath,
+    [string] $ReleaseReceiptPath,
+    [string] $ArtifactsPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -144,6 +146,57 @@ function Assert-SymbolPackage([IO.Compression.ZipArchive] $package, [string] $sy
     } finally { $symbols.Dispose() }
 }
 
+function Get-MemberSha256([IO.Compression.ZipArchive] $archive, [string] $member) {
+    $stream = $archive.GetEntry($member).Open()
+    try { return (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash }
+    finally { $stream.Dispose() }
+}
+
+function Write-TestedBuildReceipt([IO.Compression.ZipArchive] $package, [string] $symbolPath, [Xml.XmlElement] $metadata) {
+    $repo = Split-Path $PSScriptRoot -Parent
+    $revision = & git -C $repo rev-parse HEAD
+    if ($LASTEXITCODE -ne 0 -or $revision -cnotmatch '^[a-f0-9]{40}$') {
+        throw 'Release verification requires a checked-out Git revision.'
+    }
+    $repository = $metadata.SelectSingleNode("*[local-name()='repository']")
+    if ($repository -and $repository.GetAttribute('commit') -and $repository.GetAttribute('commit') -cne $revision) {
+        throw 'Package manifest commit differs from the current revision.'
+    }
+    $project = Join-Path $repo 'tests/Lokad.Qpdf.Tests/Lokad.Qpdf.Tests.csproj'
+    $location = @()
+    if ($ArtifactsPath) { $location = @("-p:ArtifactsPath=$([IO.Path]::GetFullPath($ArtifactsPath))") }
+    $tested = [ordered]@{}
+    $symbols = [IO.Compression.ZipFile]::OpenRead($symbolPath)
+    try {
+        foreach ($framework in @('net10.0', 'net11.0')) {
+            $target = & dotnet msbuild $project -nologo -p:Configuration=Release "-p:TargetFramework=$framework" @location -getProperty:TargetPath
+            if ($LASTEXITCODE -ne 0 -or !$target -or !(Test-Path -LiteralPath $target -PathType Leaf)) {
+                throw "Cannot locate the Release test assembly for $framework."
+            }
+            $tested[$framework] = [ordered]@{}
+            $directory = Split-Path -Parent $target
+            foreach ($extension in @('dll','pdb')) {
+                $name = "Lokad.Qpdf.$extension"
+                $member = "lib/$framework/$name"
+                $archive = if ($extension -eq 'dll') { $package } else { $symbols }
+                $expected = (Get-FileHash -LiteralPath (Join-Path $directory $name) -Algorithm SHA256).Hash
+                if ((Get-MemberSha256 $archive $member) -cne $expected) {
+                    throw "Packaged $name differs from the tested Release build for $framework."
+                }
+                $tested[$framework][$name] = $expected
+            }
+        }
+    } finally { $symbols.Dispose() }
+    $receipt = [ordered]@{
+        source = $revision
+        packageSha256 = (Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256).Hash
+        symbolsSha256 = (Get-FileHash -LiteralPath $symbolPath -Algorithm SHA256).Hash
+        testedMembers = $tested
+    }
+    [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReleaseReceiptPath), ($receipt | ConvertTo-Json -Depth 4) + "`n")
+    Write-Output 'Packaged libraries and symbols match both tested Release builds.'
+}
+
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
@@ -166,7 +219,9 @@ try {
         throw 'Package metadata must describe supported password security.'
     }
     Assert-DependencyFreePackage $metadata
-    Assert-SymbolPackage $package ([IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')) $metadata
+    $symbolPath = [IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')
+    Assert-SymbolPackage $package $symbolPath $metadata
+    if ($ReleaseReceiptPath) { Write-TestedBuildReceipt $package $symbolPath $metadata }
 }
 finally { $package.Dispose() }
 
