@@ -57,7 +57,7 @@ internal static class ArgvParser
             throw new QpdfCryptoException($"--{name}");
         }
 
-        throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", index, null);
+        throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}'.", index, null);
     }
 
     internal static string ParseKeepFilesOpen(IReadOnlyList<string> argv, ref int i)
@@ -198,7 +198,7 @@ internal static class ArgvParser
             {
                 if (seenFile)
                 {
-                    throw new QpdfParseException("Duplicate --file is outside the narrow profile.", cursor, null);
+                    throw new QpdfParseException("Duplicate --file.", cursor, null);
                 }
 
                 seenFile = true;
@@ -215,7 +215,7 @@ internal static class ArgvParser
             {
                 if (seenTo)
                 {
-                    throw new QpdfParseException("Duplicate --to is outside the narrow profile.", cursor, null);
+                    throw new QpdfParseException("Duplicate --to.", cursor, null);
                 }
 
                 seenTo = true;
@@ -233,7 +233,7 @@ internal static class ArgvParser
             {
                 if (seenFrom)
                 {
-                    throw new QpdfParseException("Duplicate --from is outside the narrow profile.", cursor, null);
+                    throw new QpdfParseException("Duplicate --from.", cursor, null);
                 }
 
                 seenFrom = true;
@@ -251,7 +251,7 @@ internal static class ArgvParser
             {
                 if (seenRepeat)
                 {
-                    throw new QpdfParseException("Duplicate --repeat is outside the narrow profile.", cursor, null);
+                    throw new QpdfParseException("Duplicate --repeat.", cursor, null);
                 }
 
                 seenRepeat = true;
@@ -355,7 +355,7 @@ internal static class ArgvParser
                     throw new QpdfCryptoException($"--{name}");
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", cursor, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}'.", cursor, null);
             }
 
             throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' inside --copy-attachments-from.", cursor, null);
@@ -462,7 +462,7 @@ internal static class ArgvParser
                     throw new QpdfParseException($"Option '--{ErrorPreview(name)}' cannot appear inside --add-attachment.", cursor, null);
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", cursor, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}'.", cursor, null);
             }
 
             throw new QpdfParseException($"Unexpected argument '{ErrorPreview(token)}' inside --add-attachment.", cursor, null);
@@ -546,7 +546,7 @@ internal static class ArgvParser
                     continue;
                 }
 
-                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}' in the narrow selection profile.", i, null);
+                throw new QpdfParseException($"Unsupported option '--{ErrorPreview(name)}'.", i, null);
             }
 
             if (file is null)

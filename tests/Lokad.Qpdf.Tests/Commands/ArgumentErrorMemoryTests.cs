@@ -159,7 +159,7 @@ public sealed class ArgumentErrorMemoryTests
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["in.pdf", "--" + name]), CancellationToken.None);
         string preview = length <= 128 ? name : name[..128] + "...";
-        Assert.Equal($"Unsupported option '--{preview}' in the narrow selection profile. (offset 1).",
+        Assert.Equal($"Unsupported option '--{preview}'. (offset 1).",
             Assert.Single(result.Diagnostics).Message);
     }
 
@@ -170,7 +170,7 @@ public sealed class ArgumentErrorMemoryTests
         string prefix = new('q', 127);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["--" + prefix + "\U0001F600suffix"]), CancellationToken.None);
-        Assert.Equal($"Unsupported option '--{prefix}...' in the narrow selection profile. (offset 0).",
+        Assert.Equal($"Unsupported option '--{prefix}...'. (offset 0).",
             Assert.Single(result.Diagnostics).Message);
     }
 

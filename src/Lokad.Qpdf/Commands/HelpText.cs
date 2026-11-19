@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace Lokad.Qpdf.Commands;
 
-/// <summary>Help and version text for the narrow supported subset.</summary>
+/// <summary>Help and version text for the supported commands.</summary>
 internal static class HelpText
 {
     internal const string Help = """

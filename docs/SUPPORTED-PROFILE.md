@@ -8,21 +8,30 @@ defaults and intentional differences. Accepted syntax alone does not establish s
 ## Entry paths
 
 Typed operations, `Qpdf.ExecuteAsync` argv and `Qpdf.ExecuteJobAsync` job JSON share
-the engine. Hosts supply inputs, outputs, descriptors and environment values;
-fileless inspection returns text or bytes. The core has no runtime NuGet dependencies.
+the engine. Hosts supply input leases and staged outputs. Fileless inspection
+returns text or bytes. The core has no runtime NuGet dependencies.
 Response arguments use one argument per UTF-8 line. `@-` reads the stable host input
 keyed `-`; an unmapped descriptor fails through the host. Missing ordinary `@file`
 inputs remain literal, and nested response tokens are not expanded again.
 
-Typed selection preserves encoded streams. Argv/job defaults
-to bounded repair and generalized decoding/compression. Argv setters follow argument
-order; job setters follow sorted-key order, including nested files. Unsupported
-options and combinations fail explicitly. Execution reports exit 0/2/3 and diagnostics.
+Typed selection preserves encoded streams. Commands default to bounded repair,
+generalized stream decoding and compression. Use `--suppress-recovery` for
+strict command reading. Execution reports exit 0/2/3 and diagnostics. Unsupported
+options and combinations fail explicitly.
+
+Argv setters apply in argument order. Job keys apply in sorted order within
+each file, including nested files. Duplicate JSON properties keep their last
+value. Semantic validation uses effective values. Malformed string encoding
+fails even in a superseded value. Stream filter setters and `--global` blocks
+keep setter order. QDF fills unset defaults. Repeated scalar and bare argv
+setters are accepted. Input/output declarations with nonempty names, pages and
+replacement declarations, repeated `--empty`, and main-context parser ceilings
+remain exclusive. Block-local duplicate rules apply separately.
 
 Empty main filenames select no file; they do not imply `--empty`. Empty argv
 arguments still occupy their input/output slots, including response-file blank
-lines. Whitespace stays literal. Nonempty file declarations remain exclusive,
-and an output declaration cannot follow active `--replace-input`.
+lines. Whitespace stays literal. An output declaration cannot follow active
+`--replace-input`.
 
 Typed document opening, checking, counting, selection and JSON inspection are
 strict by default. The full `QpdfDocument.OpenAsync` overload accepts credentials,

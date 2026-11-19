@@ -22,7 +22,7 @@ not establish implemented behavior. Development changes are in the
 | JPEG | Decoding and recompression use a caller-supplied codec. Output quality can vary across codecs. [Supported JPEG capabilities](SUPPORTED-PROFILE.md#jpeg-codec-capabilities) |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
-| Host effects | Logical paths, inputs, descriptors, environment and publication require host capabilities. Fileless results replace ambient stdout. |
+| Host effects | Hosts map logical paths, including descriptor keys, to input leases and staged outputs. Fileless results replace ambient stdout. |
 | Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container and nesting ceilings also apply to JSON imports, where native can ignore them. [Memory admission](MEMORY.md) |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
 
@@ -32,6 +32,10 @@ exclusion reasons. `cryptoSyntax` identifies option names for parser diagnostics
 
 ## Entry-point defaults
 
+The [entry paths](SUPPORTED-PROFILE.md#entry-paths) define reading, stream
+copying and setter order. [JSON import output options](SUPPORTED-PROFILE.md#output-options)
+define stream encoding and packing defaults.
+
 `QpdfDocument.GetObject(PdfReference)` resolves an exact number/generation pair;
 stale, free and missing pairs yield PDF null. `GetObject(int)` looks up the active
 object by number and throws for unknown numbers. Both return values that survive
@@ -39,17 +43,9 @@ document disposal; exact-reference lookup uses the document's opening token and 
 
 | Behavior | Typed | Argv / job JSON |
 | --- | --- | --- |
-| Reading | Strict by default; document/check/count/selection/JSON can request bounded repair | Bounded repair by default; `--suppress-recovery` is strict |
-| Stream copying | Opaque encoded bytes | Generalized decoding and compression |
-| JSON import packing | Existing overloads disable packing; full overloads accept `QpdfJsonImportOptions` | Preserve matching source members by default |
-| JSON import compression | Preserve encoded payloads | Generalized decoding and compression, with the ordinary stream setters |
 | Rotation requests | Supplied list order | Last value per exact range text, then ordinal key order |
 | Generic catalog data | Selection defaults may omit extras | Ordinary rewrites preserve supported primary extras; split has a narrower policy |
 
-Argv setters apply in argument order. Job keys apply in sorted order within each
-file, and duplicate JSON properties keep their last value. Semantic validation
-uses effective values. Malformed string encoding fails even in a superseded
-value. Compression and decode setters follow that order. QDF fills unset defaults.
 Managed extensions include separate job-file values, recognized JSON version
 and compression choices as separate tokens, and separate unsigned decimal
 split sizes. Bare JSON and compression flags leave ordinary path operands
@@ -58,19 +54,6 @@ available. If a filename matches a recognized choice, add a separator
 Use the same separator or equals syntax for numeric split output names.
 In job JSON, `"json":""` and `"jsonOutput":""` select the default version (2).
 For JSON export, an output of `-` returns the report in the execution result.
-Unknown options,
-invalid combinations and excluded crypto fail explicitly.
-
-Repeated scalar/bare argv setters are accepted, including warning, recovery,
-version and keep-open hints.
-Nonempty input/output declarations, pages/replace declarations and repeated `--empty` remain exclusive;
-main-context parser ceilings also remain exclusive. Stream-filter setters and
-`--global` blocks keep setter order. Block-local duplicate rules remain explicit.
-
-See the supported profile for typed recovery options and warnings in
-[document opening](SUPPORTED-PROFILE.md#entry-paths), [page selection](SUPPORTED-PROFILE.md#selection-semantics),
-[inspection](SUPPORTED-PROFILE.md#inspection-profile) and
-[attachments](SUPPORTED-PROFILE.md#attachments-profile).
 
 ## Known differences from native qpdf
 

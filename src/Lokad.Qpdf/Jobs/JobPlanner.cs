@@ -407,7 +407,7 @@ internal static partial class JobPlanner
                                     parserMaxErrors = RequireParserMaxErrors(globalProperty.Value, textStorage);
                                     break;
                                 default:
-                                    throw new QpdfParseException("Unsupported job key \u0027global." + ArgvParser.ErrorPreview(globalProperty.Name) + "\u0027 in the narrow selection profile.", 0L, null);
+                                    throw new QpdfParseException("Unsupported job key \u0027global." + ArgvParser.ErrorPreview(globalProperty.Name) + "\u0027.", 0L, null);
                             }
                         }
 
@@ -682,7 +682,7 @@ internal static partial class JobPlanner
                         recovery = suppressRecovery ? QpdfRecoveryMode.Strict : QpdfRecoveryMode.BoundedRepair;
                         break;
                     default:
-                        throw new QpdfParseException($"Unsupported job key '{ArgvParser.ErrorPreview(property.Name)}' in the narrow selection profile.", 0L, null);
+                        throw new QpdfParseException($"Unsupported job key '{ArgvParser.ErrorPreview(property.Name)}'.", 0L, null);
                 }
             }
 
@@ -2156,7 +2156,7 @@ internal static partial class JobPlanner
                     password = RequireString(property.Value, "pages[].password", textStorage);
                     break;
                 default:
-                    throw new QpdfParseException($"Unsupported pages key '{ArgvParser.ErrorPreview(property.Name)}' in the narrow selection profile.", 0L, null);
+                    throw new QpdfParseException($"Unsupported pages key '{ArgvParser.ErrorPreview(property.Name)}'.", 0L, null);
             }
         }
 
