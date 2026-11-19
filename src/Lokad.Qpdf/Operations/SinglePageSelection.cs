@@ -125,7 +125,8 @@ internal static class SinglePageSelection
                     (bool singleCompress, string singleDecode, int? singleLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
                     if (singleCompress || singleDecode != "none" || (singleMetadata is not null && settings.Compression.CompressStreams is not null))
                     {
-                        TransformCopierStreams(copier, document.Engine, singleCompress, singleDecode, settings.Compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
+                        TransformCopierStreams(copier, settings.Optimize.Optimize ? StreamSelection.ExceptImages : StreamSelection.All,
+                            singleCompress, singleDecode, settings.Compression.RecompressFlate, singleLevel, limits, governor, diagnostics, cancellationToken, singleMetadata);
                     }
 
                     Content.ContentTransformRequest? singleTransforms = PrepareSourceContentTransforms(settings, singleCompress, singleLevel, singleDecode, document.Engine, limits, governor, cancellationToken, out bool singlePrune);
@@ -280,8 +281,8 @@ internal static class SinglePageSelection
                         IncludeVersionRequirement(ref negotiated, ref negotiatedExtension,
                             AuthoredVersionFloor(settings.Edits.Adds.Count != 0, singleAttached.NamesRef is not null, singleLabels is not null), 0, governor);
                     }
-                    FinishContentTransforms(singlePool, occurrences, singleTransforms, singlePruneSources, processedContentForms,
-                        settings.Optimize, limits, governor, diagnostics, cancellationToken);
+                    FinishContentTransforms(copier, singlePool, occurrences, singleTransforms, singlePruneSources, processedContentForms,
+                        settings, limits, governor, diagnostics, cancellationToken);
                     if (rotationFrames is not null)
                     {
                         (_, singleAcroForm, IReadOnlyDictionary<PdfName, QpdfObject>? rotatedExtras, singleOutlines) = Content.SourceActions.BindRotation(

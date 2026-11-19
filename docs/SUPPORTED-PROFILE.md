@@ -315,7 +315,8 @@ viewer-dependent meaning cannot be preserved; see [navigation differences](COMPA
 ### JPEG codec capabilities
 
 Image optimization uses a host JPEG codec for eligible 8-bit
-DeviceGray/DeviceRGB images and keeps smaller candidates. An explicit quality
+DeviceGray/DeviceRGB images and compares candidates with the input encoding
+before applying writer stream options. An explicit quality
 from 0 to 100 enables DCT recompression. Encoder quality is codec-specific.
 CMYK/YCCK recompression and color-key-mask optimization remain unavailable.
 

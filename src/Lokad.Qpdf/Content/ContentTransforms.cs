@@ -14,6 +14,7 @@ internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bo
 {
     internal byte FilterOptions { get; init; }
     internal bool BoundPageContent { get; init; }
+    internal bool DeferImageEncoding { get; init; }
 }
 
 /// <summary>Resource pruning policy: enabled flag plus auto/yes/no mode.</summary>

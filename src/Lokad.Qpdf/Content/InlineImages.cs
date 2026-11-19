@@ -189,8 +189,7 @@ internal static class InlineImages
                         request.MinBytes, token.Offset, resources, canAttach, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
                     if (converted is InlineImageEntry entry)
                     {
-                        // Bound publication encodes streams after image optimization.
-                        PdfStream candidate = request.BoundPageContent ? entry.Stream
+                        PdfStream candidate = request.DeferImageEncoding ? entry.Stream
                             : StreamTransformer.Transform(entry.Stream, copier.NextId, resolver, request.Compress,
                             StreamTransformer.DecodeLevel(request.FilterOptions), (request.FilterOptions & 4) != 0, request.Level,
                             limits, governor, diagnostics, cancellationToken) ?? entry.Stream;

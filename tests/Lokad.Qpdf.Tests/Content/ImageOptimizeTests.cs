@@ -7,6 +7,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Filters;
+using Lokad.Qpdf.Tests.Writing;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -121,6 +122,39 @@ public sealed class ImageOptimizeTests
         }
 
         return string.Empty;
+    }
+
+    [Theory]
+    [InlineData(false, false, false, "DCTDecode")]
+    [InlineData(true, true, false, "DCTDecode")]
+    [InlineData(false, true, true, "FlateDecode")]
+    public async Task WriterEncodingFollowsOptimization(bool inline, bool selectPage, bool decodeAll, string expectedFilter)
+    {
+        const string source = "input.pdf", target = "output.pdf";
+        byte[] pixels = new byte[128 * 128 * 3];
+        for (int i = 0; i < pixels.Length; i += 3)
+        { pixels[i] = 32; pixels[i + 1] = 96; pixels[i + 2] = 160; }
+        byte[] fixture = inline ? BuildInlinePage(InlineContent("/W 128 /H 128 /CS /RGB /BPC 8", pixels))
+            : BuildImagePage(128, 128, "DeviceRGB", 8, "", pixels);
+        using InMemoryQpdfHost host = HostWith(source, fixture);
+        List<string> argv = [source, "--optimize-images", "--oi-min-width=1", "--oi-min-height=1", "--oi-min-area=1",
+            "--ii-min-bytes=0", "--jpeg-quality=75"];
+        if (selectPage) { argv.AddRange(["--pages", ".", "1", "--"]); }
+        if (decodeAll) { argv.Add("--decode-level=all"); }
+        argv.Add(target);
+
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From(target), out byte[] pdf));
+        PdfStream image = await OutputImageAsync(host, pdf);
+        Assert.Equal(expectedFilter, FilterOf(image));
+        if (decodeAll)
+        {
+            byte[] decoded = StreamObservation.Decode(image);
+            Assert.Equal(pixels.Length, decoded.Length);
+            Assert.False(pixels.AsSpan().SequenceEqual(decoded));
+        }
     }
 
     [Fact]

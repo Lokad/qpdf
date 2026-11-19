@@ -639,7 +639,7 @@ internal static class JsonExecution
             if (transformContent)
             {
                 Content.ContentTransformRequest request = new(false, normalizePages, false, null, externalize, writer.InlineImageMinimumBytes)
-                { BoundPageContent = true };
+                { BoundPageContent = true, DeferImageEncoding = true };
                 ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, limits, memory, governor, diagnostics, token);
                 if (retirement is not null && before is not null)
                 { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }

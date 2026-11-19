@@ -1,6 +1,5 @@
 using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Objects;
-using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
@@ -9,6 +8,8 @@ namespace Lokad.Qpdf.Writing;
 
 internal static class StreamPreparation
 {
+    internal enum StreamSelection { All, ExceptImages, Images }
+
     internal static (bool Compress, string Decode, int? Level) ResolveCompression(CompressionRequest request, bool qdf)
     {
         if (request is null)
@@ -44,7 +45,7 @@ internal static class StreamPreparation
 
     internal static void TransformCopierStreams(
         GraphCopier copier,
-        DocumentEngine engine,
+        StreamSelection selection,
         bool compress,
         string decode,
         bool recompressFlate,
@@ -60,18 +61,15 @@ internal static class StreamPreparation
             throw new ArgumentNullException(nameof(copier));
         }
 
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         Content.PoolResolver resolver = copier.CreateResolver(scratch);
         List<int> ids = ParserContainers.CreateList<int>(scratch);
-        foreach (int id in copier.CopiedObjects.Keys)
+        foreach ((int id, QpdfObject value) in copier.CopiedObjects)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            ParserContainers.AddItem(scratch, ids, id, sizeof(int));
+            if (value is PdfStream stream && (selection == StreamSelection.All
+                || IsImage(stream, resolver, governor, cancellationToken) == (selection == StreamSelection.Images)))
+            { ParserContainers.AddItem(scratch, ids, id, sizeof(int)); }
         }
         foreach (int id in ids)
         {
@@ -89,6 +87,9 @@ internal static class StreamPreparation
             }
         }
     }
+
+    private static bool IsImage(PdfStream stream, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+        => PdfDictionaryLookup.HasName(stream.Dictionary, "Subtype"u8, "Image"u8, resolver, governor, token);
 
     internal static void TransformNumberedStreams(List<NumberedObject> model, IIndirectResolver resolver, int metadata,
         IReadOnlyDictionary<int, (PdfDictionary? Resources, bool Ambiguous)>? normalization,

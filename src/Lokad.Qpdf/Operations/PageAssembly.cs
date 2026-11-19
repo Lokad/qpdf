@@ -149,17 +149,20 @@ internal static class PageAssembly
         }
 
         return new Content.ContentTransformRequest(settings.CoalesceContents, settings.NormalizeContent, compress, level, externalizeInlineImages, settings.IiMinBytes)
-        { FilterOptions = StreamTransformer.Options(decode, settings.Compression.RecompressFlate) };
+        {
+            FilterOptions = StreamTransformer.Options(decode, settings.Compression.RecompressFlate),
+            DeferImageEncoding = settings.Optimize.Optimize,
+        };
     }
 
     internal static void FinishContentTransforms(
-        Dictionary<int, QpdfObject> pool, IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        GraphCopier? copier, Dictionary<int, QpdfObject> pool, IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         Content.ContentTransformRequest? request, HashSet<GraphCopier>? pruneSources,
-        HashSet<int>? processedForms, Content.ImageOptimizeRequest images, QpdfLimits limits,
+        HashSet<int>? processedForms, SelectionSettings settings, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        if (occurrences.Count == 0 || request is not { Externalize: true } && pruneSources is null && !images.Optimize) { return; }
-        GraphCopier copier = occurrences[0].Copier;
+        Content.ImageOptimizeRequest images = settings.Optimize;
+        if (copier is null || request is not { Externalize: true } && pruneSources is null && !images.Optimize) { return; }
         copier.UseOutputPool(pool, token);
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         List<int> pageIds = ParserContainers.CreateList<int>(phase, occurrences.Count, sizeof(int));
@@ -189,7 +192,14 @@ internal static class PageAssembly
             }
             Content.ContentTransforms.ApplyResourcePruning(copier, pruneIds, limits, governor, diagnostics, token);
         }
+        if (!images.Optimize) { return; }
         Content.ImageOptimizer.Apply(copier, pageIds, images, limits, governor, diagnostics, token);
+        (bool compress, string decode, int? level) = StreamPreparation.ResolveCompression(settings.Compression, settings.Qdf.Enabled);
+        if (compress || decode != "none")
+        {
+            StreamPreparation.TransformCopierStreams(copier, StreamPreparation.StreamSelection.Images,
+                compress, decode, settings.Compression.RecompressFlate, level, limits, governor, diagnostics, token, null);
+        }
     }
 
     internal static List<List<(PdfRotationMode Mode, int Angle)>?> ResolveRotationFolds(

@@ -301,7 +301,8 @@ internal static class MultiPageSelection
 
                 if (multiCompress || multiDecode != "none" || (s == primaryIdx && primaryMetadata is not null && settings.Compression.CompressStreams is not null))
                 {
-                    TransformCopierStreams(copier, document.Engine, multiCompress, multiDecode, settings.Compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
+                    TransformCopierStreams(copier, settings.Optimize.Optimize ? StreamSelection.ExceptImages : StreamSelection.All,
+                        multiCompress, multiDecode, settings.Compression.RecompressFlate, multiLevel, limits, governor, diagnostics, cancellationToken, s == primaryIdx ? primaryMetadata : null);
                 }
 
                 if (!catalogOnly)
@@ -614,8 +615,9 @@ internal static class MultiPageSelection
             multiAcroForm = ClearNeedAppearances(multiAcroForm, governor, cancellationToken);
         }
 
-        FinishContentTransforms(pool, occurrences, finalTransforms, pruneSources, processedContentForms,
-            settings.Optimize, limits, governor, diagnostics, cancellationToken);
+        GraphCopier? contentCopier = occurrences.Count != 0 ? occurrences[0].Copier : copiers.FirstOrDefault();
+        FinishContentTransforms(contentCopier, pool, occurrences, finalTransforms, pruneSources, processedContentForms,
+            settings, limits, governor, diagnostics, cancellationToken);
 
         if (rotationFrames is not null)
         {
