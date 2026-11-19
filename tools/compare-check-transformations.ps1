@@ -67,6 +67,9 @@ $cases = @(
   @{N='collation';Sources=@(@{file='.';range='1,2'},@{file='inputs/b.pdf';range='1,2'});Collate='1';O='2';ImportedIdentities=@{9=10;10=11;11=9}},
   @{N='nested-first';Nested=$true;R='1';O='3,2';Pattern='/MediaBox 9 0 R'},
   @{N='coalesced-listing';Nested=$true;ContentGenerations=$true;Coalesce=$true;O='3,2';Pattern='/Contents 9 0 R'},
+  @{N='externalized-image-listing';Fixture='inline-1page.pdf';O='3';Settings=@{externalizeInlineImages='';iiMinBytes='0';withImages=''};Arguments=@('--externalize-inline-images','--ii-min-bytes=0','--with-images');Line='    /IIm1: 6 0 R, 1 x 1'},
+  @{N='inline-image-threshold';Fixture='inline-1page.pdf';O='3';Settings=@{externalizeInlineImages='';iiMinBytes='100000';withImages=''};Arguments=@('--externalize-inline-images','--ii-min-bytes=100000','--with-images');Pattern='/Contents 4 0 R';Forbidden='/IIm'},
+  @{N='optimized-image-listing';Fixture='photo-1page.pdf';O='3';Settings=@{optimizeImages='';jpegQuality='50';keepInlineImages='';withImages=''};Arguments=@('--optimize-images','--jpeg-quality=50','--keep-inline-images','--with-images');Line='    /Im0: 6 0 R, 160 x 160'},
   @{N='catalog-form-removal';Fixture='forms-1page.pdf';O='1';Settings=@{removeAcroform=''};Arguments=@('--remove-acroform');Forbidden='/AcroForm'},
   @{N='catalog-structure-removal';Fixture='struct-preserve-1page.pdf';O='1';Settings=@{removeStructure=''};Arguments=@('--remove-structure');Forbidden='/StructTreeRoot|/MarkInfo'},
   @{N='catalog-metadata-removal';Fixture='meta-1page.pdf';O='1';Settings=@{removeMetadata=''};Arguments=@('--remove-metadata');Forbidden='/Metadata'},
@@ -94,6 +97,7 @@ $cases = @(
 $checkRoutes = @{
   'first'='argv'; 'collation'='job'; 'content-generations'='mixed'; 'coalesced-listing'='job';
   'range-bounds'='job'; 'missing-source'='mixed'; 'catalog-form-removal'='job'
+  'externalized-image-listing'='job'
 }
 $records = foreach ($item in $cases) {
   $variants = @(@{Route='argv';Check=$false})

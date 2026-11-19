@@ -2813,7 +2813,7 @@
         ],
         "resource": [
           "ResourceEnforcementTests.CoalesceYieldsToExhaustedBudget",
-          "CheckTransformationTests.CoalescingChargesDecodeWorkBeforeAnOtherwiseStandaloneCount",
+          "CheckTransformationTests.PageContentTransformsChargeDecodeWorkBeforeAnOtherwiseStandaloneCount",
           "SinglePartContentOwnershipTests.EmptyAndMultiplePartsKeepTheirExactJoiningRules",
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport",
           "JsonImportContentTests.DecodeRefusalLeavesThePriorTargetAndOpensNoTransaction"
@@ -3487,6 +3487,7 @@
           "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization",
           "InlineContextReuseTests.JobAdapterSharesTheCompletedContext",
           "JsonContentTransformTests.CoalescingAndExternalizationComposeBeforeProjection",
+          "CheckTransformationTests.ExternalizationListsTheReplacementProgramAndKeepsIneligibleAndPrivateStreams",
           "JsonContentTransformTests.JobReturnedAndSidecarReportsUseTheSameTransformedGraph",
           "JsonContentTransformTests.ForeignPageAssemblyTransformsAfterSourceAcquisition",
           "JsonContentTransformTests.VersionOneDescriptorsAddressTheCoalescedObject"
@@ -3506,6 +3507,7 @@
         ],
         "oracle": [
           "diff:inline",
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceInlineContexts.ps1",
           "tools/ReferenceJsonContent.ps1: Invoke-ReferenceJsonContent"
         ]
@@ -4120,6 +4122,7 @@
         "interaction": [
           "ImageOptimizeTests.JobMalformedFails",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
+          "CheckTransformationTests.JobImageOptimizationListsTheAcceptedJpegAndPreservesTheSourcePair",
           "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
@@ -5656,6 +5659,7 @@
         ],
         "oracle": [
           "diff:optimize-masks",
+          "tools/compare-check-transformations.ps1",
           "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages"
         ]
       }

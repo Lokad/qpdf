@@ -75,7 +75,7 @@ internal static partial class InspectionGraphPreparation
     {
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
-        bool content = plan.CoalesceContents || plan is JsonPlan && (externalize || plan.OptimizeImages);
+        bool content = plan.CoalesceContents || externalize || plan.OptimizeImages;
         bool authoredLabels = plan.Labels.Count > 0;
         bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
@@ -181,7 +181,7 @@ internal static partial class InspectionGraphPreparation
                         SetInspectionEntry(extra, key, kept, memory);
                     }
                 }
-                else if (content && (externalize || plan.OptimizeImages))
+                else if (externalize || plan.OptimizeImages)
                 {
                     PdfName key = PdfName.FromAscii("Resources");
                     QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);

@@ -787,10 +787,10 @@ internal static partial class JobPlanner
                 || showNpages || showPages || showXref || listAttachments || checkLinearization || showLinearization)))
             {
                 if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
-                    || importJson && seenLabels
+                    || importJson && (seenLabels || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight
+                        || seenOiMinArea || seenKeepInlineImages || seenJpegQuality)
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
-                    || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
                     || importJson && (seenAddAttachment || seenRemoveAttachment || seenCopyAttachments)
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput
                     || !importJson && seenJsonInput
@@ -800,7 +800,8 @@ internal static partial class JobPlanner
                 }
 
                 if (importJson && (empty
-                    || hasPages || seenCollate || coalesceContents || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
+                    || hasPages || seenCollate || coalesceContents || externalizeInlineImages
+                    || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
                     || checkLinearization || showLinearization || showXref))
                 {
                     throw new QpdfParseException("JSON graph inspection cannot be combined with page transforms or physical layout inspection.", 0L, null);
@@ -824,6 +825,14 @@ internal static partial class JobPlanner
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
                     CoalesceContents = coalesceContents,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
+                    OptimizeImages = optimizeImages,
+                    OiMinWidth = oiMinWidth,
+                    OiMinHeight = oiMinHeight,
+                    OiMinArea = oiMinArea,
+                    KeepInlineImages = keepInlineImages,
+                    JpegQuality = jpegQuality,
                     RemoveInfo = removeInfo,
                     RemoveMetadata = removeMetadata,
                     RemoveAcroform = removeAcroform,

@@ -1,7 +1,10 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Content;
 
 namespace Lokad.Qpdf.Tests.Inspection;
 
@@ -80,18 +83,124 @@ public sealed class CheckTransformationTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    [Fact]
-    public async Task CoalescingChargesDecodeWorkBeforeAnOtherwiseStandaloneCount()
+    [Theory]
+    [InlineData("--coalesce-contents")]
+    [InlineData("--externalize-inline-images")]
+    [InlineData("--optimize-images")]
+    public async Task PageContentTransformsChargeDecodeWorkBeforeAnOtherwiseStandaloneCount(string transform)
     {
         using InMemoryQpdfHost host = Host(CoalescingFixture(true));
         QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = 5 };
         QpdfExecutionResult original = await Execute(host, "argv", "", ["--show-npages"], limits);
-        QpdfExecutionResult changed = await Execute(host, "argv", "", ["--coalesce-contents", "--show-npages"], limits);
+        QpdfExecutionResult changed = await Execute(host, "argv", "", [transform, "--show-npages"], limits);
         Assert.Equal(QpdfExitCode.Success, original.ExitCode);
         Assert.Equal(QpdfExitCode.Error, changed.ExitCode);
         Assert.Contains(changed.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded);
         Assert.DoesNotContain(changed.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount);
         Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task ExternalizationListsTheReplacementProgramAndKeepsIneligibleAndPrivateStreams()
+    {
+        byte[] samples = [9, 93, 173];
+        byte[] program = [.."q BI /W 3 /H 1 /BPC 8 /CS /G ID "u8, ..samples, .." EI Q"u8];
+        byte[] small = [.."q BI /W 1 /H 1 /BPC 8 /CS /G ID "u8, 127, .." EI Q"u8];
+        byte[] source = PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R /AuditContents 4 7 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 /MediaBox [0 0 100 100] /Resources << >> >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /Contents 4 7 R >>", null),
+            (4, $"<< /Length {program.Length} >>", program),
+            (5, "<< /Type /Page /Parent 2 0 R /Contents 6 0 R >>", null),
+            (6, $"<< /Length {small.Length} >>", small),
+        ], 1, new Dictionary<int, int> { [4] = 7 });
+        using InMemoryQpdfHost storage = Host(source);
+        TestHost host = new(storage, null);
+        string[] transform = ["--externalize-inline-images", "--ii-min-bytes=3"];
+        ValueTask<QpdfExecutionResult> Run(params string[] args)
+            => Qpdf.ExecuteAsync(host, new(["a.pdf", .. transform, .. args]), CancellationToken.None);
+
+        QpdfExecutionResult listing = await Run("--check", "--show-pages", "--with-images", "--show-xref");
+        Assert.Equal(QpdfExitCode.Success, listing.ExitCode);
+        Assert.Null(listing.OutputBytes);
+        Assert.Equal(0L, listing.Counters.TotalOutputBytes);
+        Assert.Contains(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.XrefListing && d.Message.StartsWith("4/7: ", StringComparison.Ordinal));
+        Match image = ImageBinding(listing, 3, 1);
+        string[] contents = ContentBindings(listing);
+        Assert.Equal(2, contents.Length);
+        Assert.NotEqual("4,7", contents[0]);
+        Assert.Equal("6,0", contents[1]);
+        Assert.Equal(6, listing.Diagnostics.Count(d => d.Code == QpdfDiagnosticCode.XrefListing));
+        byte[] active = StreamBytes(await Run("--show-object=" + contents[0], "--filtered-stream-data"));
+        string operators = Encoding.ASCII.GetString(active);
+        Assert.Contains(image.Groups[1].Value + " Do", operators, StringComparison.Ordinal);
+        Assert.DoesNotContain("BI", operators, StringComparison.Ordinal);
+        byte[] expectedImage = [..samples, (byte)' '];
+        Assert.Equal(expectedImage, StreamBytes(await Run("--show-object=" + Selector(image), "--filtered-stream-data")));
+        Assert.Equal(program, StreamBytes(await Run("--show-object=4,7", "--filtered-stream-data")));
+        Assert.Equal(small, StreamBytes(await Run("--show-object=6", "--filtered-stream-data")));
+        Assert.Equal(0, host.OutputRequests);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task JobImageOptimizationListsTheAcceptedJpegAndPreservesTheSourcePair()
+    {
+        byte[] samples = Enumerable.Repeat((byte)127, 40_000).ToArray();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
+        host.AddInput(QpdfPath.From("a.pdf"), ImageOptimizeTests.BuildImagePage(200, 200, "DeviceGray", 8, "", samples),
+            QpdfInputOwnership.Transfer);
+        QpdfExecutionResult listing = await Qpdf.ExecuteJobAsync(host, """
+            {"inputFile":"a.pdf","showPages":"","withImages":"","optimizeImages":"","jpegQuality":"50","keepInlineImages":""}
+            """, CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, listing.ExitCode);
+        Assert.Null(listing.OutputBytes);
+        Assert.Equal(0L, listing.Counters.TotalOutputBytes);
+        Match image = ImageBinding(listing, 200, 200);
+        string selector = Selector(image);
+        Assert.Equal("/Im0", image.Groups[1].Value);
+        Assert.NotEqual("5,0", selector);
+        Assert.Equal("4,0", Assert.Single(ContentBindings(listing)));
+
+        string[] options = ["--optimize-images", "--jpeg-quality=50", "--keep-inline-images"];
+        byte[] jpeg = StreamBytes(await Execute(host, "argv", "", [.. options, "--show-object=" + selector,
+            "--raw-stream-data"], QpdfLimits.Default));
+        Assert.InRange(jpeg.Length, 4, samples.Length - 1);
+        Assert.Equal(new byte[] { 0xff, 0xd8 }, jpeg[..2]);
+        byte[] decoded = StreamBytes(await Execute(host, "argv", "", [.. options, "--show-object=" + selector,
+            "--filtered-stream-data"], QpdfLimits.Default));
+        Assert.Equal(samples.Length, decoded.Length);
+        Assert.All(decoded, sample => Assert.InRange(sample, (byte)126, (byte)128));
+        Assert.Equal(samples, StreamBytes(await Execute(host, "argv", "", [.. options, "--show-object=5,0",
+            "--raw-stream-data"], QpdfLimits.Default)));
+        QpdfExecutionResult skipped = await Execute(host, "argv", "", [.. options, "--oi-min-width=201",
+            "--show-pages", "--with-images"], QpdfLimits.Default);
+        Assert.Equal(QpdfExitCode.Success, skipped.ExitCode);
+        Assert.Equal("5,0", Selector(ImageBinding(skipped, 200, 200)));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static Match ImageBinding(QpdfExecutionResult listing, int width, int height)
+    {
+        string line = Assert.Single(listing.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageListing
+            && d.Message.StartsWith("    /", StringComparison.Ordinal)).Message;
+        Match parsed = Regex.Match(line, $@"^    (/[^ ]+): (?<number>\d+) (?<generation>\d+) R, {width} x {height}$");
+        Assert.True(parsed.Success, line);
+        return parsed;
+    }
+
+    private static string[] ContentBindings(QpdfExecutionResult listing)
+        => ListedContents(listing).Select(line => Regex.Match(line, @"^    (?<number>\d+) (?<generation>\d+) R$"))
+            .Where(match => match.Success).Select(Selector).ToArray();
+
+    private static string Selector(Match pair)
+        => pair.Groups["number"].Value + "," + pair.Groups["generation"].Value;
+
+    private static byte[] StreamBytes(QpdfExecutionResult result)
+    {
+        Assert.True(result.ExitCode == QpdfExitCode.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        return Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray();
     }
 
     private static string[] ListedContents(QpdfExecutionResult result)

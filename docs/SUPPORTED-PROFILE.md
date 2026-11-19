@@ -323,8 +323,10 @@ content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
 inspections. Page-tree transforms and physical-layout listings are unavailable here.
 
-Text inspection of a PDF applies content coalescing, document-role removals
-and authored page labels before checking or listing the effective graph.
+Text inspection of a PDF applies content coalescing, inline-image
+externalization, image optimization, document-role removals and authored
+page labels before checking or listing the effective graph. Image thresholds
+and codec requirements follow the [content profile](#page-content-profile).
 Attachment edits follow the same active catalog policy.
 Selecting the source catalog's exact object pair displays the active catalog
 after these role edits. Independently rooted references keep their stored
