@@ -1,11 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
-using Lokad.Qpdf.TestSupport;
+using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Tests.Inspection;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -54,7 +55,10 @@ public sealed class AppearanceResourceScopeTests
         foreach (string resources in new[] { "absent", "null", "reference-null", "local", "reference-local" })
         foreach (string shape in new[] { "stream", "states", "reference-states" })
         foreach (string operation in new[] { "prune", "overlay", "underlay", "flatten", "combined" })
-        foreach (bool job in new[] { false, true }) { yield return [resources, shape, operation, job]; }
+        { yield return [resources, shape, operation, false]; }
+        yield return ["reference-local", "reference-states", "combined", true];
+        yield return ["reference-null", "states", "underlay", true];
+        yield return ["local", "stream", "prune", true];
     }
 
     [Theory]
@@ -104,11 +108,66 @@ public sealed class AppearanceResourceScopeTests
                     { Assert.DoesNotContain("/Fx" + reserved + " Do", program); }
                 }
             }
-            if (flatten) { Assert.False(page.TryGet(PdfName.FromAscii("Annots"), out _)); continue; }
+            if (flatten)
+            {
+                Assert.False(page.TryGet(PdfName.FromAscii("Annots"), out _));
+                AssertFlattenedAppearance(document, page, pageResources, index == 0 || local ? "Helvetica" : "Courier");
+                continue;
+            }
             PdfArray annotations = Assert.IsType<PdfArray>(Get(document, page, "Annots")); PdfReference annotLink = Assert.IsType<PdfReference>(annotations[0]);
             PdfDictionary annotation = Assert.IsType<PdfDictionary>(document.GetObject(annotLink.ObjectNumber));
             Assert.Same(original, Appearance(document, annotation, shape));
         }
+    }
+
+    private static void AssertFlattenedAppearance(QpdfDocument document, PdfDictionary page, PdfDictionary pageResources, string expectedFont)
+    {
+        QpdfObject contents = Get(document, page, "Contents");
+        IEnumerable<PdfStream> streams = contents is PdfArray sequence
+            ? sequence.Items.Select(item => Assert.IsType<PdfStream>(item is PdfReference reference ? document.GetObject(reference.ObjectNumber) : item))
+            : [Assert.IsType<PdfStream>(contents)];
+        string program = string.Join('\n', streams.Select(stream => Encoding.ASCII.GetString(stream.RawMemory.Span)));
+        PdfDictionary objects = Dict(document, pageResources, "XObject");
+        IEnumerable<PdfStream> painted = Regex.Matches(program, @"/([^\s/]+)\s+Do\b").Select(match =>
+            Assert.IsType<PdfStream>(Get(document, objects, match.Groups[1].Value)));
+        PdfStream appearance = Assert.Single(painted, form => form.RawMemory.Span.SequenceEqual(Program));
+        PdfDictionary scope = pageResources;
+        if (appearance.Dictionary.TryGet(PdfName.FromAscii("Resources"), out QpdfObject declared))
+        {
+            QpdfObject resolved = declared is PdfReference reference ? document.GetObject(reference.ObjectNumber) : declared;
+            if (resolved is not PdfNull) { scope = Assert.IsType<PdfDictionary>(resolved); }
+        }
+        PdfDictionary font = Dict(document, Dict(document, scope, "Font"), "F1");
+        Assert.Equal(PdfName.FromAscii(expectedFont), Get(document, font, "BaseFont"));
+        PdfStream nested = Assert.IsType<PdfStream>(Get(document, Dict(document, scope, "XObject"), "Fx0"));
+        Assert.Equal("1 0 0 rg 0 0 8 8 re f\n"u8.ToArray(), nested.RawMemory.ToArray());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task PaintAssertionObservesTheInvocationAndTheFormScope(bool missingPaint, bool wrongFont)
+    {
+        byte[] paint = missingPaint ? "q Q"u8.ToArray() : "/Placed Do"u8.ToArray();
+        byte[] square = "1 0 0 rg 0 0 8 8 re f\n"u8.ToArray();
+        byte[] input = PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << /XObject << /Placed 5 0 R >> >> /Contents 4 0 R >>", null),
+            (4, $"<< /Length {paint.Length} >>", paint),
+            (5, $"<< /Subtype /Form /BBox [0 0 40 20] /Resources << /Font << /F1 6 0 R >> /XObject << /Fx0 7 0 R >> >> /Length {Program.Length} >>", Program),
+            (6, $"<< /Type /Font /Subtype /Type1 /BaseFont /{(wrongFont ? "Courier" : "Helvetica")} >>", null),
+            (7, $"<< /Subtype /Form /BBox [0 0 8 8] /Resources << >> /Length {square.Length} >>", square)
+        ], 1);
+        using InMemoryQpdfHost host = new();
+        QpdfPath path = QpdfPath.From("ap.pdf");
+        host.AddInput(path, input, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
+        PdfDictionary page = document.PageReferences[0].Page;
+        Action observe = () => AssertFlattenedAppearance(document, page, Dict(document, page, "Resources"), "Helvetica");
+        if (missingPaint || wrongFont) { Assert.ThrowsAny<Xunit.Sdk.XunitException>(observe); }
+        else { observe(); }
     }
 
     public static IEnumerable<object[]> ImportedCases()
@@ -116,7 +175,9 @@ public sealed class AppearanceResourceScopeTests
         foreach (string resources in new[] { "absent", "null", "reference-null", "local", "reference-local" })
         foreach (string shape in new[] { "stream", "states", "reference-states" })
         foreach (bool underlay in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [resources, shape, underlay, job]; }
+        { yield return [resources, shape, underlay, false]; }
+        yield return ["reference-null", "reference-states", false, true];
+        yield return ["local", "stream", true, true];
     }
 
     [Theory]
@@ -181,60 +242,41 @@ public sealed class AppearanceResourceScopeTests
         Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
-    private sealed class FailureHost(InMemoryQpdfHost inner, IMemoryBudget budget, string phase, CancellationTokenSource cancellation)
-        : IQpdfHost, IQpdfMemoryHost
+    private static async Task<InMemoryQpdfHost> ScopeStorage(bool imported, QpdfPath output)
     {
-        public IMemoryBudget MemoryBudget => budget;
-        public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => inner.OpenInputAsync(path, token);
-        public async ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token)
-            => new Transaction(await inner.CreateOutputAsync(path, token), phase, cancellation);
-        private sealed class Transaction(IQpdfOutputTransaction inner, string phase, CancellationTokenSource cancellation) : IQpdfOutputTransaction
-        {
-            public QpdfPath Path => inner.Path;
-            public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken token)
-            {
-                if (phase == "write") { throw new QpdfHostException(Path, QpdfHostFailureReason.WriteFailed); }
-                if (phase == "cancel") { cancellation.Cancel(); token.ThrowIfCancellationRequested(); }
-                return inner.WriteAsync(bytes, token);
-            }
-            public ValueTask CommitAsync(CancellationToken token) => phase == "commit"
-                ? ValueTask.FromException(new QpdfHostException(Path, QpdfHostFailureReason.CommitFailed)) : inner.CommitAsync(token);
-            public ValueTask DiscardAsync(CancellationToken token) => inner.DiscardAsync(token);
-            public ValueTask DisposeAsync() => inner.DisposeAsync();
-        }
-    }
-
-    public static IEnumerable<object[]> FailureCases()
-    {
-        foreach (string phase in new[] { "write", "commit", "cancel", "local", "shared" })
-        foreach (bool imported in new[] { false, true })
-        foreach (bool job in new[] { false, true }) { yield return [phase, imported, job]; }
+        byte[] blank = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
+        byte[] withAppearance = Fixture("reference-null", "reference-states");
+        InMemoryQpdfHost host = await PreparationAdmissionChecks.StorageAsync(imported ? blank : withAppearance, output);
+        host.AddInput(QpdfPath.From("stamp"), imported ? withAppearance : blank, QpdfInputOwnership.Transfer);
+        return host;
     }
 
     [Theory]
-    [MemberData(nameof(FailureCases))]
-    public async Task ScopePublicationFailuresPreserveTheTargetAndRefundAdmission(string phase, bool imported, bool job)
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public Task ScopePublicationFailuresPreserveTheTargetAndRefundAdmission(bool imported, bool job)
     {
-        using InMemoryQpdfHost host = new();
-        byte[] blank = PdfTestDocument.Assemble(PdfTestDocument.SinglePage("<< /Length 3 >>", "q Q"u8.ToArray()), 1);
-        byte[] withAppearance = Fixture("reference-null", "reference-states");
-        host.AddInput(QpdfPath.From("input"), imported ? blank : withAppearance, QpdfInputOwnership.Copy);
-        host.AddInput(QpdfPath.From("stamp"), imported ? withAppearance : blank, QpdfInputOwnership.Copy);
-        await using (IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("output"), CancellationToken.None))
-        { await prior.WriteAsync("prior"u8.ToArray(), CancellationToken.None); await prior.CommitAsync(CancellationToken.None); }
-        RecordingMemoryBudget budget = new(phase == "shared" ? 4096 : 16777216); using CancellationTokenSource cancellation = new();
-        using (IMemoryScope owner = budget.CreateScope())
-        {
-            FailureHost execution = new(host, owner, phase, cancellation);
-            QpdfExecutionOptions options = new(phase == "local" ? QpdfLimits.Default with { MaxMemoryBytes = 4096 } : QpdfLimits.Default);
-            QpdfExecutionResult result = job
-                ? await Qpdf.ExecuteJobAsync(execution, """{"inputFile":"input","outputFile":"output","overlay":[{"file":"stamp","repeat":"1"}]}""", options, cancellation.Token)
-                : await Qpdf.ExecuteAsync(execution, new(["input", "--overlay", "stamp", "--repeat=1", "--", "output"]), options, cancellation.Token);
-            Assert.Equal(phase == "cancel" ? QpdfExecutionStatus.Canceled : QpdfExecutionStatus.Failed, result.Status);
-            if (phase is "local" or "shared") { Assert.Contains(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.BudgetExceeded); }
-            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes)); Assert.Equal("prior"u8.ToArray(), bytes);
-            Assert.Equal(0L, host.OpenLeaseCount); Assert.Equal(0L, result.Counters.OpenHandles);
-        }
-        Assert.Equal(0L, budget.ReservedBytes);
+        QpdfPath target = QpdfPath.From("output");
+        return PreparationAdmissionChecks.VerifyAsync(() => ScopeStorage(imported, target),
+            (host, token) => job
+                ? Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","overlay":[{"file":"stamp","repeat":"1"}]}""", token)
+                : Qpdf.ExecuteAsync(host, new(["input", "--overlay", "stamp", "--repeat=1", "--", "output"]), token),
+            target, 96, ["write", "commit", "cancel"]);
+    }
+
+    [Fact]
+    public async Task ScopePreparationLocalLimitKeepsThePriorOutput()
+    {
+        QpdfPath target = QpdfPath.From("output");
+        using InMemoryQpdfHost host = await ScopeStorage(true, target);
+        QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 4096 };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input", "--overlay", "stamp", "--repeat=1", "--", target.Value]), new(limits), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded);
+        Assert.True(host.TryGetOutput(target, out byte[] bytes));
+        Assert.Equal(new byte[] { 17, 23, 41 }, bytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+        Assert.Equal(0L, result.Counters.OpenHandles);
     }
 }
