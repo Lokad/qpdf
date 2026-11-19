@@ -28,9 +28,8 @@ public sealed class JsonOperationCompatibilityTests
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> >>", null),
         (4, "null", null), (5, "<< /Fields [] >>", null), (6, "<< /Type /StructTreeRoot /K [] >>", null)], 1);
 
-    public static IEnumerable<object[]> RejectedRequests()
-    {
-        (string Key, object Value, string[] Arguments)[] requests = [
+    private static readonly (string Key, object Value, string[] Arguments)[] RefusalSettings =
+        [
             ("qdf", true, ["--qdf"]), ("linearize", true, ["--linearize"]),
             ("normalizeContent", "y", ["--normalize-content=y"]),
             ("externalizeInlineImages", true, ["--externalize-inline-images"]), ("iiMinBytes", "17", ["--ii-min-bytes=17"]),
@@ -42,12 +41,16 @@ public sealed class JsonOperationCompatibilityTests
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
         ];
-        foreach ((string key, object value, string[] arguments) in requests)
+
+    public static IEnumerable<object[]> RejectedRequests()
+    {
+        foreach (var setting in RefusalSettings)
         {
-            if (key is not ("linearize" or "qdf")) { yield return [key, value, arguments, "create", "argv"]; }
+            string key = setting.Key;
+            if (key is not ("linearize" or "qdf")) { yield return [key, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
-            { yield return [key, value, arguments, "inspect", "argv"]; }
+            { yield return [key, "inspect", "argv"]; }
         }
 
         // Sample operation and adapter wiring independently of setting policy.
@@ -62,16 +65,15 @@ public sealed class JsonOperationCompatibilityTests
         ];
         foreach ((string key, string mode, string route) in adapters)
         {
-            var request = requests.Single(request => request.Key == key);
-            yield return [key, request.Value, request.Arguments, mode, route];
+            yield return [key, mode, route];
         }
     }
 
     [Theory]
     [MemberData(nameof(RejectedRequests))]
-    public async Task RejectUnsupportedOperationsBeforeDocumentAccess(
-        string key, object value, string[] arguments, string mode, string route)
+    public async Task RejectUnsupportedOperationsBeforeDocumentAccess(string key, string mode, string route)
     {
+        (_, object value, string[] arguments) = RefusalSettings.Single(setting => setting.Key == key);
         using InMemoryQpdfHost storage = CreateHost();
         await Seed(storage);
         ObservingHost host = new(storage);

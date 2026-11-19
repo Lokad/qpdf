@@ -65,6 +65,7 @@ scratch and rewrite-source ownership through commit.
 
 CI keeps the TRX files with the routine verification logs. Available VSTest
 traces and dumps from failed or canceled jobs go in `verification-diagnostics-*`.
+Use short scalar theory arguments for stable case identifiers in evidence.
 
 ## Reference and visual checks
 

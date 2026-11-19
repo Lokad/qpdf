@@ -36,11 +36,20 @@ public sealed class GeometryPrecisionTests
     }
 
     [Theory]
-    [InlineData(double.PositiveInfinity)]
-    [InlineData(double.NegativeInfinity)]
-    [InlineData(double.NaN)]
-    public void NonFiniteGeometryRejects(double value)
-        => Assert.Throws<QpdfParseException>(() => WriterNumber.FormatGeometry(value, new char[384]));
+    [InlineData("positive-infinity")]
+    [InlineData("negative-infinity")]
+    [InlineData("nan")]
+    public void NonFiniteGeometryRejects(string kind)
+    {
+        double value = kind switch
+        {
+            "positive-infinity" => double.PositiveInfinity,
+            "negative-infinity" => double.NegativeInfinity,
+            "nan" => double.NaN,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+        Assert.Throws<QpdfParseException>(() => WriterNumber.FormatGeometry(value, new char[384]));
+    }
 
     [Theory]
     [InlineData(double.Epsilon)]
