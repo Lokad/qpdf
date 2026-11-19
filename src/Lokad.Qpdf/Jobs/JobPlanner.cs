@@ -157,17 +157,11 @@ internal static partial class JobPlanner
             bool noOriginalObjectIds = false;
             bool seenNoOriginalObjectIds = false;
             bool optimizeImages = false;
-            bool seenOptimizeImages = false;
             long oiMinWidth = 128L;
-            bool seenOiMinWidth = false;
             long oiMinHeight = 128L;
-            bool seenOiMinHeight = false;
             long oiMinArea = 16384L;
-            bool seenOiMinArea = false;
             bool keepInlineImages = false;
-            bool seenKeepInlineImages = false;
             int? jpegQuality = null;
-            bool seenJpegQuality = false;
             int jsonVersion = 2;
             bool seenJson = false;
             List<string> jsonKeys = new();
@@ -530,27 +524,21 @@ internal static partial class JobPlanner
                         noOriginalObjectIds = RequireBareFlag(property.Value, "noOriginalObjectIds", textStorage);
                         break;
                     case "optimizeImages":
-                        seenOptimizeImages = true;
                         optimizeImages = RequireBareFlag(property.Value, "optimizeImages", textStorage);
                         break;
                     case "oiMinWidth":
-                        seenOiMinWidth = true;
                         oiMinWidth = RequireOiMin(property.Value, "oiMinWidth", textStorage);
                         break;
                     case "oiMinHeight":
-                        seenOiMinHeight = true;
                         oiMinHeight = RequireOiMin(property.Value, "oiMinHeight", textStorage);
                         break;
                     case "oiMinArea":
-                        seenOiMinArea = true;
                         oiMinArea = RequireOiMin(property.Value, "oiMinArea", textStorage);
                         break;
                     case "keepInlineImages":
-                        seenKeepInlineImages = true;
                         keepInlineImages = RequireBareFlag(property.Value, "keepInlineImages", textStorage);
                         break;
                     case "jpegQuality":
-                        seenJpegQuality = true;
                         jpegQuality = RequireJpegQuality(property.Value, textStorage);
                         break;
                     case "listAttachments":
@@ -763,8 +751,7 @@ internal static partial class JobPlanner
                     throw new QpdfParseException("Named object-stream output requires a stream inspection without other reports or PDF layout settings.", 0L, null);
                 }
                 if (output is not null && !attachmentTarget && !objectTarget || seenReplaceInput || seenSplitPages
-                    || importJson && (seenLabels || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight
-                        || seenOiMinArea || seenKeepInlineImages || seenJpegQuality || seenFlattenAnnotations)
+                    || importJson && (seenLabels || seenFlattenAnnotations)
                     || seenFlattenRotation || seenGenerateAppearances
                     || seenLinearizePass1
                     || importJson && (seenAddAttachment || seenRemoveAttachment || seenCopyAttachments)
@@ -776,7 +763,7 @@ internal static partial class JobPlanner
                 }
 
                 if (importJson && (empty
-                    || hasPages || seenCollate || externalizeInlineImages
+                    || hasPages || seenCollate
                     || rotations.Count > 0 || overlays.Count > 0 || underlays.Count > 0
                     || checkLinearization || showLinearization || showXref))
                 {
@@ -945,10 +932,7 @@ internal static partial class JobPlanner
             }
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
-                || wantJsonOutput && (normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
-                    || removeUnreferencedResources is not (null or "no")
-                    || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
-                    || keepInlineImages || jpegQuality is not null)
+                || wantJsonOutput && (normalizeContent || removeUnreferencedResources is not (null or "no"))
                 || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
             {

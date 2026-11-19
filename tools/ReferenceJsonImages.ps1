@@ -209,7 +209,36 @@ function Assert-BoundJsonImages {
     }
     Write-Output "[$tag] painted resource, image samples and independent private payload agree."
   }
+  Assert-BoundImageReports $Case $PixelHash $Optimize
   if (Compare-Object $inputs @(Get-ChildItem -LiteralPath "$Case/inputs" -File | Get-FileHash) -Property Path,Hash) {
     throw 'Bound image processing changed an input.'
   }
+}
+
+function Assert-BoundImageReports([string]$Case, [string]$PixelHash, [string[]]$Optimize) {
+  $reportArgs = @('inputs/bound-inline.json', '--json-input', '--externalize-inline-images', '--ii-min-bytes=0',
+    '--json-output=2', '--json-key=pages', '--decode-level=generalized')
+  if ((Invoke-Emit $Case (@('emit','--workdir',$Case,'--out',"report=$Case/lib-bound-report.json",'--')+$reportArgs+@('report'))) -ne 0 -or
+      (Invoke-Oracle $Case ($reportArgs+@("$Case/ora-bound-report.json"))) -ne 0) {
+    throw 'Bound image JSON report failed.'
+  }
+  foreach ($engine in 'lib','ora') {
+    $view = Get-Content -LiteralPath "$Case/${engine}-bound-report.json" -Raw | ConvertFrom-Json -AsHashtable
+    $projection = Get-JsonImageProjection $view
+    if (-not (Test-JsonImageProjection $projection 1 $false $true $PixelHash) -or
+        $view.pages[0].images[0].name -cne '/IIm1' -or $view.pages[0].images[0].object -cne $projection.Images[0].Pair) {
+      throw "Bound JSON report has a different active image: $engine."
+    }
+  }
+  $listingArgs = @('inputs/bound-source.pdf','--update-from-json=inputs/image-patch.json','--show-pages','--with-images')+$Optimize
+  $request = Invoke-ReferenceProbeRequest -WorkingDirectory $Case -Arguments (@('emit','--workdir',$Case,'--')+$listingArgs)
+  if ($request.ExitCode -ne 0 -or (Invoke-Oracle $Case $listingArgs) -ne 0) {
+    throw 'Patched image listing failed.'
+  }
+  foreach ($file in $request.StandardOutput, "$Case/ora-stdout.txt") {
+    if ([IO.File]::ReadAllText($file) -cnotmatch '(?m)^(?:emit: diagnostic PageListing Info )? +/IIm1: [0-9]+ [0-9]+ R, 128 x 128\r?$') {
+      throw "Patched image listing omitted the optimized image: $file."
+    }
+  }
+  Write-Output '[json-bound-images/reports] authored JSON and patched text report the active image.'
 }

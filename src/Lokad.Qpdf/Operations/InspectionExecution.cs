@@ -682,17 +682,10 @@ internal static class InspectionExecution
 
         using ParserMemoryScope inspection = ParserMemoryScope.Create(governor);
         Content.PoolResolver resolver = Content.PoolResolver.Create(inspection, model.Objects);
-        Dictionary<int, (int Number, int Generation)>? originalIds = OriginalObjectIds.PrepareImportedIds(
-            model.OriginalPairs, null, inspection, governor, token);
-        List<PageLocation>? prepared = null;
-        if (plan.CoalesceContents)
-        {
-            (PdfDictionary trailer, List<PageLocation> locations) = JsonExecution.PrepareBoundPages(model, resolver, originalIds, true,
-                limits, graph, governor, diagnostics, token);
-            graph.Reserve(Json.ImportedModel.AllocationBytes);
-            model = model with { Trailer = trailer };
-            prepared = locations;
-        }
+        Dictionary<int, (int Number, int Generation)> originalIds = OriginalObjectIds.PrepareImportedIds(
+            model.OriginalPairs, null, inspection, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
+        (model, IReadOnlyList<PageLocation>? prepared) = JsonExecution.PrepareBoundInspectionPages(model, resolver, originalIds,
+            plan, false, limits, graph, governor, diagnostics, token);
         PdfDictionary catalog = JsonExecution.ReadBoundCatalog(model, resolver, governor, token);
         IReadOnlyList<PageLocation> pages = prepared ?? (plan.RunCheck || plan.ShowPages || plan.ShowNpages
             ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token) : []);

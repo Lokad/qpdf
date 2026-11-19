@@ -3486,6 +3486,7 @@
           "JsonContentTransformTests.GeneratedIdentityDoesNotReviveAnEqualParsedDanglingReference"
         ],
         "interaction": [
+          "BoundImageTransformTests.AuthoredGraphReportDescribesExternalizedImageAndKeepsDeclaredPrivatePairs",
           "InlineImagesTests.JobRoundTripMatchesArgv",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
           "InlineConsumerScopeTests.OnlyXObjectResourceBindingsEnterFormExternalization",
@@ -4654,6 +4655,7 @@
           "JsonResourcePruningTests.DamagedProgramsRetainResourcesAndReturnThePruningWarning"
         ],
         "interaction": [
+          "BoundImageTransformTests.ReturnedPatchedReportShowsJpegAndUnchangedPrivateBytes",
           "JsonPublicationTransformTests.ActiveRolesChangeWhileOriginalAliasesAndGenerationsRemain",
           "JsonPublicationTransformTests.SelectedPagesDoNotInterpretLabelsThatAreRemovedOrReplaced",
           "JsonPublicationTransformTests.RemoveInfoOmittedForNonLiveModificationDate",
@@ -5659,6 +5661,8 @@
           "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.WriterEncodingFollowsOptimization",
           "BoundImageTransformTests.SplitPrunesUnusedImagesBeforeRequiringACodec",
+          "BoundImageTransformTests.ReturnedPatchedReportShowsJpegAndUnchangedPrivateBytes",
+          "BoundImageTransformTests.PatchedGraphImageListingUsesOptimizedResourcesAndExactSourcePairs",
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
@@ -7533,6 +7537,7 @@
           "ShowPagesTests.RejectsCombinationsAndValuedForm"
         ],
         "interaction": [
+          "BoundImageTransformTests.PatchedGraphImageListingUsesOptimizedResourcesAndExactSourcePairs",
           "ShowPagesTests.JobShowPagesMatchesArgv",
           "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent"
         ],

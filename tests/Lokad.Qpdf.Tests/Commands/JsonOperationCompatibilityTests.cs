@@ -32,12 +32,9 @@ public sealed class JsonOperationCompatibilityTests
         [
             ("qdf", true, ["--qdf"]), ("linearize", true, ["--linearize"]),
             ("normalizeContent", "y", ["--normalize-content=y"]),
-            ("externalizeInlineImages", true, ["--externalize-inline-images"]), ("iiMinBytes", "17", ["--ii-min-bytes=17"]),
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),
-            ("generateAppearances", true, ["--generate-appearances"]), ("optimizeImages", true, ["--optimize-images"]),
-            ("oiMinWidth", "17", ["--oi-min-width=17"]), ("keepInlineImages", true, ["--keep-inline-images"]),
-            ("jpegQuality", "75", ["--jpeg-quality=75"]),
+            ("generateAppearances", true, ["--generate-appearances"]),
             ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
             ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
         ];
@@ -47,9 +44,7 @@ public sealed class JsonOperationCompatibilityTests
         foreach (var setting in RefusalSettings)
         {
             string key = setting.Key;
-            if (key is "externalizeInlineImages" or "iiMinBytes" or "optimizeImages" or "oiMinWidth"
-                or "keepInlineImages" or "jpegQuality") { yield return [key, "bound-inspect", "argv"]; }
-            else if (key is not ("linearize" or "qdf" or "normalizeContent" or "removeUnreferencedResources"))
+            if (key is not ("linearize" or "qdf" or "normalizeContent" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
@@ -58,7 +53,6 @@ public sealed class JsonOperationCompatibilityTests
 
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
-            ("externalizeInlineImages", "bound-inspect", "job"),
             ("normalizeContent", "bound-inspect", "job"),
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
             ("overlay", "create", "job"),

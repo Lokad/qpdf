@@ -322,12 +322,8 @@ internal static class JsonExecution
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
             Json.ImportedModel model = await BindInspectionModelAsync(host, imported, engine, source.Header,
                 limits, governor, memory, token).ConfigureAwait(false);
-            IReadOnlyList<OutputRotation> rotations = [];
-            bool coalesce = false;
             if (inspection.GraphPlan is JsonPlan settings)
             {
-                rotations = settings.Rotations;
-                coalesce = settings.CoalesceContents;
                 model = ImportedPublication.Apply(model,
                     new(settings.RemoveInfo, settings.RemoveMetadata, settings.RemoveAcroform, settings.RemoveStructure, settings.RemoveLabels),
                     limits, memory, governor, token, out _);
@@ -336,21 +332,79 @@ internal static class JsonExecution
             _ = ReadBoundCatalog(model, resolver, governor, token);
             Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
                 model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
-            IReadOnlyList<PageLocation> pages = [];
-            if (coalesce || rotations.Count > 0 || Json.DocumentJson.RequestUsesPageTree(request))
-            {
-                (PdfDictionary trailer, List<PageLocation> locations) = PrepareBoundPages(model, resolver, ids, coalesce,
-                    limits, memory, governor, diagnostics, token);
-                ApplyBoundRotations(model.Objects, resolver, locations, rotations, limits, memory, governor, token);
-                memory.Reserve(Json.ImportedModel.AllocationBytes);
-                model = model with { Trailer = trailer, CalledAllPages = true };
-                pages = locations;
-            }
-            Json.JsonDocumentView view = new(model, resolver, pages, ids, engine?.Security);
+            (model, IReadOnlyList<PageLocation>? pages) = PrepareBoundInspectionPages(model, resolver, ids,
+                inspection.GraphPlan, Json.DocumentJson.RequestUsesPageTree(request), limits, memory, governor, diagnostics, token);
+            Json.JsonDocumentView view = new(model, resolver, pages ?? [], ids, engine?.Security);
             rendered = Json.DocumentJson.WriteDocument(view, request, output, limits, governor, diagnostics, token);
         }
         catch { rendered?.Dispose(); throw; }
         return rendered;
+    }
+
+    internal static (Json.ImportedModel Model, IReadOnlyList<PageLocation>? Pages) PrepareBoundInspectionPages(
+        Json.ImportedModel model, Content.PoolResolver resolver, Dictionary<int, (int Number, int Generation)> ids,
+        IInspectionGraphPlan? plan, bool needsPages, QpdfLimits limits, ParserMemoryScope memory,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        bool transformImages = plan is { ExternalizeInlineImages: true } or { OptimizeImages: true };
+        bool coalesce = plan is { CoalesceContents: true };
+        IReadOnlyList<OutputRotation> rotations = plan?.Rotations ?? [];
+        if (!transformImages && !coalesce && rotations.Count == 0 && !needsPages) { return (model, null); }
+        (PdfDictionary trailer, List<PageLocation> pages) = PrepareBoundPages(model, resolver, ids, coalesce,
+            limits, memory, governor, diagnostics, token);
+        ApplyBoundRotations(model.Objects, resolver, pages, rotations, limits, memory, governor, token);
+        if (plan is not null && transformImages)
+        {
+            using ParserMemoryScope requests = ParserMemoryScope.Create(governor);
+            requests.Reserve(104L);
+            bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
+            Content.ContentTransformRequest request = new(false, false, false, null, externalize, plan.IiMinBytes)
+            { BoundPageContent = true, DeferImageEncoding = true };
+            Content.ImageOptimizeRequest images = new(plan.OptimizeImages, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea,
+                plan.KeepInlineImages, plan.JpegQuality) { PrepareIdentityCrypt = true };
+            (int first, int next) = ImportedPublication.TransformPagePrograms(model, resolver, pages, request, images, false,
+                limits, memory, governor, diagnostics, token);
+            Json.JsonImport.CheckObjectCount(model, limits);
+            RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
+            for (int i = 0; i < pages.Count; i++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                PdfReference page = pages[i].Source ?? throw new InvalidOperationException("Missing prepared page identity.");
+                pages[i] = new(page, (PdfDictionary)model.Objects[page.ObjectNumber]);
+            }
+        }
+        memory.Reserve(Json.ImportedModel.AllocationBytes);
+        return (model with { Trailer = trailer, CalledAllPages = true }, pages);
+    }
+
+    private static void RegisterTransformedBoundPairs(Json.ImportedModel model, Dictionary<int, (int Number, int Generation)> ids,
+        int first, int next, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (first == next) { return; }
+        int largest = 0;
+        foreach ((int number, _) in ids.Values)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
+        for (int bound = first; bound < next; bound++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!model.Objects.ContainsKey(bound)) { continue; }
+            if (largest == int.MaxValue)
+            { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
+            RegisterBoundPair(model, ids, bound, ++largest, memory);
+        }
+    }
+
+    private static void RegisterBoundPair(Json.ImportedModel model, Dictionary<int, (int Number, int Generation)> ids,
+        int bound, int number, ParserMemoryScope memory)
+    {
+        (int Number, int Generation) pair = (number, 0);
+        ParserContainers.EnsureEntryCapacity(memory, ids, 2L * sizeof(int));
+        ids.Add(bound, pair);
+        if (model.OriginalPairs is { } original)
+        {
+            ParserContainers.EnsureEntryCapacity(memory, original, sizeof(int));
+            original.Add(pair, bound);
+        }
     }
 
     internal static (PdfDictionary Trailer, List<PageLocation> Pages) PrepareBoundPages(
@@ -426,14 +480,7 @@ internal static class JsonExecution
             lastBound++;
             if (ids is not null)
             {
-                var pair = (++lastDeclared, 0);
-                ParserContainers.EnsureEntryCapacity(memory, ids, 2L * sizeof(int));
-                ids.Add(lastBound, pair);
-                if (model.OriginalPairs is { } original)
-                {
-                    ParserContainers.EnsureEntryCapacity(memory, original, sizeof(int));
-                    original.Add(pair, lastBound);
-                }
+                RegisterBoundPair(model, ids, lastBound, ++lastDeclared, memory);
             }
             return lastBound;
         }

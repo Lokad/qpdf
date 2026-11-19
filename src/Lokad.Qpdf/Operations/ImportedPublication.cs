@@ -12,11 +12,11 @@ internal static class ImportedPublication
 {
     private static readonly PdfName[] ImageResources = [PdfName.FromAscii("Resources")];
 
-    internal static void TransformPagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
+    internal static (int First, int Next) TransformPagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
         ContentTransformRequest request, ImageOptimizeRequest images, bool pruneResources,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
-        if (pages.Count == 0) { return; }
+        if (pages.Count == 0) { return (0, 0); }
         if (request.Externalize || images.Optimize)
         {
             BindImageResources(model.Objects, resolver, pages, limits, governor, token);
@@ -41,6 +41,7 @@ internal static class ImportedPublication
         if (pruneResources)
         { ContentTransforms.ApplyResourcePruning(copier, ids, request.BoundPageContent, limits, governor, diagnostics, token); }
         ImageOptimizer.Apply(copier, ids, images, limits, governor, diagnostics, token);
+        return (largest + 1, copier.NextId);
     }
 
     private static void BindImageResources(Dictionary<int, QpdfObject> objects, PoolResolver resolver,

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
@@ -184,6 +185,83 @@ public sealed class BoundImageTransformTests
             Assert.Equal("prior"u8.ToArray(), kept);
         }
         ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    [Fact]
+    public async Task AuthoredGraphReportDescribesExternalizedImageAndKeepsDeclaredPrivatePairs()
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(Model, InheritedResourcesModel(), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new([Model.Value, "--json-input", "--json-output=2",
+            "--json-key=pages", "--externalize-inline-images", "--ii-min-bytes=9", "report"]), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("report"), out byte[] bytes));
+        using JsonDocument report = JsonDocument.Parse(bytes);
+        JsonElement root = report.RootElement;
+        JsonElement pages = root.GetProperty("pages");
+        JsonElement descriptor = Assert.Single(pages[0].GetProperty("images").EnumerateArray());
+        Assert.Equal("/IIm1", descriptor.GetProperty("name").GetString());
+        Assert.Equal(8, descriptor.GetProperty("width").GetInt32());
+        JsonElement table = root.GetProperty("qpdf")[1];
+        string imagePair = Assert.IsType<string>(descriptor.GetProperty("object").GetString());
+        JsonElement image = table.GetProperty("obj:" + imagePair).GetProperty("stream");
+        Assert.Equal("abcdefgh "u8.ToArray(), image.GetProperty("data").GetBytesFromBase64());
+        string programPair = Assert.IsType<string>(Assert.Single(pages[0].GetProperty("contents").EnumerateArray()).GetString());
+        Assert.NotEqual("5 0 R", programPair);
+        byte[] program = table.GetProperty("obj:" + programPair).GetProperty("stream").GetProperty("data").GetBytesFromBase64();
+        Assert.Contains("/IIm1 Do", Encoding.ASCII.GetString(program), StringComparison.Ordinal);
+        Assert.Equal("5 0 R", table.GetProperty("obj:1 0 R").GetProperty("value").GetProperty("/AuditProgram").GetString());
+        Assert.Equal(SmallInline, table.GetProperty("obj:5 0 R").GetProperty("stream").GetProperty("data").GetBytesFromBase64());
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task PatchedGraphImageListingUsesOptimizedResourcesAndExactSourcePairs()
+    {
+        RecordingCodec codec = new();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
+        AddUpdateInputs(host, PatchedInline);
+        JsonObject job = UpdateJob();
+        job.Remove("outputFile");
+        job["showPages"] = "";
+        job["withImages"] = "";
+        job["showObject"] = "4,7";
+        job["rawStreamData"] = "";
+
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, job.ToJsonString(), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(new[] { 37 }, codec.EncodeQualities);
+        Assert.Equal(PatchedInline, result.OutputBytes?.ToArray());
+        Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.PageListing
+            && item.Message.StartsWith("    /IIm1: ", StringComparison.Ordinal)
+            && item.Message.EndsWith(" R, 128 x 128", StringComparison.Ordinal));
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task ReturnedPatchedReportShowsJpegAndUnchangedPrivateBytes()
+    {
+        RecordingCodec codec = new();
+        using InMemoryQpdfHost host = new(QpdfLimits.Default, codec);
+        AddUpdateInputs(host, PatchedInline);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["source.pdf", "--update-from-json=graph.json",
+            "--json-output=2", "--json-key=pages", "--optimize-images", "--oi-min-width=1", "--oi-min-height=1",
+            "--oi-min-area=1", "--ii-min-bytes=0", "--jpeg-quality=37"]), CancellationToken.None);
+
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using JsonDocument report = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        JsonElement root = report.RootElement;
+        JsonElement page = root.GetProperty("pages")[0];
+        JsonElement descriptor = Assert.Single(page.GetProperty("images").EnumerateArray());
+        string imagePair = Assert.IsType<string>(descriptor.GetProperty("object").GetString());
+        JsonElement table = root.GetProperty("qpdf")[1];
+        JsonElement image = table.GetProperty("obj:" + imagePair).GetProperty("stream");
+        Assert.Equal("/DCTDecode", image.GetProperty("dict").GetProperty("/Filter").GetString());
+        Assert.Equal(PatchedInline, table.GetProperty("obj:4 7 R").GetProperty("stream").GetProperty("data").GetBytesFromBase64());
+        Assert.Equal(new[] { 37 }, codec.EncodeQualities);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     private static void CheckExternalizedSample(QpdfDocument document, PdfDictionary xobjects)
