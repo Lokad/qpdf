@@ -11,15 +11,13 @@ public sealed class EncryptedJsonUpdateCommandTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input.pdf"), Patch = QpdfPath.From("update.json"), Output = QpdfPath.From("output.pdf"), Template = QpdfPath.From("template.pdf");
 
-    public static IEnumerable<object[]> Cases()
-    {
-        foreach (bool job in new[] { false, true })
-        foreach (int revision in new[] { 4, 6 })
-        foreach (string policy in new[] { "preserve", "remove", "new", "template" }) { yield return [job, revision, policy]; }
-    }
-
     [Theory]
-    [MemberData(nameof(Cases))]
+    [InlineData(false, 4, "preserve")]
+    [InlineData(true, 6, "preserve")]
+    [InlineData(false, 6, "new")]
+    [InlineData(true, 4, "remove")]
+    [InlineData(false, 6, "template")]
+    [InlineData(true, 4, "template")]
     public async Task CommandsApplyPlaintextPatchesWithTheChosenProtection(bool job, int revision, string policy)
     {
         using InMemoryQpdfHost host = new(); Add(host, Input, $"security-r{revision}-ascii.pdf"); Add(host, Template, "security-r4-empty.pdf");

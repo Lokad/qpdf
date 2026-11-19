@@ -4430,6 +4430,7 @@
           "JsonCompositionTests.BoundProjectionKeepsDeclaredAddressesAcrossDescriptorsAndValues"
         ],
         "resource": [
+          "EncryptedJsonCreationCommandTests.CommandCreationTranslatesEarlyAndLateAdmissionRefusals",
           "JsonImportTests.CreateYieldsToExhaustedBudget",
           "EncryptedJsonCreationTests.EveryProtectedCreationAdmissionRefusalRefundsBeforePublication",
           "JsonNumberTests.ExpansionRefusalReleasesSharedAdmissionAndPreservesOutput",
@@ -8186,6 +8187,7 @@
           "JsonCompositionTests.PhysicalUpdateAuthenticatesBeforeProjection"
         ],
         "resource": [
+          "EncryptedJsonUpdateCommandTests.EveryCommandUpdateAdmissionRefusalRefundsBeforePublication",
           "JsonImportTests.UpdateYieldsToExhaustedBudget",
           "JsonGenerationOwnershipTests.NormalizedUpdatesPreserveTargetsAndRefundPrivateStorage",
           "EncryptedJsonRoundTripTests.EveryFullUpdateAdmissionRefusalRefundsBeforePublication",

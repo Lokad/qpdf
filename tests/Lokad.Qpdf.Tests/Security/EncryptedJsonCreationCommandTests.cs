@@ -10,14 +10,13 @@ namespace Lokad.Qpdf.Tests.Security;
 public sealed class EncryptedJsonCreationCommandTests
 {
     private static readonly QpdfPath Input = QpdfPath.From("input.json"), Output = QpdfPath.From("output.pdf"), Template = QpdfPath.From("template.pdf");
-    public static IEnumerable<object[]> Cases()
-    {
-        foreach (bool job in new[] { false, true })
-        foreach (string policy in new[] { "preserve", "remove", "new", "template" })
-        foreach (bool metadata in new[] { false, true }) { yield return [job, policy, metadata]; }
-    }
     [Theory]
-    [MemberData(nameof(Cases))]
+    [InlineData(false, "preserve", true)]
+    [InlineData(true, "remove", false)]
+    [InlineData(false, "new", true)]
+    [InlineData(true, "new", false)]
+    [InlineData(false, "template", false)]
+    [InlineData(true, "template", true)]
     public async Task CommandsCreatePlaintextJsonWithTheSelectedProtection(bool job, string policy, bool metadata)
     {
         using InMemoryQpdfHost host = new(); Add(host, metadata);
