@@ -932,7 +932,7 @@ internal static partial class JobPlanner
             }
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
-                || wantJsonOutput && (normalizeContent || removeUnreferencedResources is not (null or "no"))
+                || wantJsonOutput && removeUnreferencedResources is not (null or "no")
                 || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
             {
@@ -1054,6 +1054,7 @@ internal static partial class JobPlanner
                 {
                     Import = importJson ? ResolveInspectionImport(inspectionInput, jsonInput, updateFromJson) : null,
                     CoalesceContents = coalesceContents,
+                    NormalizeContent = normalizeContent,
                     ExternalizeInlineImages = externalizeInlineImages,
                     IiMinBytes = iiMinBytes,
                     RemoveUnreferencedResources = removeUnreferencedResources,

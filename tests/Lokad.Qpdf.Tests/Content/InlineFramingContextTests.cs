@@ -164,4 +164,42 @@ public sealed class InlineFramingContextTests
         Assert.True(catalog.TryGet(PdfName.FromAscii("Original"), out QpdfObject alias));
         Assert.Equal(original, Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(alias))).RawMemory.ToArray());
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task JsonNormalizationKeepsInheritedInlineImageContextsDistinct(bool imported)
+    {
+        (byte[] pdf, byte[] original) = Fixture("named", false, true);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
+        if (imported)
+        {
+            QpdfExecutionResult source = await Qpdf.ExecuteAsync(host,
+                new(["input", "--json-output=2"]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, source.ExitCode);
+            host.AddInput(QpdfPath.From("graph"), Encoding.UTF8.GetBytes(Assert.IsType<string>(source.OutputText)),
+                QpdfInputOwnership.Transfer);
+        }
+        string[] arguments = imported ? ["graph", "--json-input"] : ["input"];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new([.. arguments, "--json=2", "--json-stream-data=inline", "--normalize-content=y"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using JsonDocument report = JsonDocument.Parse(Assert.IsType<string>(result.OutputText));
+        JsonElement table = report.RootElement.GetProperty("qpdf")[1];
+        string[] contents = report.RootElement.GetProperty("pages").EnumerateArray()
+            .Select(page => Assert.IsType<string>(Assert.Single(page.GetProperty("contents").EnumerateArray()).GetString())).ToArray();
+        Assert.Equal(4, contents.Length);
+        Assert.Equal(contents[0], contents[1]);
+        Assert.Equal(contents[2], contents[3]);
+        Assert.NotEqual(contents[0], contents[2]);
+        Assert.True(Bytes(contents[0]).AsSpan().IndexOf("(a\\nline)"u8) >= 0);
+        Assert.True(Bytes(contents[2]).AsSpan().IndexOf("(a\rline)"u8) >= 0);
+        Assert.Equal(original, Bytes("7 0 R"));
+        Assert.Equal(0L, host.OpenLeaseCount);
+
+        byte[] Bytes(string reference)
+            => Convert.FromBase64String(Assert.IsType<string>(
+                table.GetProperty("obj:" + reference).GetProperty("stream").GetProperty("data").GetString()));
+    }
 }

@@ -347,18 +347,19 @@ internal static class JsonExecution
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         bool transformImages = plan is { ExternalizeInlineImages: true } or { OptimizeImages: true };
+        bool normalize = plan is JsonPlan { NormalizeContent: true };
         bool coalesce = plan is { CoalesceContents: true };
         IReadOnlyList<OutputRotation> rotations = plan?.Rotations ?? [];
-        if (!transformImages && !coalesce && rotations.Count == 0 && !needsPages) { return (model, null); }
+        if (!transformImages && !normalize && !coalesce && rotations.Count == 0 && !needsPages) { return (model, null); }
         (PdfDictionary trailer, List<PageLocation> pages) = PrepareBoundPages(model, resolver, ids, coalesce,
             limits, memory, governor, diagnostics, token);
         ApplyBoundRotations(model.Objects, resolver, pages, rotations, limits, memory, governor, token);
-        if (plan is not null && transformImages)
+        if (plan is not null && (transformImages || normalize))
         {
             using ParserMemoryScope requests = ParserMemoryScope.Create(governor);
             requests.Reserve(104L);
             bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
-            Content.ContentTransformRequest request = new(false, false, false, null, externalize, plan.IiMinBytes)
+            Content.ContentTransformRequest request = new(false, normalize, false, null, externalize, plan.IiMinBytes)
             { BoundPageContent = true, DeferImageEncoding = true };
             Content.ImageOptimizeRequest images = new(plan.OptimizeImages, plan.OiMinWidth, plan.OiMinHeight, plan.OiMinArea,
                 plan.KeepInlineImages, plan.JpegQuality) { PrepareIdentityCrypt = true };

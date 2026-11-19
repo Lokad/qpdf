@@ -31,7 +31,6 @@ public sealed class JsonOperationCompatibilityTests
     private static readonly (string Key, object Value, string[] Arguments)[] RefusalSettings =
         [
             ("qdf", true, ["--qdf"]), ("linearize", true, ["--linearize"]),
-            ("normalizeContent", "y", ["--normalize-content=y"]),
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),
             ("generateAppearances", true, ["--generate-appearances"]),
@@ -44,7 +43,7 @@ public sealed class JsonOperationCompatibilityTests
         foreach (var setting in RefusalSettings)
         {
             string key = setting.Key;
-            if (key is not ("linearize" or "qdf" or "normalizeContent" or "removeUnreferencedResources"))
+            if (key is not ("linearize" or "qdf" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
@@ -53,7 +52,6 @@ public sealed class JsonOperationCompatibilityTests
 
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
-            ("normalizeContent", "bound-inspect", "job"),
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
             ("overlay", "create", "job"),
             ("flattenRotation", "inspect", "job"),

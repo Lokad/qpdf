@@ -5359,6 +5359,9 @@
           "NormalizedLiteralTests.EitherCancellationRoutePrecedesNewStorage",
           "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
           "BoundNormalizationTests.CreationNormalizesTheSharedPageProgramAndPreservesTheAlias",
+          "JsonContentTransformTests.NormalizationReportsActiveBytesAndKeepsTheOriginalAlias",
+          "JsonContentTransformTests.BoundNormalizationExportsPatchedBytesAndRecreatesTheEditedGraph",
+          "InlineFramingContextTests.JsonNormalizationKeepsInheritedInlineImageContextsDistinct",
           "InlineFramingContextTests.BoundNormalizationUsesEffectiveResourceContexts",
           "NormalizedContentIdentityTests.SkippedPageProgramsKeepAllPartsAndShareOriginalStreams",
           "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
@@ -5373,6 +5376,7 @@
         "negative": [
           "ContentTransformsTests.MalformedContentFlagsFail",
           "ContentTransformsTests.NormalizeKeepsDamagedStreamsWithWarning",
+          "JsonContentTransformTests.NormalizationRefusalAndCancellationPreserveThePriorReport",
           "InlinePacketBoundaryTests.UnknownFramingPreservesTheWholeProgramAndDiscardsEarlierCandidates",
           "Ascii85FramingTests.BrokenMarkersDoNotConsumeLaterContent"
         ],

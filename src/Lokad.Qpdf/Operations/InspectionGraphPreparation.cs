@@ -74,8 +74,9 @@ internal static partial class InspectionGraphPreparation
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken)
     {
         bool overlay = plan.Overlays.Count > 0 || plan.Underlays.Count > 0;
+        bool normalize = plan is JsonPlan { NormalizeContent: true };
         bool externalize = plan.ExternalizeInlineImages || plan.OptimizeImages && !plan.KeepInlineImages;
-        bool content = plan.CoalesceContents || externalize || plan.OptimizeImages;
+        bool content = plan.CoalesceContents || normalize || externalize || plan.OptimizeImages;
         bool authoredLabels = plan.Labels.Count > 0;
         bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
@@ -186,7 +187,7 @@ internal static partial class InspectionGraphPreparation
                             SetInspectionEntry(extra, key, kept, memory);
                         }
                     }
-                    else if (externalize || plan.OptimizeImages)
+                    else if (normalize || externalize || plan.OptimizeImages)
                     {
                         PdfName key = PdfName.FromAscii("Resources");
                         QpdfObject? resources = PageInheritance.Find(document.Engine, location, key, limits, governor, cancellationToken);
@@ -406,10 +407,10 @@ internal static partial class InspectionGraphPreparation
                     { governor.NoteOperation(); ParserContainers.AddItem(contentMemory, contentPages, page.Number, sizeof(int)); }
                     pageIds = contentPages;
                 }
-                if (plan.CoalesceContents || externalize)
+                if (plan.CoalesceContents || normalize || externalize)
                 {
                     memory.Reserve(48L);
-                    Content.ContentTransformRequest request = new(plan.CoalesceContents, false, false, null, externalize, plan.IiMinBytes);
+                    Content.ContentTransformRequest request = new(plan.CoalesceContents, normalize, false, null, externalize, plan.IiMinBytes);
                     Content.ContentTransforms.ApplyPageTransforms(pool, pageIds, request, limits, governor, diagnostics, cancellationToken);
                     if (externalize)
                     { Content.ContentTransforms.ExternalizeForms(pool, pageIds, request, null, limits, governor, diagnostics, cancellationToken); }

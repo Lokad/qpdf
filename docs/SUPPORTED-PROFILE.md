@@ -453,8 +453,10 @@ removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
 JSON export applies `--rotate` to the effective page order. PDF-to-JSON export
 composes rotation with content transforms. Bound export applies coalescing and
-rotation to the authored or patched graph. Edited programs gain new object
-identities. Source objects remain available in the report.
+rotation to the authored or patched graph. For either input, `--normalize-content=y`
+normalizes active page programs before projection using their effective resources.
+Edited programs gain new stream identities and independent aliases retain source
+bytes. Unsupported programs retain their original bytes and report a warning.
 PDF-to-JSON export can flatten stored annotations. The effective page program
 includes their placed appearances, and the active form retains surviving fields.
 Rotation baking and appearance generation remain unavailable.

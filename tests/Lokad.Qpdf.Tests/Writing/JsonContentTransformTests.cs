@@ -151,12 +151,10 @@ public sealed class JsonContentTransformTests
     [Theory]
     [InlineData("baseline")]
     [InlineData("threshold")]
-    [InlineData("normalize")]
-    public async Task InactiveOrSerializerOnlyPoliciesLeaveTheOriginalProgram(string mode)
+    public async Task InactivePoliciesLeaveTheOriginalProgram(string mode)
     {
         using InMemoryQpdfHost host = Host(Fixture("ordinary", 17, true, true, "inline"));
-        string[] options = mode switch { "threshold" => ["--externalize-inline-images", "--ii-min-bytes=1024"],
-            "normalize" => ["--normalize-content=y"], _ => [] };
+        string[] options = mode == "threshold" ? ["--externalize-inline-images", "--ii-min-bytes=1024"] : [];
         using Graph graph = await Inspect(host, options);
         JsonElement contents = graph.Resolve(Assert.Single(graph.Pages()).GetProperty("/Contents"));
         Assert.Equal(Inline, graph.Bytes(contents[0].GetString() ?? throw new InvalidOperationException()));
@@ -164,6 +162,97 @@ public sealed class JsonContentTransformTests
         Assert.Empty(graph.Resolve(resources.GetProperty("/XObject")).EnumerateObject());
         Assert.Equal(mode == "threshold", graph.Report.RootElement.GetProperty("qpdf")[0].GetProperty("calledgetallpages").GetBoolean());
     }
+
+    private static readonly byte[] OriginalProgram = "q\r\n0 0 1 1 re f\r\nQ\r\n"u8.ToArray();
+    private static readonly byte[] PatchedProgram = "q\r\n0 0 3 5 re f\r\nQ\r\n"u8.ToArray();
+
+    private static byte[] NormalizationFixture() => PdfTestDocument.Assemble([
+        (1, "<< /Type /Catalog /Pages 2 0 R /Audit 4 7 R >>", null),
+        (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
+        (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 7 R >>", null),
+        (4, $"<< /Length {OriginalProgram.Length} >>", OriginalProgram)
+    ], 1, new Dictionary<int, int> { [4] = 7 }, "1.7", "");
+
+    [Theory]
+    [InlineData("n")]
+    [InlineData("y")]
+    public async Task NormalizationReportsActiveBytesAndKeepsTheOriginalAlias(string setting)
+    {
+        using InMemoryQpdfHost host = Host(NormalizationFixture());
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["input", "--json=2", "--json-stream-data=inline",
+            "--normalize-content=" + setting]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        using Graph report = new(Assert.IsType<string>(result.OutputText), host);
+        AssertNormalizedReport(report, OriginalProgram, "q\n0 0 1 1 re f\nQ\n"u8, setting == "y");
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BoundNormalizationExportsPatchedBytesAndRecreatesTheEditedGraph(bool create)
+    {
+        using InMemoryQpdfHost host = Host(NormalizationFixture());
+        if (create)
+        {
+            using Graph source = await Inspect(host, []);
+            host.AddInput(QpdfPath.From("bound"), Encoding.UTF8.GetBytes(source.Report.RootElement.GetRawText()), QpdfInputOwnership.Transfer);
+        }
+        host.AddInput(QpdfPath.From("patch"), NormalizationPatch(), QpdfInputOwnership.Transfer);
+        Dictionary<string, object> job = new()
+        {
+            ["inputFile"] = create ? "bound" : "input", ["updateFromJson"] = "patch",
+            ["normalizeContent"] = "y", ["json"] = "2", ["jsonStreamData"] = "inline"
+        };
+        if (create) { job["jsonInput"] = ""; }
+        QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        string json = Assert.IsType<string>(result.OutputText);
+        using Graph report = new(json, host);
+        AssertNormalizedReport(report, PatchedProgram, "q\n0 0 3 5 re f\nQ\n"u8, true);
+        host.AddInput(QpdfPath.From("normalized"), Encoding.UTF8.GetBytes(json), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult publication = await Qpdf.ExecuteAsync(host,
+            new(["normalized", "--json-input", "--compress-streams=n", "recreated"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, publication.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("recreated"), out byte[] pdf));
+        QpdfPath recreated = QpdfPath.From("read-recreated");
+        host.AddInput(recreated, pdf, QpdfInputOwnership.Transfer);
+        await using (QpdfDocument read = await QpdfDocument.OpenAsync(host, recreated, CancellationToken.None))
+        {
+            PdfDictionary page = Assert.Single(read.PageReferences).Page;
+            Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject active));
+            PdfStream stream = Assert.IsType<PdfStream>(read.GetObject(Assert.IsType<PdfReference>(active)));
+            Assert.Equal("q\n0 0 3 5 re f\nQ\n"u8.ToArray(), stream.Data);
+            Assert.True(read.Engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root));
+            PdfDictionary catalog = Assert.IsType<PdfDictionary>(read.GetObject(Assert.IsType<PdfReference>(root)));
+            Assert.True(catalog.TryGet(PdfName.FromAscii("Audit"), out QpdfObject alias));
+            Assert.NotEqual(active, alias);
+            Assert.Equal(PatchedProgram, Assert.IsType<PdfStream>(read.GetObject(Assert.IsType<PdfReference>(alias))).Data);
+        }
+        Assert.Equal(0, host.OpenLeaseCount);
+    }
+
+    private static byte[] NormalizationPatch() => Encoding.UTF8.GetBytes($$$$"""
+        {"qpdf":[{"jsonversion":2},{"obj:4 7 R":{"stream":{"dict":{},"data":"{{{{Convert.ToBase64String(PatchedProgram)}}}}"}}}]}
+        """);
+
+    private static void AssertNormalizedReport(Graph report, byte[] original, ReadOnlySpan<byte> normalized, bool changed)
+    {
+        string active = Assert.IsType<string>(Assert.Single(report.Pages()).GetProperty("/Contents").GetString());
+        string alias = Assert.IsType<string>(report.Catalog.GetProperty("/Audit").GetString());
+        Assert.Equal(!changed, active == alias);
+        Assert.Equal(original, report.Bytes(alias));
+        Assert.Equal(changed ? normalized.ToArray() : original, report.Bytes(active));
+        JsonElement contents = Assert.Single(report.Report.RootElement.GetProperty("pages")[0].GetProperty("contents").EnumerateArray());
+        Assert.Equal(active, contents.GetString());
+    }
+
+    [Fact]
+    public Task NormalizationRefusalAndCancellationPreserveThePriorReport()
+        => PreparationAdmissionChecks.VerifyAsync(
+            () => PreparationAdmissionChecks.StorageAsync(NormalizationFixture(), Output),
+            (host, token) => Qpdf.ExecuteAsync(host, new(["input", "--json-output=2", "--normalize-content=y", "output"]), token),
+            Output, 256, ["write", "cancel"]);
 
     [Theory]
     [InlineData(true, false, false)]
