@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
@@ -12,6 +13,19 @@ namespace Lokad.Qpdf.Tests.Writing;
 public sealed class DocumentOpenHintTests
 {
     private static readonly JsonObject Corpus = Load();
+    private static readonly JsonObject Fixtures = Assert.IsType<JsonObject>(Corpus["Fixtures"]);
+
+    private readonly record struct Run(JsonObject Fixture, string Mode, bool Compress, bool Job)
+    {
+        internal static Run FromId(string id)
+        {
+            int route = id.LastIndexOf('-');
+            int compression = id.LastIndexOf('-', route - 1);
+            int packing = id.LastIndexOf('-', compression - 1);
+            return new(Assert.IsType<JsonObject>(Fixtures[id[..packing]]), id[(packing + 1)..compression],
+                bool.Parse(id.AsSpan(compression + 1, route - compression - 1)), id.AsSpan(route + 1).SequenceEqual("job"));
+        }
+    }
 
     private static JsonObject Load()
     {
@@ -21,62 +35,58 @@ public sealed class DocumentOpenHintTests
     }
 
     private static string Text(JsonNode? node) => node?.GetValue<string>() ?? throw new InvalidOperationException();
-    private static JsonObject Row(string id) => Assert.IsType<JsonArray>(Corpus["Cases"])
-        .OfType<JsonObject>().Single(row => Text(row["Id"]) == id);
 
     public static IEnumerable<object[]> Cases()
     {
-        foreach (IGrouping<string, JsonObject> group in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>()
-            .GroupBy(row => Text(row["Id"])[..Text(row["Id"]).LastIndexOf('-')]))
+        foreach ((string fixture, JsonNode? _) in Fixtures)
         {
-            JsonObject primary = group.Single(row => Text(row["Route"]) == "argv");
-            yield return [Text(primary["Id"])];
-            foreach (JsonObject row in group.Where(row => !ReferenceEquals(row, primary)))
+            foreach (string mode in new[] { "disable", "generate" })
             {
-                bool differs = new[] { "Fixture", "Key", "Shape", "NativeExit", "NativeFields" }
-                    .Any(key => !JsonNode.DeepEquals(row[key], primary[key]));
-                if (differs || group.Key is "minimal-2page.pdf-disable-False" or "minimal-2page.pdf-generate-True")
-                { yield return [Text(row["Id"])]; }
+                yield return [$"{fixture}-{mode}-False-argv"];
+                yield return [$"{fixture}-{mode}-True-argv"];
             }
         }
+        yield return ["minimal-2page.pdf-disable-False-job"];
+        yield return ["minimal-2page.pdf-generate-True-job"];
     }
 
-    private static async Task<InMemoryQpdfHost> HostAsync(JsonObject row)
+    private static async Task<InMemoryQpdfHost> HostAsync(JsonObject fixture)
     {
-        string digest = Text(row["Fixture"]);
-        byte[] fixture = Convert.FromBase64String(Text(Corpus["Fixtures"]?[digest]));
-        Assert.Equal(digest, Convert.ToHexString(SHA256.HashData(fixture)));
+        byte[] bytes = Convert.FromBase64String(Text(fixture["Bytes"]));
+        Assert.Equal(Text(fixture["SHA256"]), Convert.ToHexString(SHA256.HashData(bytes)));
         InMemoryQpdfHost host = new();
-        host.AddInput(QpdfPath.From("inputs/a.pdf"), fixture, QpdfInputOwnership.Copy);
-        host.AddInput(QpdfPath.From("inputs/job.json"), System.Text.Encoding.UTF8.GetBytes(
-            Assert.IsType<JsonObject>(row["Job"]).ToJsonString()), QpdfInputOwnership.Copy);
+        host.AddInput(QpdfPath.From("inputs/a.pdf"), bytes, QpdfInputOwnership.Copy);
         await using IQpdfOutputTransaction prior = await host.CreateOutputAsync(QpdfPath.From("outputs/a.pdf"), CancellationToken.None);
         await prior.WriteAsync(new byte[] { 17, 23, 41 }, CancellationToken.None);
         await prior.CommitAsync(CancellationToken.None);
         return host;
     }
 
-    private static ValueTask<QpdfExecutionResult> ExecuteAsync(InMemoryQpdfHost host, JsonObject row, QpdfLimits limits)
+    private static ValueTask<QpdfExecutionResult> ExecuteAsync(InMemoryQpdfHost host, Run run, QpdfLimits limits)
     {
         QpdfExecutionOptions options = new(limits);
-        return Text(row["Route"]) == "job"
-            ? Qpdf.ExecuteJobAsync(host, Assert.IsType<JsonObject>(row["Job"]).ToJsonString(), options, CancellationToken.None)
-            : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(Assert.IsType<JsonArray>(row["Args"]).Select(Text).ToArray()), options, CancellationToken.None);
+        string compression = run.Compress ? "y" : "n";
+        return run.Job
+            ? Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "inputs/a.pdf", outputFile = "outputs/a.pdf",
+                linearize = "", objectStreams = run.Mode, compressStreams = compression }), options, CancellationToken.None)
+            : Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--linearize", "--object-streams=" + run.Mode,
+                "--compress-streams=" + compression, "outputs/a.pdf"]), options, CancellationToken.None);
     }
 
     [Theory]
     [MemberData(nameof(Cases))]
     public async Task NativeAssignmentsAndCatalogGraphsRemainCompatible(string id)
     {
-        JsonObject row = Row(id);
-        InMemoryQpdfHost host = await HostAsync(row);
+        Run run = Run.FromId(id);
+        JsonObject fixture = run.Fixture;
+        using InMemoryQpdfHost host = await HostAsync(fixture);
         QpdfLimits limits = QpdfLimits.Default;
-        QpdfExecutionResult result = await ExecuteAsync(host, row, limits);
-        Assert.Equal((QpdfExitCode)(row["NativeExit"]?.GetValue<int>() ?? throw new InvalidOperationException()), result.ExitCode);
+        QpdfExecutionResult result = await ExecuteAsync(host, run, limits);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.Equal(0L, host.OpenLeaseCount);
 
-        InMemoryQpdfHost readerHost = new();
+        using InMemoryQpdfHost readerHost = new();
         readerHost.AddInput(QpdfPath.From("read.pdf"), pdf, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(readerHost, QpdfPath.From("read.pdf"), CancellationToken.None))
         {
@@ -84,7 +94,7 @@ public sealed class DocumentOpenHintTests
             using LinearizationDataOwner owner = Assert.IsType<LinearizationDataOwner>(LinearizationCheck.TryReadOwnedData(
                 document.Engine, 2, QpdfLimits.Default, governor, CancellationToken.None));
             LinearizationData data = owner.Data;
-            JsonObject fields = Assert.IsType<JsonObject>(row["NativeFields"]);
+            JsonObject fields = Assert.IsType<JsonObject>((run.Mode == "generate" ? fixture["GeneratedFields"] : null) ?? fixture["NativeFields"]);
             Assert.Equal(Assert.IsType<JsonArray>(fields["ObjectCounts"]).Select(node => node?.GetValue<long>() ?? throw new InvalidOperationException()),
                 data.PageTable.Entries.Select(entry => entry.ObjectCount));
             Assert.Equal(Assert.IsType<JsonArray>(fields["SharedCounts"]).Select(node => node?.GetValue<int>() ?? throw new InvalidOperationException()),
@@ -93,13 +103,14 @@ public sealed class DocumentOpenHintTests
             Assert.Equal(fields["TotalCount"]?.GetValue<int>(), data.SharedTable.TotalCount);
             Assert.Equal(0, data.PageTable.NumeratorBits);
 
-            if (!string.IsNullOrEmpty(Text(row["Key"])))
+            string key = Text(fixture["Key"]), shape = Text(fixture["Shape"]);
+            if (key.Length != 0)
             {
                 long firstPageOffset = document.Engine.XRefEntries[checked((int)data.FirstPageObject)].First;
                 PdfReference catalogReference = Assert.IsType<PdfReference>(Get(document.Engine.Trailer, "Root"));
                 PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(catalogReference.ObjectNumber));
-                QpdfObject root = Get(catalog, Text(row["Key"]));
-                if (Text(row["Key"]) == "AcroForm" && Text(row["Shape"]) == "array")
+                QpdfObject root = Get(catalog, key);
+                if (key == "AcroForm" && shape == "array")
                 {
                     PdfDictionary open = Assert.IsType<PdfDictionary>(Assert.Single(Assert.IsType<PdfArray>(root).Items));
                     Assert.True(Assert.IsType<PdfBoolean>(Get(open, "DocOpenRoot")).Value);
@@ -117,8 +128,8 @@ public sealed class DocumentOpenHintTests
                 }
                 if (root is PdfReference openReference)
                 { Assert.True(PhysicalOffset(document, openReference.ObjectNumber) < firstPageOffset); }
-                else if (Text(row["Shape"]) == "reference")
-                { Assert.Equal("AcroForm", Text(row["Key"])); Assert.IsType<PdfDictionary>(root); }
+                else if (shape == "reference")
+                { Assert.Equal("AcroForm", key); Assert.IsType<PdfDictionary>(root); }
                 foreach (int number in document.Engine.XRefEntries.Keys.Where(number => number > 0))
                 {
                     if (document.GetObject(number) is PdfDictionary dictionary && dictionary.TryGet(PdfName.FromAscii("DocOpenChild"), out _))
@@ -149,13 +160,13 @@ public sealed class DocumentOpenHintTests
     [Fact]
     public async Task ArrayFormSubsetPrunesOmittedPageLinks()
     {
-        InMemoryQpdfHost host = await HostAsync(Row("AcroForm-array-disable-False-argv"));
+        using InMemoryQpdfHost host = await HostAsync(Assert.IsType<JsonObject>(Fixtures["AcroForm-array"]));
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
             new QpdfCommandInvocation(["inputs/a.pdf", "--pages", ".", "1", "--", "outputs/a.pdf"]), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.Equal(0L, host.OpenLeaseCount);
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
-        InMemoryQpdfHost readerHost = new();
+        using InMemoryQpdfHost readerHost = new();
         readerHost.AddInput(QpdfPath.From("read.pdf"), pdf, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(readerHost, QpdfPath.From("read.pdf"), CancellationToken.None))
         {
@@ -178,22 +189,25 @@ public sealed class DocumentOpenHintTests
 
     public static IEnumerable<object[]> PublicationCases()
     {
-        foreach (JsonObject row in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>())
+        foreach (string fixture in new[] { "AcroForm-dictionary", "PageMode-reference" })
         {
-            if (Text(row["Key"]) == "AcroForm" && Text(row["Shape"]) == "dictionary"
-                || Text(row["Key"]) == "PageMode" && Text(row["Shape"]) == "reference"
-                || Text(row["Id"]) == "AcroForm-array-generate-True-job")
-            { yield return [Text(row["Id"])]; }
+            foreach (string mode in new[] { "disable", "generate" })
+            foreach (string route in new[] { "argv", "job" })
+            {
+                yield return [$"{fixture}-{mode}-False-{route}"];
+                yield return [$"{fixture}-{mode}-True-{route}"];
+            }
         }
+        yield return ["AcroForm-array-generate-True-job"];
     }
 
     [Theory]
     [MemberData(nameof(PublicationCases))]
     public async Task OutputLimitAfterClassificationPreservesPriorTarget(string id)
     {
-        JsonObject row = Row(id);
-        InMemoryQpdfHost host = await HostAsync(row);
-        QpdfExecutionResult result = await ExecuteAsync(host, row, QpdfLimits.Default with { MaxOutputBytes = 1L });
+        Run run = Run.FromId(id);
+        using InMemoryQpdfHost host = await HostAsync(run.Fixture);
+        QpdfExecutionResult result = await ExecuteAsync(host, run, QpdfLimits.Default with { MaxOutputBytes = 1L });
         Assert.Equal(QpdfExitCode.Error, result.ExitCode);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == QpdfDiagnosticCode.BudgetExceeded
             && diagnostic.Message.Contains(nameof(QpdfLimits.MaxOutputBytes), StringComparison.Ordinal));
