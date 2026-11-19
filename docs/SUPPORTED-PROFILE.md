@@ -315,8 +315,8 @@ viewer-dependent meaning cannot be preserved; see [navigation differences](COMPA
 ### JPEG codec capabilities
 
 Image optimization uses a host JPEG codec for eligible 8-bit
-DeviceGray/DeviceRGB images and compares candidates with the input encoding
-before applying writer stream options. An explicit quality
+DeviceGray/DeviceRGB images. It keeps smaller candidates and compares
+against the input encoding before applying writer stream options. An explicit quality
 from 0 to 100 enables DCT recompression. Encoder quality is codec-specific.
 CMYK/YCCK recompression and color-key-mask optimization remain unavailable.
 
@@ -327,6 +327,21 @@ orientation. The writer retains the PDF color space and Decode array.
 Existing codecs default to no four-component capability; unsupported decoding
 preserves opaque streams with an explicit warning or skipped check.
 [Codec ownership](MEMORY.md#jpeg-codecs)
+
+### Image transform outputs
+
+Commands apply inline-image externalization and JPEG optimization to ordinary
+PDF inputs and graphs created or patched with JSON. The effective resources
+include inherited page resources and nested Forms. Independent references
+retain their original image and Form streams.
+
+| Output | Transform behavior |
+| --- | --- |
+| Whole or split PDF | When enabled, split resource pruning precedes optimization. Writer stream encoding follows image selection. |
+| JSON report | The descriptors and object table describe the transformed graph. Selected filters and stream payload options govern the representation. |
+| Text and binary inspection | Checking, page listings and object stream extraction use the transformed graph. |
+
+[Image thresholds and caller codecs](#jpeg-codec-capabilities)
 
 ## Inspection profile
 
@@ -348,14 +363,10 @@ content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. `--coalesce-contents` joins page
 programs after binding and before checking or listing. Physical-layout listings
 require a PDF input.
-Bound checks and listings can apply inline-image externalization and JPEG
-optimization to the effective page graph.
-
-Text inspection of a PDF applies content coalescing, inline-image externalization,
-image optimization, annotation flattening, document-role removals and authored
-page labels before checking or listing the effective graph. Header rotation
-preserves earlier edits to page content and resources. Image thresholds
-and codec requirements follow the [content profile](#page-content-profile).
+Text inspection of a PDF applies content coalescing, [image transforms](#image-transform-outputs),
+annotation flattening, document-role removals and authored page labels before
+checking or listing. Header rotation preserves earlier edits to page content
+and resources.
 Page selection assembles labels, form registrations and source context for
 the effective catalog. Resource pruning uses each selected source's `yes`,
 `no`, or `auto` policy. Whole-file text reports keep their resource bindings.
@@ -408,10 +419,7 @@ labels, secondary actions/forms/layers and source version requirements survive
 export and recreation. The primary retains catalog and security policy.
 Page-source JSON applies the same per-source no/yes/auto resource-pruning policy
 as command PDF selection, retaining independent private resource bindings.
-Coalescing, inline-image externalization and eligible image optimization,
-including nested Forms, share the ordinary content owners before JSON projection.
-Optimization uses the caller's JPEG codec, thresholds, quality and inline policy;
-it retains originals when candidates are not smaller or encoding declines.
+Coalescing and [image transforms](#image-transform-outputs) run before projection.
 Prepared direct and repeated pages remain linked from the visible tree.
 Source generations and independent aliases retain their meaning. Inherited
 resource pushdown is reported only when performed.
@@ -420,8 +428,8 @@ removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
 JSON export applies `--rotate` to the effective page order. PDF-to-JSON export
 composes rotation with content transforms. Bound export applies coalescing and
-rotation and image transforms to the authored or patched graph. Edited
-programs gain new object identities. Source objects remain available in the report.
+rotation to the authored or patched graph. Edited programs gain new object
+identities. Source objects remain available in the report.
 PDF-to-JSON export can flatten stored annotations. The effective page program
 includes their placed appearances, and the active form retains surviving fields.
 Rotation baking and appearance generation remain unavailable.
@@ -512,19 +520,13 @@ repoints active page content using each page's effective resources. Shared
 arrays and streams remain available to private references. QDF normalization
 uses the shared stream identities. An edited direct page gains an indirect
 identity. Undecodable content keeps its original program and reports a
-warning. Inline-image externalization and JPEG optimization run after binding
-and before stream encoding or splitting. Image transforms use each page's
-effective resources and preserve independent references to original image
-and Form streams. Optimization uses the host JPEG codec and honors inline
-policy, byte and dimension thresholds, and JPEG quality.
-[Image processing](#page-content-profile)
+warning. [Image transforms](#image-transform-outputs) run after binding.
 
 ### Splitting and replacement
 
 `--split-pages` / `splitPages` partitions the bound page order. Resource pruning
 defaults to `auto` for splits, using the bound graph's shared resources to decide
-whether to prune. Explicit `yes` prunes and `no` keeps the bindings. Pruning
-removes unused bindings before image optimization. Whole-file
+whether to prune. Explicit `yes` prunes and `no` keeps the bindings. Whole-file
 creation and update keep the bindings. Private resource aliases survive. Parts
 inherit page attributes, continue labels and replace references to foreign
 pages with null. Repeated pages get separate widget registrations. Explicit

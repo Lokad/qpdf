@@ -13,6 +13,8 @@
   the first linearization pass for whole PDFs or split parts.
 - Check bound JSON and return listings without writing a PDF. Coalesce
   page contents before reporting or publication.
+- Apply image transforms to authored and patched graphs in writers and
+  reports. Bound writers can normalize page programs and prune split resources.
 - Assemble and collate pages for JSON export, including empty primaries.
   Export applies resource pruning, image optimization, content coalescing
   and inline-image externalization.

@@ -104,6 +104,7 @@ internal static class HelpText
           --json-input  build a PDF from qpdf JSON
           --update-from-json=file  update a PDF from qpdf JSON
             JSON creation and update support object streams, linearization, content normalization, and image transforms.
+            Image transforms also apply to JSON and page reports from the effective graph.
           --check-linearization       check linearization tables only
           --show-npages                 show number of pages
           --show-pages                  show page dictionaries and contents
