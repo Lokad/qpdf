@@ -7442,6 +7442,7 @@
         ],
         "interaction": [
           "ShowObjectTests.JobShowObjectMatchesArgv",
+          "AttachmentEditInspectionTests.TextInspectionSelectsTheFinalCatalogAndPreservesPrivateAliases",
           "ImportedCheckTests.StandaloneListingsUseTheBoundPairsWithoutDecodingUnrelatedContent",
           "ImportedCheckTests.StandaloneObjectStreamReturnsTheExactDeclaredPayload"
         ],
@@ -7450,6 +7451,7 @@
         ],
         "oracle": [
           "diff:show-object",
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
       }

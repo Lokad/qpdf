@@ -322,6 +322,7 @@ inspections. Page edits and physical-layout listings are unavailable here.
 
 Text inspection of a PDF applies content coalescing, document-role removals
 and authored page labels before checking or listing the effective graph.
+Attachment edits follow the same active catalog policy.
 Selecting the source catalog's exact object pair displays the active catalog
 after these role edits. Independently rooted references keep their stored
 objects. Xref listings and linearization reports describe the acquired file.

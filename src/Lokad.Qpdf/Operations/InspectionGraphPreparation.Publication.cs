@@ -13,8 +13,8 @@ namespace Lokad.Qpdf.Operations;
 internal static partial class InspectionGraphPreparation
 {
     private static async ValueTask ApplyInspectionAttachmentsAsync(IQpdfHost host, QpdfDocument document, GraphCopier pool,
-        IInspectionGraphPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory,
-        CancellationToken token)
+        IInspectionGraphPlan plan, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, InspectionGraph lifetime, CancellationToken token)
     {
         memory.Reserve(128L);
         AttachmentEdits edits = new(plan.AttachmentsToAdd, plan.AttachmentsToRemove, plan.AttachmentsToCopy);
@@ -86,6 +86,7 @@ internal static partial class InspectionGraphPreparation
         }
         PdfReference catalogRef = pool.AddIndirectObjectWithId(updated, pool.NextId);
         document.Engine.SetInspectionTrailer(PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, catalogRef));
+        lifetime.ReplacedCatalog ??= root as PdfReference;
         graph.Memory.TransferTo(memory, graph.Bytes);
     }
 

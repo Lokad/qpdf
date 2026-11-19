@@ -26,6 +26,18 @@ function Invoke-ReferenceAttachmentInspectionEdits {
   }
   Write-Output '[attachment-inspection-edits/remove] text listing has no active attachment keys.'
 
+  $catalog = @('inputs/page.pdf','--add-attachment','inputs/added.bin','--key=added','--','--show-object=1')
+  if ((Invoke-Oracle $case $catalog) -ne 0 -or
+      (Get-Content -Raw -LiteralPath "$case/ora-stdout.txt") -notmatch '/PageMode /UseAttachments') {
+    throw 'Native exact-object inspection did not report the edited catalog.'
+  }
+  $managed = Invoke-ReferenceProbeRequest -WorkingDirectory $case -Arguments (@('emit','--workdir',$case,'--') + $catalog)
+  if ($managed.ExitCode -ne 0 -or (Get-Content -Raw -LiteralPath $managed.StandardOutput) -notmatch
+      '(?m)^emit: diagnostic ObjectListing Info .*?/PageMode /UseAttachments') {
+    throw 'Managed exact-object inspection did not report the edited catalog.'
+  }
+  Write-Output '[attachment-inspection-edits/catalog] the original pair displays the edited catalog.'
+
   $flags = @('inputs/seed.pdf','--remove-attachment=old','--add-attachment','inputs/added.bin','--key=added','--',
       '--copy-attachments-from','inputs/seed.pdf','--prefix=copy-','--')
   $formats = @('--json=2','--json-stream-data=inline','--json-key=attachments','--json-key=qpdf')

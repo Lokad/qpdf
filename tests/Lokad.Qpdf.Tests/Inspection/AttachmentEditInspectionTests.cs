@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Tests.Foundation;
 
@@ -17,13 +18,14 @@ public sealed class AttachmentEditInspectionTests
     private const string FileSpec = "<< /Type /Filespec /F (original.bin) /EF << /F 6 9 R >> >>";
 
     private static byte[] Fixture(string version, bool directSpec) => PdfTestDocument.Assemble([
-        (1, "<< /Type /Catalog /Pages 2 0 R /Names 4 0 R /AuditNames 4 0 R >>", null),
+        (1, "<< /Type /Catalog /Pages 2 0 R /Names 4 0 R /AuditNames 4 0 R /AuditCatalog 8 0 R /AcroForm << /Fields [] >> >>", null),
         (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
         (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>", null),
         (4, "<< /EmbeddedFiles << /Names [(seed) " + (directSpec ? FileSpec : "5 7 R") + "] >> /AuditCategory 7 0 R >>", null),
         (5, FileSpec, null),
         (6, "<< /Type /EmbeddedFile /Length 4 >>", Original),
         (7, "<< /Names [] >>", null),
+        (8, "<< /SavedCatalog 1 0 R >>", null),
     ], 1, new Dictionary<int, int> { [5] = 7, [6] = 9 }, version, "");
 
     private static async Task<InMemoryQpdfHost> PrepareAsync()
@@ -113,10 +115,11 @@ public sealed class AttachmentEditInspectionTests
     {
         using InMemoryQpdfHost host = await PrepareAsync();
         QpdfExecutionResult result = await Qpdf.ExecuteJobAsync(host, """
-            {"inputFile":"input","check":"","listAttachments":"","showAttachment":"added","removeAttachment":["seed"],
+            {"inputFile":"input","check":"","showObject":"1","listAttachments":"","showAttachment":"added","removeAttachment":["seed"],
              "addAttachment":[{"file":"payload","key":"added"}]}
             """, CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Contains("/PageMode /UseAttachments", CatalogListing(result), StringComparison.Ordinal);
         Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.AttachmentListing && item.Message.StartsWith("added ->", StringComparison.Ordinal));
         Assert.DoesNotContain(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.AttachmentListing && item.Message.StartsWith("seed ->", StringComparison.Ordinal));
         Assert.Equal(Added, Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes).ToArray());
@@ -126,6 +129,45 @@ public sealed class AttachmentEditInspectionTests
         Assert.Equal("seed", Assert.Single(await Qpdf.ListAttachmentsAsync(host, Input, CancellationToken.None)).Key);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
+
+    [Fact]
+    public async Task TextInspectionSelectsTheFinalCatalogAndPreservesPrivateAliases()
+    {
+        using InMemoryQpdfHost host = await PrepareAsync();
+        string[] copy = ["--copy-attachments-from", "donor", "--prefix=copy-", "--"];
+        async Task<string> Show(string selector, string[] settings)
+        {
+            QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(["input", .. settings,
+                "--show-object=" + selector]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(0L, result.Counters.OpenHandles);
+            return CatalogListing(result);
+        }
+
+        string active = await Show("1,0", copy);
+        Assert.Contains("/PageMode /UseAttachments", active, StringComparison.Ordinal);
+        Assert.Contains("/AuditNames 4 0 R", active, StringComparison.Ordinal);
+        Assert.DoesNotContain(" /Names 4 0 R", active, StringComparison.Ordinal);
+        string trailer = await Show("trailer", copy);
+        Match root = Regex.Match(trailer, @"/Root (\d+) (\d+) R");
+        Assert.True(root.Success, trailer);
+        string activeSelector = root.Groups[1].Value + "," + root.Groups[2].Value;
+        Assert.NotEqual("1,0", activeSelector);
+        Assert.Equal(active, await Show(activeSelector, copy));
+        Assert.Equal("<< /SavedCatalog 1 0 R >>", await Show("8", copy));
+
+        string combined = await Show("1,0", [.. copy, "--remove-acroform"]);
+        Assert.Contains("/PageMode /UseAttachments", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("/AcroForm", combined, StringComparison.Ordinal);
+        string original = await Show("1,0", []);
+        Assert.Contains("/AcroForm", original, StringComparison.Ordinal);
+        Assert.Contains(" /Names 4 0 R", original, StringComparison.Ordinal);
+        Assert.DoesNotContain("/UseAttachments", original, StringComparison.Ordinal);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    private static string CatalogListing(QpdfExecutionResult result)
+        => Assert.Single(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.ObjectListing).Message;
 
     [Theory]
     [InlineData("alias")]

@@ -141,7 +141,7 @@ internal static partial class InspectionGraphPreparation
                 if (publication)
                 { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
                 if (editAttachments)
-                { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
+                { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
                 return lifetime;
             }
             if (prunePrimary && pruneSources is not null && pruningMemory is not null)
@@ -453,7 +453,7 @@ internal static partial class InspectionGraphPreparation
             if (publication)
             { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
             if (editAttachments)
-            { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
+            { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
             return lifetime;
         }
         catch (ArgumentException ex)
