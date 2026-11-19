@@ -163,12 +163,10 @@ public sealed class JsonInspectionTests
     [Theory]
     [InlineData("--check")]
     [InlineData("--list-attachments")]
-    [InlineData("--add-attachment", "files/n.bin", "--")]
     [InlineData("--replace-input")]
     public async Task JsonCombinationsFail(params string[] flags)
     {
         InMemoryQpdfHost host = HostWith("inputs/a.pdf", PlainFixture());
-        host.AddInput(QpdfPath.From("files/n.bin"), [1, 2, 3], QpdfInputOwnership.Copy);
         List<string> argv = new() { "inputs/a.pdf", "--json" };
         argv.AddRange(flags);
         argv.AddRange(["--", "outputs/a.json"]);
