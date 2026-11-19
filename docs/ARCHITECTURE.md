@@ -85,16 +85,11 @@ membership after stream preparation. QDF comments use original pairs. Packing
 and encryption use final numbers. Two-pass linearization assigns page and shared
 dependencies to hint spans and keeps outline objects outside object streams.
 
-`OutputSerialization` dispatches counting, identifier replay and final
-emission. Writers share identifier validation, byte encoding and bounded
-sink writes. `OutputPublication` owns staged captures. Output preparation
-and result admission finish before the first commit. The publication check
-uses identities collected during input acquisition, including leases already
-closed. In-place JSON updates retain admitted reader storage after closing
-the source lease. [Publication rules](SUPPORTED-PROFILE.md#governance)
-
-Targeted binary extraction can transfer admitted payload backing past reader
-cleanup through commit.
+`OutputSerialization` dispatches counting, identifier replay and emission.
+`OutputPublication` owns staged captures. Alias checks use the acquisition
+records. In-place updates and targeted binary extraction can retain admitted
+bytes after closing the input lease.
+[Publication rules](SUPPORTED-PROFILE.md#governance) · [Host transaction flow](MEMORY.md#host-transaction-flow)
 
 ## Password security
 
@@ -145,16 +140,10 @@ It enforces structural, memory, decoded-byte and handle limits and optional host
 admission. It bounds diagnostics and accounts for actual host operations.
 Cancellation is checked at I/O boundaries and in bounded work loops.
 
-Operation-local reuse indexes serve traversal, content analysis and decoded
-streams. Page preparation shares inherited attribute lookups across leaves of
-one source and preserves cycle and depth checks. Field survival reuses membership
-summaries within a source and its retained widget set. Image optimization scans
-each effective XObject dictionary once during candidate discovery. Destination lookups reuse observed,
-disjoint child ranges and visit irregular or unseen siblings in source order. Reuse respects graph
-identity and processing context. Active-path
-cycle checks, depth and quota checks still apply on replay, and each page
-retains its own validation. Memory charges follow backing ownership past
-cache eviction when a consumer still borrows the data.
+Operation-local indexes reuse traversal, content analysis and decoded streams
+by graph identity and processing context. Cache hits preserve active-path
+cycle checks, depth and quota checks, and per-page validation. Memory charges
+follow backing ownership while a consumer still borrows the data.
 
 ## Development
 
