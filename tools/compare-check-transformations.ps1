@@ -14,37 +14,25 @@ $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Force -Path $WorkRoot | Out-Null
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+. (Join-Path $PSScriptRoot 'ReferencePdfFixture.ps1')
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
 
 function Write-AuthoredPdf([string]$Path, [bool]$ContentGenerations) {
   $first = if ($ContentGenerations) { '[5 3 R 6 4 R]' } else { '5 0 R' }
   $second = if ($ContentGenerations) { '6 4 R' } else { '6 0 R' }
+  $program = [Text.Encoding]::ASCII.GetBytes('q Q')
   $objects = @(
-    @{N=1;G=0;V='<< /Type /Catalog /Pages 2 0 R >>'},
-    @{N=2;G=0;V='<< /Type /Pages /Kids [8 0 R] /Count 2 /MediaBox [0 0 600 800] /Resources << /ProcSet [/PDF] >> /Rotate 90 >>'},
-    @{N=3;G=2;V="<< /Type /Page /Parent 8 0 R /Contents $first /Rotate null >>"},
-    @{N=4;G=0;V="<< /Type /Page /Parent 8 0 R /Contents $second >>"},
-    @{N=5;G=$(if ($ContentGenerations) {3} else {0});V="<< /Length 3 >>`nstream`nq Q`nendstream"},
-    @{N=6;G=$(if ($ContentGenerations) {4} else {0});V="<< /Length 3 >>`nstream`nq Q`nendstream"},
-    @{N=7;G=0;V='(orphan)'},
-    @{N=8;G=0;V='<< /Type /Pages /Parent 2 0 R /Kids [3 2 R 4 0 R] /Count 2 >>'}
+    @{Body='<< /Type /Catalog /Pages 2 0 R >>'},
+    @{Body='<< /Type /Pages /Kids [8 0 R] /Count 2 /MediaBox [0 0 600 800] /Resources << /ProcSet [/PDF] >> /Rotate 90 >>'},
+    @{Generation=2;Body="<< /Type /Page /Parent 8 0 R /Contents $first /Rotate null >>"},
+    @{Body="<< /Type /Page /Parent 8 0 R /Contents $second >>"},
+    @{Generation=$(if ($ContentGenerations) {3});Body='<< /Length 3 >>';Data=$program},
+    @{Generation=$(if ($ContentGenerations) {4});Body='<< /Length 3 >>';Data=$program},
+    @{Body='(orphan)'},
+    @{Body='<< /Type /Pages /Parent 2 0 R /Kids [3 2 R 4 0 R] /Count 2 >>'}
   )
-  $buffer = [IO.MemoryStream]::new()
-  try {
-    $write = { param([string]$Text) $buffer.Write([Text.Encoding]::ASCII.GetBytes($Text)) }
-    & $write "%PDF-1.4`n"
-    $entries = @{}
-    foreach ($object in $objects) {
-      $entries[$object.N] = @{Offset=$buffer.Position;Generation=$object.G}
-      & $write "$($object.N) $($object.G) obj`n$($object.V)`nendobj`n"
-    }
-    $xref = $buffer.Position
-    & $write "xref`n0 9`n0000000000 65535 f `n"
-    for ($n=1; $n -le 8; $n++) { & $write (('{0:D10} {1:D5} n ' -f [long]$entries[$n].Offset,[int]$entries[$n].Generation) + "`n") }
-    & $write "trailer`n<< /Size 9 /Root 1 0 R >>`nstartxref`n$xref`n%%EOF`n"
-    [IO.File]::WriteAllBytes($Path,$buffer.ToArray())
-  } finally { $buffer.Dispose() }
+  [IO.File]::WriteAllBytes($Path, (New-ReferenceClassicPdf -Objects $objects -Trailer '/Size 9 /Root 1 0 R'))
 }
 
 $cases = @(

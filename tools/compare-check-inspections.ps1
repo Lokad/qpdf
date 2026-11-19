@@ -14,6 +14,7 @@ $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+. (Join-Path $PSScriptRoot 'ReferencePdfFixture.ps1')
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
 
@@ -22,35 +23,15 @@ function New-AuthoredPdf([bool] $Attachment) {
   $data = if ($Attachment) { [byte[]] @() } else { [Text.Encoding]::ASCII.GetBytes('invalid-flate') }
   $streamDict = if ($Attachment) { '<< /Length 0 >>' } else { "<< /Length $($data.Length) /Filter /FlateDecode >>" }
   $objects = @(
-    @{ Dict=$catalog }, @{ Dict='<< /Type /Pages /Kids [3 0 R] /Count 1 >>' },
-    @{ Dict='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>' },
-    @{ Dict=$streamDict; Data=$data }
+    @{ Body=$catalog }, @{ Body='<< /Type /Pages /Kids [3 0 R] /Count 1 >>' },
+    @{ Body='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>' },
+    @{ Body=$streamDict; Data=$data }
   )
   if ($Attachment) {
-    $objects += @{ Dict='<< /Type /Filespec /F (p.bin) /EF << /F 6 0 R >> >>' }
-    $objects += @{ Dict='<< /Type /EmbeddedFile /Length 3 >>'; Data=[byte[]] @(0,127,255) }
+    $objects += @{ Body='<< /Type /Filespec /F (p.bin) /EF << /F 6 0 R >> >>' }
+    $objects += @{ Body='<< /Type /EmbeddedFile /Length 3 >>'; Data=[byte[]] @(0,127,255) }
   }
-  $bytes = [IO.MemoryStream]::new()
-  try {
-    $write = { param([string] $s) $bytes.Write([Text.Encoding]::ASCII.GetBytes($s)) }
-    & $write "%PDF-1.4`n"
-    $offsets = [Collections.Generic.List[long]]::new()
-    for ($i = 0; $i -lt $objects.Count; $i++) {
-      $offsets.Add($bytes.Position)
-      & $write "$($i+1) 0 obj`n$($objects[$i].Dict)`n"
-      if ($objects[$i].ContainsKey('Data')) {
-        & $write "stream`n"
-        if ($objects[$i].Data.Length -gt 0) { $bytes.Write([byte[]] $objects[$i].Data, 0, $objects[$i].Data.Length) }
-        & $write "`nendstream`n"
-      }
-      & $write "endobj`n"
-    }
-    $xref = $bytes.Position
-    & $write "xref`n0 $($objects.Count+1)`n0000000000 65535 f `n"
-    foreach ($offset in $offsets) { & $write ($offset.ToString('D10',[Globalization.CultureInfo]::InvariantCulture) + " 00000 n `n") }
-    & $write "trailer`n<< /Root 1 0 R /Size $($objects.Count+1) >>`nstartxref`n$xref`n%%EOF`n"
-    return ,$bytes.ToArray()
-  } finally { $bytes.Dispose() }
+  New-ReferenceClassicPdf -Objects $objects -Trailer "/Root 1 0 R /Size $($objects.Count+1)"
 }
 
 $cases = @(

@@ -12,6 +12,7 @@ $WorkRoot = [IO.Path]::GetFullPath($WorkRoot)
 $utf8 = [Text.UTF8Encoding]::new($false)
 New-Item -ItemType Directory -Path $WorkRoot -Force | Out-Null
 . (Join-Path $PSScriptRoot 'ReferenceProbe.ps1')
+. (Join-Path $PSScriptRoot 'ReferencePdfFixture.ps1')
 Initialize-ReferenceProbe -ProbeDll $ProbeDll -WorkRoot $WorkRoot
 try {
 $payload = [byte[]] @(0,1,2,127,128,255,13,10,65)
@@ -28,38 +29,20 @@ function New-BytesPdf([string] $Mode, [bool] $Recovery) {
   }
   $filter = if ($compressed) { ' /Filter /FlateDecode' } else { '' }
   $objects = @(
-    @{D='<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 6 0 R] >> >> >>'},
-    @{D='<< /Type /Pages /Kids [3 0 R] /Count 1 >>'},
-    @{D='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>'},
-    @{D='<< /Length 0 >>';B=[byte[]]@()},
-    @{D="<< /Length $($data.Length)$filter >>";B=$data},
-    @{D='<< /Type /Filespec /F (p.bin) /EF << /F 7 0 R >> >>'},
-    @{D='<< /Type /EmbeddedFile /Length 4 >>';B=$attachment}
+    @{Body='<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(payload) 6 0 R] >> >> >>'},
+    @{Body='<< /Type /Pages /Kids [3 0 R] /Count 1 >>'},
+    @{Body='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>'},
+    @{Body='<< /Length 0 >>';Data=[byte[]]@()},
+    @{Body="<< /Length $($data.Length)$filter >>";Data=$data},
+    @{Body='<< /Type /Filespec /F (p.bin) /EF << /F 7 0 R >> >>'},
+    @{Body='<< /Type /EmbeddedFile /Length 4 >>';Data=$attachment}
   )
   if ($Mode -in @('fatal','unused-fatal')) {
-    $objects += @{D='<< /Length 7 /Filter /FlateDecode >>';B=[Text.Encoding]::ASCII.GetBytes('invalid')}
-    if ($Mode -eq 'fatal') { $objects[2].D = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 8 0 R >>' }
+    $objects += @{Body='<< /Length 7 /Filter /FlateDecode >>';Data=[Text.Encoding]::ASCII.GetBytes('invalid')}
+    if ($Mode -eq 'fatal') { $objects[2].Body = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 8 0 R >>' }
   }
-  $pdf = [IO.MemoryStream]::new()
-  try {
-    $write = { param([string] $s) $pdf.Write([Text.Encoding]::ASCII.GetBytes($s)) }
-    & $write "%PDF-1.4`n"
-    $offsets = [Collections.Generic.List[long]]::new()
-    for ($i=0; $i -lt $objects.Count; $i++) {
-      $offsets.Add($pdf.Position); & $write "$($i+1) 0 obj`n$($objects[$i].D)`n"
-      if ($objects[$i].ContainsKey('B')) {
-        & $write "stream`n"
-        if ($objects[$i].B.Length -gt 0) { $pdf.Write([byte[]]$objects[$i].B,0,$objects[$i].B.Length) }
-        & $write "`nendstream`n"
-      }
-      & $write "endobj`n"
-    }
-    $xref = if ($Recovery) { 999999999L } else { $pdf.Position }
-    & $write "xref`n0 $($objects.Count+1)`n0000000000 65535 f `n"
-    foreach ($offset in $offsets) { & $write ($offset.ToString('D10',[Globalization.CultureInfo]::InvariantCulture)+" 00000 n `n") }
-    & $write "trailer`n<< /Root 1 0 R /Size $($objects.Count+1) >>`nstartxref`n$xref`n%%EOF`n"
-    return ,$pdf.ToArray()
-  } finally { $pdf.Dispose() }
+  $xref = if ($Recovery) { 999999999L }
+  New-ReferenceClassicPdf -Objects $objects -Trailer "/Root 1 0 R /Size $($objects.Count+1)" -StartXref $xref
 }
 
 $cases = @(
