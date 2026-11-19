@@ -99,18 +99,36 @@ internal static class SplitAssembly
         }
     }
 
-    internal static HashSet<int> ReachableIds(IIndirectResolver resolver, List<int> roots,
-        ParserMemoryScope memory, ResourceGovernor governor)
+    internal static PdfArray? FindSplitDetachedRoots(IReadOnlyDictionary<int, QpdfObject> pool,
+        IReadOnlyList<PdfReference> pages, PdfArray sharedRoots, PdfDictionary? form, QpdfObject? labels,
+        HashSet<int>? candidates, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        List<QpdfObject> references = ParserContainers.CreateList(memory);
-        foreach (int root in roots)
+        if (candidates is not { Count: > 0 }) { return null; }
+
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<QpdfObject> roots = ParserContainers.CreateList<QpdfObject>(scratch, checked(pages.Count + 3), IntPtr.Size);
+        roots.Add(sharedRoots);
+        if (form is not null) { roots.Add(form); }
+        if (labels is not null) { roots.Add(labels); }
+        foreach (PdfReference page in pages)
         {
-            governor.NoteOperation();
-            memory.Reserve(32L);
-            ParserContainers.AddItem(memory, references, new PdfReference(root, 0));
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            roots.Add(page);
         }
-        PdfArray rootArray = ParserContainers.CopyArray(memory, references);
-        return GraphReachability.Find(resolver, rootArray, memory, governor);
+        HashSet<int> active = GraphReachability.Find(Content.PoolResolver.Create(scratch, pool), roots, scratch, governor);
+
+        // Candidates were collected before catalog assembly. A detached root
+        // can still retain an active object through an explicit private edge.
+        List<QpdfObject>? detached = null;
+        foreach (int id in candidates)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (active.Contains(id) || !pool.ContainsKey(id)) { continue; }
+            detached ??= ParserContainers.CreateList(memory);
+            memory.Reserve(32L);
+            ParserContainers.AddItem(memory, detached, new PdfReference(id, 0));
+        }
+        return detached is null ? null : ParserContainers.CopyArray(memory, detached);
     }
 
     internal readonly record struct GroupNumbers(List<int> Kept, Dictionary<int, int> Map);

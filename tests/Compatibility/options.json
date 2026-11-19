@@ -6182,6 +6182,7 @@
           "PreserveUnreferencedTests.PreserveAcrossMergeKeepsPrimaryOrphans",
           "PreserveUnreferencedTests.PreserveEmptyMergeDropsOrphans",
           "PreserveUnreferencedTests.PreserveAcrossSplitKeepsOrphansPerGroup",
+          "PreserveUnreferencedTests.SplitKeepsOnlyLocalContentAndRequestedDetachedGraphs",
           "PreserveUnreferencedTests.PreserveWithGenerateCompressesOrphans",
           "JsonPreservationTests.CommandCreationSelectsDetachedRootPolicy",
           "JsonPreservationTests.UpdateRetiresSourceRolesButPreservesPrivateAliases",
@@ -7628,6 +7629,7 @@
         ],
         "interaction": [
           "SplitReplaceTests.SplitSingleGroupMatchesDirectBytes",
+          "PreserveUnreferencedTests.SplitKeepsOnlyLocalContentAndRequestedDetachedGraphs",
           "SplitReplaceTests.JobSplitDefaultsToOnePageInThePlan",
           "SplitReplaceTests.TypedSplitMatchesArgv",
           "SplitInputCollisionTests.ExplicitEmptyPrimaryDoesNotProtectAnUnopenedHostInput"

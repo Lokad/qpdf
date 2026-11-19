@@ -131,7 +131,7 @@ internal static class MultiPageSelection
         int inputExtension = 0;
         byte[]? originalId1 = null;
         List<HashSet<int>> sourceCompressed = ParserContainers.CreateList<HashSet<int>>(selectionMemory, documentCount, IntPtr.Size);
-        HashSet<int>? allPreserved = settings.PreserveUnreferenced && splitPages.HasValue
+        HashSet<int>? preservationCandidates = settings.PreserveUnreferenced && splitPages.HasValue
             ? ParserContainers.CreateSet<int>(selectionMemory) : null;
         List<Content.CopiedForm?> multiForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
         List<Content.CopiedForm?> gateForms = ParserContainers.CreateList<Content.CopiedForm?>(selectionMemory, documentCount, IntPtr.Size);
@@ -253,7 +253,7 @@ internal static class MultiPageSelection
                 {
                     using ParserMemoryScope preservation = ParserMemoryScope.Create(governor);
                     HashSet<int> excluded = PreservationExclusions(document.Engine, kept, limits, governor, preservation, cancellationToken);
-                    copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, allPreserved, cancellationToken);
+                    copier.PreserveUnreferencedObjects(document.Engine, excluded, diagnostics, preservationCandidates, cancellationToken);
                 }
 
                 Content.CopiedForm? sourceForm = settings.RemoveAcroform
@@ -654,24 +654,27 @@ internal static class MultiPageSelection
         }
         // Split roots must use the final role identities, after source binding
         // and rotation. Earlier root snapshots can retain obsolete outlines.
-        HashSet<int> catalogExtraIds = ParserContainers.CreateSet<int>(selectionMemory);
-        if (primaryInfo is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryInfo.ObjectNumber, sizeof(int)); }
-        if (primaryMetadata is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMetadata.ObjectNumber, sizeof(int)); }
-        if (primaryOutlines is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryOutlines.ObjectNumber, sizeof(int)); }
-        if (primaryStructTree is not null) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryStructTree.ObjectNumber, sizeof(int)); }
-        if (primaryMarkInfo is PdfReference primaryMarkRef) { ParserContainers.AddSetItem(selectionMemory, catalogExtraIds, primaryMarkRef.ObjectNumber, sizeof(int)); }
+        selectionMemory.Reserve(64L + 7L * IntPtr.Size);
+        PdfArray sharedRoots = PdfArray.FromOwnedItems([
+            (QpdfObject?)primaryInfo ?? PdfNull.Instance, (QpdfObject?)primaryMetadata ?? PdfNull.Instance,
+            (QpdfObject?)primaryOutlines ?? PdfNull.Instance, (QpdfObject?)primaryStructTree ?? PdfNull.Instance,
+            primaryMarkInfo is PdfReference markInfo ? markInfo : PdfNull.Instance,
+            (QpdfObject?)multiAttached.NamesRef ?? PdfNull.Instance, optionalContent ?? PdfNull.Instance,
+        ]);
+        PdfArray? detachedRoots = FindSplitDetachedRoots(pool, kids, sharedRoots, multiAcroForm, catalogLabels,
+            preservationCandidates, selectionMemory, governor, cancellationToken);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
         for (int g = 0; g < groups.Count; g++)
         {
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
             cancellationToken.ThrowIfCancellationRequested();
             (int first, int last) = groups[g];
-            List<int> roots = ParserContainers.CreateList<int>(groupMemory);
+            List<QpdfObject> roots = ParserContainers.CreateList(groupMemory);
             HashSet<int> groupPageNumbers = ParserContainers.CreateSet<int>(groupMemory);
             for (int slot = first - 1; slot < last; slot++)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(groupMemory, roots, kids[slot].ObjectNumber, sizeof(int));
+                ParserContainers.AddItem(groupMemory, roots, kids[slot]);
                 ParserContainers.AddSetItem(groupMemory, groupPageNumbers, kids[slot].ObjectNumber, sizeof(int));
             }
 
@@ -688,59 +691,15 @@ internal static class MultiPageSelection
             }
 
             PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last, governor);
-            if (groupAcroForm is not null)
-            {
-                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(groupAcroForm, governor, groupMemory, cancellationToken))
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
-                }
-            }
+            ParserContainers.AddItem(groupMemory, roots, sharedRoots);
+            if (groupAcroForm is not null) { ParserContainers.AddItem(groupMemory, roots, groupAcroForm); }
+            if (slicedLabels is not null) { ParserContainers.AddItem(groupMemory, roots, slicedLabels); }
+            if (detachedRoots is not null) { ParserContainers.AddItem(groupMemory, roots, detachedRoots); }
 
-            if (slicedLabels is not null)
-            {
-                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(slicedLabels, governor, groupMemory, cancellationToken))
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
-                }
-            }
-
-            if (allPreserved is not null)
-            {
-                foreach (int id in allPreserved)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
-                }
-            }
-            foreach (int id in catalogExtraIds)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(groupMemory, roots, id, sizeof(int));
-            }
-            if (multiAttached.NamesRef is PdfReference attachmentNames)
-            {
-                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                ParserContainers.AddItem(groupMemory, roots, attachmentNames.ObjectNumber, sizeof(int));
-            }
-            if (optionalContent is not null)
-            {
-                foreach (int id in Content.AcroFormCopy.CollectRefNumbers(optionalContent, governor, groupMemory, cancellationToken))
-                { ParserContainers.AddItem(groupMemory, roots, id, sizeof(int)); }
-            }
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
             groupMemory.Reserve(40L);
-            HashSet<int> reachable = ReachableIds(new SplitResolver(pool, pageNumbers, groupPageNumbers), roots, reachabilityMemory, governor);
-            if (settings.PreserveUnreferenced)
-            {
-                foreach (int id in pool.Keys)
-                {
-                    cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-                    if (pageNumbers.Contains(id) && !groupPageNumbers.Contains(id)) { continue; }
-                    ParserContainers.AddSetItem(reachabilityMemory, reachable, id, sizeof(int));
-                }
-            }
+            HashSet<int> reachable = GraphReachability.Find(new SplitResolver(pool, pageNumbers, groupPageNumbers),
+                roots, reachabilityMemory, governor);
             GroupNumbers numbers = NumberGroup(pool, reachable, 0, 2, groupMemory, governor, cancellationToken);
             Dictionary<int, int> renumber = numbers.Map;
             List<PdfReference> renumberedKids = MapKids(CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1),

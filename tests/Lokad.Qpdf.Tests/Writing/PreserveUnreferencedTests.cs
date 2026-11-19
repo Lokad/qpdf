@@ -1,6 +1,7 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 
 namespace Lokad.Qpdf.Tests.Writing;
 
@@ -207,6 +208,67 @@ public sealed class PreserveUnreferencedTests
         string text = await StreamObservation.PdfText(pdf);
         Assert.Contains("OrphanOne", text, StringComparison.Ordinal);
         Assert.Contains("HELLO-ORPHAN", text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SplitKeepsOnlyLocalContentAndRequestedDetachedGraphs(bool preserve)
+    {
+        byte[] source = PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 /MediaBox [0 0 100 100] /Resources << >> >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /Contents [5 0 R 7 0 R 10 0 R] >>", null),
+            (4, "<< /Type /Page /Parent 2 0 R /Contents [6 0 R 7 0 R] >>", null),
+            (5, "<< /Length 6 >>", "%LEFT\n"u8.ToArray()),
+            (6, "<< /Length 7 >>", "%RIGHT\n"u8.ToArray()),
+            (7, "<< /Length 8 >>", "%SHARED\n"u8.ToArray()),
+            (8, "<< /Orphan true /Body 9 0 R /Pinned 10 0 R /Left 3 0 R /Right 4 0 R >>", null),
+            (9, "<< /Length 10 >>", "%DETACHED\n"u8.ToArray()),
+            (10, "<< /Length 8 >>", "%PINNED\n"u8.ToArray()),
+        ], 1);
+        using InMemoryQpdfHost host = HostWith("input.pdf", source);
+        string[] flags = preserve ? ["--preserve-unreferenced"] : [];
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new QpdfCommandInvocation(["input.pdf", "--split-pages=1", .. flags, "part.pdf"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+
+        for (int part = 1; part <= 2; part++)
+        {
+            Assert.True(host.TryGetOutput(QpdfPath.From($"part-{part}.pdf"), out byte[] bytes));
+            QpdfPath read = QpdfPath.From($"check-{part}.pdf");
+            host.AddInput(read, bytes, QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, read, CancellationToken.None);
+            PageLocation page = Assert.Single(document.PageReferences);
+            QpdfObject[] objects = document.Engine.XRefEntries
+                .Where(entry => entry.Value.Kind != XrefEntryKind.Free)
+                .Select(entry => document.GetObject(entry.Key)).ToArray();
+            string[] expected = preserve
+                ? ["%DETACHED\n", part == 1 ? "%LEFT\n" : "%RIGHT\n", "%PINNED\n", "%SHARED\n"]
+                : part == 1 ? ["%LEFT\n", "%PINNED\n", "%SHARED\n"] : ["%RIGHT\n", "%SHARED\n"];
+            string[] actual = objects.OfType<PdfStream>()
+                .Select(stream => Encoding.ASCII.GetString(StreamObservation.Decode(stream))).Order(StringComparer.Ordinal).ToArray();
+            Assert.Equal(expected.Order(StringComparer.Ordinal), actual);
+
+            IEnumerable<PdfDictionary> orphans = objects.OfType<PdfDictionary>()
+                .Where(dictionary => dictionary.TryGet(PdfName.FromAscii("Orphan"), out _));
+            if (!preserve)
+            {
+                Assert.Empty(orphans);
+                continue;
+            }
+            PdfDictionary orphan = Assert.Single(orphans);
+            Assert.True(orphan.TryGet(PdfName.FromAscii(part == 1 ? "Left" : "Right"), out QpdfObject local));
+            Assert.Equal(page.Source, Assert.IsType<PdfReference>(local));
+            Assert.True(orphan.TryGet(PdfName.FromAscii(part == 1 ? "Right" : "Left"), out QpdfObject foreign));
+            Assert.IsType<PdfNull>(foreign);
+            Assert.True(orphan.TryGet(PdfName.FromAscii("Body"), out QpdfObject body));
+            PdfStream detached = Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(body)));
+            Assert.Equal("%DETACHED\n"u8.ToArray(), StreamObservation.Decode(detached));
+            Assert.True(orphan.TryGet(PdfName.FromAscii("Pinned"), out QpdfObject pinned));
+            PdfStream privateStream = Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(pinned)));
+            Assert.Equal("%PINNED\n"u8.ToArray(), StreamObservation.Decode(privateStream));
+        }
     }
 
     [Fact]

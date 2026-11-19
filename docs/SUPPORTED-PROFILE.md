@@ -269,6 +269,9 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   labels apply in assembled order before splitting; unchanged whole-file labels stay raw.
   Label starts default to 1 even with an empty slash field: `1:D//A-` numbers
   pages with prefix A-, while `1://Cover` supplies a prefix without numbering.
+- A split keeps the graph reached from its pages and retained catalog roles.
+  Explicit unreferenced preservation also keeps eligible detached roots and
+  their dependencies in each part.
 - Bind retained source resources, local actions, destinations and static View
   optional-content context before cleanup. Unsupported context combinations fail
   before publication. Private aliases keep their original values.
