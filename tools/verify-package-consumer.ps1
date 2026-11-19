@@ -20,6 +20,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $consumerSource = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer'
+$sourceProject = Join-Path $consumerSource 'Lokad.Qpdf.PackageConsumer.csproj'
+$fixtureSource = Join-Path $repoRoot 'tests/Fixtures'
 $seedPath = Join-Path $consumerSource 'packages.lock.json'
 $seedHash = (Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash
 $lock = Get-Content -LiteralPath $seedPath -Raw | ConvertFrom-Json -AsHashtable
@@ -82,19 +84,59 @@ $copiedLock = Join-Path $projectDirectory 'packages.lock.json'
 [System.IO.File]::WriteAllText($copiedLock, ($lock | ConvertTo-Json -Depth 30) + "`n")
 $copiedLockHash = (Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash
 $project = Join-Path $projectDirectory 'Consumer.csproj'
-Copy-Item -LiteralPath (Join-Path $consumerSource 'Lokad.Qpdf.PackageConsumer.csproj') -Destination $project
-Copy-Item -LiteralPath (Join-Path $consumerSource 'Program.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'RecordingMemoryBudget.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'HostLeaseAllocationChecks.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'PasswordReaderChecks.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'PageCountChecks.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'DocumentReferenceChecks.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'AttachmentRecoveryChecks.cs') -Destination $projectDirectory
-Copy-Item -LiteralPath (Join-Path $consumerSource 'JsonLayoutChecks.cs') -Destination $projectDirectory
+Copy-Item -LiteralPath $sourceProject -Destination $project
 $fixtureDirectory = Join-Path $runRoot 'Fixtures'
 New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
-foreach ($name in @('reference-pairs-1page.pdf', 'objstm-1page.pdf', 'security-r6-attachment.pdf', 'security-recovery-r6-utf8.pdf', 'security-recovery-r6-ligatures.pdf', 'security-recovery-r6-macroman.pdf', 'security-recovery-r6-long.pdf', 'security-r6-ascii.pdf', 'security-r6-empty.pdf', 'security-r5-ascii.pdf', 'security-r4-rc4-ascii.pdf', 'security-r2-ascii.pdf', 'security-r3-ascii.pdf', 'security-r4-pdfdoc.pdf', 'security-r4-attachment.pdf')) {
-    Copy-Item -LiteralPath (Join-Path $repoRoot ('tests/Fixtures/' + $name)) -Destination $fixtureDirectory
+
+function Get-ConsumerItems([string] $ProjectPath, [string] $Framework) {
+    $evaluation = & dotnet msbuild $ProjectPath -nologo -p:Configuration=Release "-p:TargetFramework=$Framework" `
+        '-getItem:Compile,EmbeddedResource,ProjectReference' | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        throw "Consumer input evaluation failed for $Framework ($LASTEXITCODE): $evaluation"
+    }
+    $items = (ConvertFrom-Json -InputObject $evaluation).Items
+    if ($items.ProjectReference.Count -ne 0) { throw 'The fresh package consumer must use the packed library.' }
+    return $items
+}
+
+function Get-ConsumerRelativePath([string] $Root, [string] $InputFile) {
+    $relative = [IO.Path]::GetRelativePath($Root, $InputFile)
+    $separator = [IO.Path]::DirectorySeparatorChar
+    if ([IO.Path]::IsPathRooted($relative) -or $relative -eq '..' -or $relative.StartsWith("..$separator", [StringComparison]::Ordinal)) {
+        throw "Consumer input is outside its reviewed directory: $InputFile"
+    }
+    $path = $Root
+    if ([IO.File]::GetAttributes($path) -band [IO.FileAttributes]::ReparsePoint) {
+        throw "Consumer input uses a filesystem link: $path"
+    }
+    foreach ($part in $relative.Split($separator)) {
+        $path = Join-Path $path $part
+        if ([IO.File]::GetAttributes($path) -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Consumer input uses a filesystem link: $path"
+        }
+    }
+    return $relative
+}
+
+function Copy-ConsumerInputs($Items, [string] $Source, [string] $Destination) {
+    foreach ($item in $Items) {
+        $relative = Get-ConsumerRelativePath $Source $item.FullPath
+        $target = Join-Path $Destination $relative
+        if (Test-Path -LiteralPath $target -PathType Leaf) { continue }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
+        Copy-Item -LiteralPath $item.FullPath -Destination $target
+    }
+}
+
+foreach ($framework in $frameworks) {
+    $items = Get-ConsumerItems $sourceProject $framework
+    Copy-ConsumerInputs $items.Compile $consumerSource $projectDirectory
+    Copy-ConsumerInputs $items.EmbeddedResource $fixtureSource $fixtureDirectory
+}
+foreach ($framework in $frameworks) {
+    $items = Get-ConsumerItems $project $framework
+    foreach ($item in $items.Compile) { $null = Get-ConsumerRelativePath $projectDirectory $item.FullPath }
+    foreach ($item in $items.EmbeddedResource) { $null = Get-ConsumerRelativePath $fixtureDirectory $item.FullPath }
 }
 
 $configPath = Join-Path $runRoot 'nuget.config'
