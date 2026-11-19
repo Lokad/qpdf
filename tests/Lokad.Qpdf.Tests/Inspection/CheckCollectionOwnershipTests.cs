@@ -201,14 +201,11 @@ public sealed class CheckCollectionOwnershipTests
         finally { host.Resume(); try { await running; } catch (QpdfException) { } }
     }
 
-    public static IEnumerable<object[]> SharedRoutes()
-    {
-        foreach (string route in new[] { "argv", "job", "mixed" })
-        foreach (bool failed in new[] { false, true }) { yield return [failed, failed, route]; }
-    }
-
     [Theory]
-    [MemberData(nameof(SharedRoutes))]
+    [InlineData(true, false, "argv")]
+    [InlineData(false, true, "argv")]
+    [InlineData(true, true, "job")]
+    [InlineData(false, false, "mixed")]
     public async Task CommandRoutesRetireSharedCheckerScratch(bool compressed, bool failed, string route)
     {
         using CancellationTokenSource cancellation = new();

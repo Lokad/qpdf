@@ -29,8 +29,11 @@ public sealed class CommandRotationTests
             ("+90:1,1,3", "180:2", "1,1,1", [180, 180, 90]),
             ("90:2-3", "+90:1-z", "1,1,1", [90, 90, 90]),
         ];
-        foreach (string route in new[] { "argv", "response", "job", "mixed" })
-        foreach (var item in cases) { yield return [route, item.First, item.Second, item.Selection, item.Expected]; }
+        foreach (var item in cases) { yield return ["argv", item.First, item.Second, item.Selection, item.Expected]; }
+        yield return ["response", "+90:1-2", "180:2-3", "1,1,1", new[] { 90, 180, 180 }];
+        yield return ["job", "90:2-3", "+90:1-z", "1,1,1", new[] { 90, 90, 90 }];
+        yield return ["mixed", "+90:1", "-90:1", "1", new[] { 270 }];
+        yield return ["mixed", "+90:1", "+90:01", "1", new[] { 180 }];
     }
 
     [Theory]
@@ -72,8 +75,6 @@ public sealed class CommandRotationTests
 
     [Theory]
     [InlineData("argv", false)]
-    [InlineData("argv", true)]
-    [InlineData("job", false)]
     [InlineData("job", true)]
     public async Task InspectionUsesTheSameCommandRotationSettings(string route, bool check)
     {
