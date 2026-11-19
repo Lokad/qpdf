@@ -5,30 +5,22 @@
 ### PDF JSON
 
 - Create and update PDFs with command compression, QDF, object streams,
-  linearization and output protection. Typed layout options select packing and
-  linearization. Packing and QDF comments retain matching original pairs.
-- Split an authored or patched page tree, retaining inherited page attributes,
-  label continuation and independent widget registrations. Capture the first
-  linearization pass for whole PDFs or split parts.
-- Honor `--preserve-unreferenced` during command JSON creation and update.
-  Commands prune detached objects by default. Opt-in retention includes split
-  parts and preserves independently referenced source roles.
-- Check bound JSON graphs and issue follow-up listings without a PDF output.
-  Update a PDF in place with `--replace-input` / `replaceInput`. The source lease
-  closes before staging, and auxiliary inputs are protected from replacement.
-- Bind patches by object number and generation. Honor declared page preparation
-  for direct or repeated pages and inherited attributes. Omitted payloads reuse
-  data from the exact source stream. Apply the command parser limits to imports.
-- Assemble and collate pages for JSON export, including empty primaries. Retain
-  labels, source version requirements, secondary context and independently rooted
-  values. Support per-source resource pruning, image optimization, coalescing
-  and inline-image externalization with the ordinary content policies.
-- Apply document metadata, AcroForm, structure and label removals during JSON
-  export and import. Commands can author labels in effective page order. Command
-  imports can coalesce contents. `--remove-info` retains a live ModDate if present.
+  linearization and output protection. Typed imports can select packing and
+  linearization. Commands support in-place updates and opt-in retention of
+  detached objects. [JSON import and update](docs/SUPPORTED-PROFILE.md#json-import-and-update)
+- Split authored or patched pages with inherited attributes, continued
+  labels and separate widget registrations for repeated pages. Capture
+  the first linearization pass for whole PDFs or split parts.
+- Check bound JSON and return listings without writing a PDF. Coalesce
+  page contents before reporting or publication.
+- Assemble and collate pages for JSON export, including empty primaries.
+  Export applies resource pruning, image optimization, content coalescing
+  and inline-image externalization.
+- Remove metadata, AcroForm, structure and page labels during JSON export
+  and import. Commands can author labels in effective page order.
 - Return typed JSON without publishing a report. File sidecars require a prefix
   when there is no report target. Typed document opening, checking and JSON
-  inspection can opt into bounded repair.
+  inspection can opt into bounded repair. [JSON export](docs/SUPPORTED-PROFILE.md#json-export)
 
 ### Inspection and publication
 
@@ -40,16 +32,11 @@
 - Support direct outline roots in linearized output and JSON writer packing.
   Check physical outline-hint ownership and required hints.
 - Preserve ordinary graph streams tagged `/Type /XRef` during protected
-  publication. Normalize valid leading Identity Crypt stages before content
-  processing and protection. Physical xref sections remain clear.
-- Keep omitted primary inputs safe from expanded split output names. Protect
-  templates, password files and consumed configuration from first-pass capture.
-- Check stable host identities for PDF, JSON and binary outputs and first-pass
-  captures before staging to protect acquired inputs and other targets.
-- Share typed attachment recovery options across listing, extraction and edits.
-  List with warnings and counters. Close extraction inputs before committing
-  plaintext bytes to a host target. Command attachment reports and extraction
-  can share one authenticated input.
+  publication and accept valid leading Identity Crypt filters.
+- Protect acquired input identities from output and first-pass capture
+  collisions, including expanded split targets. [Publication rules](docs/SUPPORTED-PROFILE.md#governance)
+- Allow bounded repair in typed attachment APIs and return warnings and counters
+  from listing. Commands can list and extract attachments from one authenticated input.
 
 ### Command and graph behavior
 
@@ -60,12 +47,10 @@
   prefixes/descriptions clear earlier values. Validate authored MIME and
   timestamps before acquisition. Existing stored metadata remains readable.
 - Accept omitted page-label starts and PDF whitespace inside ASCII85 terminal
-  markers. Share literal escaping across parsing, normalization and writing.
+  markers.
 - Combine static View layer states with ON/OFF bases. Keep independent layer
   identities and refuse unsupported combinations before publication.
-- Bound range validation and diagnostics. Reuse work in page, label, attachment,
-  placement, destination, resource-pruning and inline-image processing while
-  retaining occurrence-local results and private aliases.
+- Bound page-range validation and diagnostic previews.
 
 ### Password security and typed migration
 
@@ -80,8 +65,6 @@
 - Remove the `QpdfLimits.MaxHostOperations` setting. `HostOperations` continues
   to report actual I/O. Memory, handle, structural and decoded-byte limits
   remain available.
-
-[Earlier development candidate notes](https://github.com/Lokad/qpdf/blob/cfd0da84948dab518a0cb1c0936cc94a4b51d9aa/CHANGELOG.md)
 
 ## 0.1.0 (2026-11-05)
 
