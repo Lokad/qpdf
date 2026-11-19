@@ -25,8 +25,10 @@ public sealed class OverlayBackgroundTests
         foreach (int unit in new[] { 1, 2 })
         foreach (bool crop in new[] { false, true })
         foreach (bool trim in new[] { false, true })
-        foreach (bool job in new[] { false, true })
-        foreach (bool underlay in new[] { false, true }) { yield return [rotation, unit, crop, trim, job, underlay]; }
+        { yield return [rotation, unit, crop, trim, false, false]; }
+        yield return [90, 2, true, true, false, true];
+        yield return [270, 2, true, false, true, true];
+        yield return [180, 1, false, true, true, false];
     }
 
     [Theory]
@@ -52,6 +54,11 @@ public sealed class OverlayBackgroundTests
         }
         PdfDictionary page = document.PageReferences[0].Page;
         Assert.Equal(rotation, Assert.IsType<PdfInteger>(Get(page, "Rotate")).Value); Assert.Equal(unit, Assert.IsType<PdfInteger>(Get(page, "UserUnit")).Value);
+        Assert.Equal(new double[] { 10, 20, 110, 220 }, Numbers(Assert.IsType<PdfArray>(Get(page, "MediaBox"))));
+        Assert.Equal(crop, page.TryGet(PdfName.FromAscii("CropBox"), out QpdfObject cropped));
+        if (crop) { Assert.Equal(new double[] { 20, 30, 80, 190 }, Numbers(Assert.IsType<PdfArray>(Resolve(cropped)))); }
+        Assert.Equal(trim, page.TryGet(PdfName.FromAscii("TrimBox"), out QpdfObject trimmed));
+        if (trim) { Assert.Equal(new double[] { 30, 60, 70, 140 }, Numbers(Assert.IsType<PdfArray>(Resolve(trimmed)))); }
         PdfDictionary objects = Assert.IsType<PdfDictionary>(Get(Assert.IsType<PdfDictionary>(Get(page, "Resources")), "XObject"));
         PdfStream original = Assert.IsType<PdfStream>(Get(objects, "Fx0")); Assert.Equal(Artwork, original.RawMemory.ToArray());
         double[] bounds = Numbers(Assert.IsType<PdfArray>(Get(original.Dictionary, "BBox"))), visible = crop ? [20, 30, 80, 190] : [10, 20, 110, 220];

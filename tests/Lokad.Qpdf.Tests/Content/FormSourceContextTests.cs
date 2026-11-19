@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
+using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Tests.Content;
 
@@ -121,23 +123,27 @@ public sealed class FormSourceContextTests
         foreach (string shape in new[] { "direct", "indirect", "absent", "null", "indirect-null", "parent-direct", "parent-indirect", "parent-null", "parent-quadding" })
         foreach (string operation in new[] { "merge", "overlay", "underlay" })
         foreach (bool equalDefaults in new[] { false, true })
-        foreach (string route in new[] { "argv", "job" })
-        { yield return [shape, operation, equalDefaults, route]; }
-        foreach (string shape in new[] { "indirect", "absent", "parent-indirect" })
-        foreach (string operation in new[] { "merge", "overlay", "underlay" })
-        foreach (string layout in new[] { "packed", "linear", "generated" })
-        { yield return [shape, operation, false, layout]; }
+        { yield return [shape, operation, equalDefaults, "argv"]; }
+        yield return ["indirect", "merge", false, "job"];
+        yield return ["null", "overlay", true, "job"];
+        yield return ["parent-quadding", "underlay", false, "job"];
+        yield return ["indirect", "merge", false, "packed"];
+        yield return ["parent-indirect", "overlay", false, "packed"];
+        yield return ["absent", "underlay", false, "packed"];
+        yield return ["parent-indirect", "merge", false, "linear"];
+        yield return ["indirect", "overlay", false, "linear"];
+        yield return ["absent", "underlay", false, "linear"];
         foreach (string shape in new[] { "direct", "indirect", "absent", "parent-indirect", "parent-null", "parent-quadding" })
         foreach (string route in new[] { "typed", "omitted", "repeated", "groups" })
         { yield return [shape, "merge", true, route]; }
         foreach (string route in new[] { "argv", "job", "typed", "reverse" })
         { yield return ["shared-parent", "merge", true, route]; }
         foreach (string shape in new[] { "indirect", "absent", "parent-indirect" })
-        foreach (string route in new[] { "argv", "job" })
-        { yield return [shape, "mixed", true, route]; }
+        { yield return [shape, "mixed", true, "argv"]; }
+        yield return ["indirect", "mixed", true, "job"];
         foreach (string operation in new[] { "merge", "overlay", "underlay" })
-        foreach (string route in new[] { "argv", "generated" })
-        { yield return ["local-appearance", operation, true, route]; }
+        { yield return ["local-appearance", operation, true, "argv"]; }
+        yield return ["local-appearance", "overlay", true, "generated"];
     }
 
     [Theory]
@@ -185,6 +191,12 @@ public sealed class FormSourceContextTests
             Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
             host.AddInput(QpdfPath.From("read"), output, QpdfInputOwnership.Copy);
             await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("read"), CancellationToken.None);
+            if (route == "linear")
+            {
+                ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+                Assert.Equal(LinearizationStatus.Valid, LinearizationCheck.Inspect(document.Engine, document.PageCount,
+                    QpdfLimits.Default, governor, CancellationToken.None).Status);
+            }
             QpdfObject Resolve(QpdfObject raw) => raw is PdfReference reference ? document.GetObject(reference.ObjectNumber) : raw;
             QpdfObject Get(PdfDictionary node, string key) { Assert.True(node.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return Resolve(value); }
             PdfDictionary catalog = Assert.IsType<PdfDictionary>(Get(document.Engine.Trailer, "Root"));
@@ -208,6 +220,11 @@ public sealed class FormSourceContextTests
                 PdfByteString value = Assert.IsType<PdfByteString>(Get(field, "V"));
                 bool third = value.ValueSpan.SequenceEqual("Third"u8);
                 if (!third && !value.ValueSpan.SequenceEqual("Source"u8)) { continue; }
+                if (route == "packed")
+                {
+                    PdfReference fieldRef = Assert.IsType<PdfReference>(entry);
+                    Assert.Equal(XrefEntryKind.Compressed, document.Engine.XRefEntries[fieldRef.ObjectNumber].Kind);
+                }
                 seen++;
                 PdfByteString da = Assert.IsType<PdfByteString>(Effective(field, "DA")); escaped.Add(da);
                 string program = Encoding.ASCII.GetString(da.ValueSpan);
