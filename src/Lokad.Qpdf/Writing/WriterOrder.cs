@@ -40,9 +40,11 @@ internal sealed class WriterOrder<T> : IDisposable
     private ResourceGovernor Governor => _governor ?? throw new ObjectDisposedException(nameof(WriterOrder<T>));
     internal int Count { get { _ = Items; return _count; } }
 
-    internal void CheckOwner(ResourceGovernor governor)
+    internal ReadOnlySpan<T> Borrow(ResourceGovernor governor)
     {
         if (!ReferenceEquals(Governor, governor)) { throw new InvalidOperationException("Writer sequence belongs to a different governor."); }
+        Visit();
+        return Items.AsSpan(0, _count);
     }
 
     private void Visit()
@@ -108,6 +110,17 @@ internal readonly struct WriterNumberOrder : IComparer<int>
 internal readonly struct WriterObjectOrder : IComparer<NumberedObject>
 {
     public int Compare(NumberedObject left, NumberedObject right) => left.Number.CompareTo(right.Number);
+
+    internal static bool IsAscending(ReadOnlySpan<NumberedObject> model, ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        for (int index = 1; index < model.Length; index++)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (model[index - 1].Number >= model[index].Number) { return false; }
+        }
+        return true;
+    }
 }
 
 internal readonly struct WriterNameOrder(ResourceGovernor governor, CancellationToken token) : IComparer<PdfName>

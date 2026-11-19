@@ -114,6 +114,40 @@ public sealed class WriterOrderOwnershipTests
         Assert.Equal(8192, source.Count); Assert.Equal(8192, source[0].Number);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    public async Task ClassicQdfBorrowsOrderedRowsAndKeepsTheUnorderedFallback(int stride)
+    {
+        const int count = 1024;
+        List<NumberedObject> ordered = Enumerable.Range(1, count)
+            .Select(index => new NumberedObject(1 + (index - 1) * stride, PdfNull.Instance)).ToList();
+        int streamNumber = ordered[^1].Number;
+        PdfStream payload = new(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), [2, 13, 10, 5]);
+        ordered[^1] = new(streamNumber, payload);
+        List<NumberedObject> reverse = ordered.AsEnumerable().Reverse().ToList();
+        Dictionary<int, (int Number, int Generation)> original = new() { [streamNumber] = (77, 2) };
+        (byte[] expected, long fallback) = await Emit(reverse);
+        (byte[] actual, long borrowed) = await Emit(ordered);
+        Assert.Equal(expected, actual);
+        Assert.Contains("%% Original object ID: 77 2", Encoding.Latin1.GetString(actual));
+        Assert.True(fallback - borrowed >= 16L * count, $"Ordered peak {borrowed}, fallback peak {fallback}.");
+        Assert.Equal(streamNumber, reverse[0].Number);
+        Assert.Equal(streamNumber, ordered[^1].Number);
+
+        async Task<(byte[] Bytes, long Peak)> Emit(List<NumberedObject> model)
+        {
+            ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+            PdfSerializer writer = new(QpdfLimits.Default, governor);
+            byte[] id = [1];
+            CollectingSink sink = new();
+            await writer.SerializeQdfAsync(new(1, 5), model, null, original, null, id, id,
+                new(true, false), false, sink, CancellationToken.None);
+            Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+            return (sink.ToArray(), governor.Snapshot().PeakMemoryBytes);
+        }
+    }
+
     [Fact]
     public async Task MixedBinaryNamesPreserveAuthoredQdfOrderAndNullElision()
     {

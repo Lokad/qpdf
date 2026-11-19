@@ -14,11 +14,10 @@ internal sealed class QdfEmissionPlan : IDisposable, IIndirectResolver
     private QdfEmissionPlan(ParserMemoryScope memory, WriterOrder<QdfEmission> rows, WriterIndex<int> renumber, int lastLengthNumber)
     { _memory = memory; _rows = rows; _renumber = renumber; LastLengthNumber = lastLengthNumber; }
 
-    internal static QdfEmissionPlan Create(WriterOrder<NumberedObject> source, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
+    internal static QdfEmissionPlan Create(ReadOnlySpan<NumberedObject> source, IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds,
         ResourceGovernor governor, CancellationToken token)
     {
-        ArgumentNullException.ThrowIfNull(source); ArgumentNullException.ThrowIfNull(governor);
-        source.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        ArgumentNullException.ThrowIfNull(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         WriterOrder<QdfEmission>? rows = null; WriterIndex<int>? renumber = null;
         try

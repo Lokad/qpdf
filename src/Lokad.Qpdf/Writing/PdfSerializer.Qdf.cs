@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
@@ -77,29 +78,26 @@ internal sealed partial class PdfSerializer
 
         WriterIdentifiers.Validate(id1, id2);
 
-        using WriterOrder<NumberedObject> sorted = WriterOrder<NumberedObject>.Create(model.Count, 16L, _governor, cancellationToken);
-        foreach (NumberedObject numbered in model)
-        {
-            sorted.Add(numbered);
-        }
-
-        sorted.Sort(new WriterObjectOrder());
-        using QdfEmissionPlan emissions = QdfEmissionPlan.Create(sorted, originalIds, _governor, cancellationToken);
+        ReadOnlySpan<NumberedObject> ordered = CollectionsMarshal.AsSpan(model);
+        using WriterOrder<NumberedObject>? reordered = WriterObjectOrder.IsAscending(ordered, _governor, cancellationToken)
+            ? null : PrepareQdfOrder(ordered, cancellationToken);
+        if (reordered is not null) { ordered = reordered.Borrow(_governor); }
+        using QdfEmissionPlan emissions = QdfEmissionPlan.Create(ordered, originalIds, _governor, cancellationToken);
         WriterIndex<int> renumber = emissions.Renumber;
         int lastLengthNumber = emissions.LastLengthNumber;
         int emissionCount = emissions.Count;
         int encryptionNumber = _security is null ? 0 : MapSecurityObject(_encryptionObject, renumber);
         int metadataNumber = _security is null ? 0 : MapSecurityObject(_metadataObject, renumber);
 
-        using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(sorted.Count, IntPtr.Size, _governor, cancellationToken);
-        foreach (NumberedObject numbered in sorted)
+        using WriterIndex<QpdfObject> classicLookup = WriterIndex<QpdfObject>.Create(ordered.Length, IntPtr.Size, _governor, cancellationToken);
+        foreach (NumberedObject numbered in ordered)
         {
             classicLookup[numbered.Number] = numbered.Value;
         }
 
         using WriterIndex<QdfMark> marks = QdfPageMarksSorted(classicLookup, renumber, cancellationToken);
         classicLookup.Dispose();
-        sorted.Dispose();
+        reordered?.Dispose();
         int? mappedInfo = null;
         if (infoRef.HasValue)
         {
@@ -213,6 +211,18 @@ internal sealed partial class PdfSerializer
         await AppendAsciiAsync(">>\n", sink, cancellationToken).ConfigureAwait(false);
         await AppendFormattedAsync([WriterPart.Text("startxref\n"), WriterPart.Number(xrefOffset), WriterPart.Text("\n%%EOF\n")], sink, cancellationToken).ConfigureAwait(false);
         return sink.Length;
+    }
+
+    private WriterOrder<NumberedObject> PrepareQdfOrder(ReadOnlySpan<NumberedObject> model, CancellationToken token)
+    {
+        WriterOrder<NumberedObject> order = WriterOrder<NumberedObject>.Create(model.Length, 16L, _governor, token);
+        try
+        {
+            foreach (NumberedObject item in model) { order.Add(item); }
+            order.Sort(new WriterObjectOrder());
+            return order;
+        }
+        catch { order.Dispose(); throw; }
     }
 
     private async ValueTask<long> SerializeQdfStreamedAsync(

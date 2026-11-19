@@ -84,8 +84,9 @@ name-tree walker, and page reports share inherited image lookup.
 JSON imports and ordinary writes share catalog, version and split policies.
 Split preparation binds each page range to its target before validation.
 `OutputModelPreparation` finalizes reachability, numbering and object-stream
-membership after stream preparation. QDF comments use original pairs. Packing
-and encryption use final numbers. Two-pass linearization assigns page and shared
+membership after stream preparation. Classic QDF borrows models already in
+number order and uses original pairs in comments. Packing and encryption use
+final numbers. Two-pass linearization assigns page and shared
 dependencies to hint spans and keeps outline objects outside object streams.
 
 `OutputSerialization` dispatches counting, identifier replay and emission.

@@ -46,7 +46,9 @@ internal static class OutputModelPreparation
     {
         memory.CheckOwner(governor); token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         int encryption = AddEncryptionObject(model, security, memory, governor);
-        GovernedSort.Sort(CollectionsMarshal.AsSpan(model), new WriterObjectOrder(), governor, token);
+        Span<NumberedObject> sequence = CollectionsMarshal.AsSpan(model);
+        if (!WriterObjectOrder.IsAscending(sequence, governor, token))
+        { GovernedSort.Sort(sequence, new WriterObjectOrder(), governor, token); }
         List<List<int>> groups = PlanObjectStreamGroups(compressed, memory, governor, token);
         return new(model, groups.Count == 0 ? null : groups, encryption);
     }

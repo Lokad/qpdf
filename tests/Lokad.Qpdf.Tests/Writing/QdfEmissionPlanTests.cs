@@ -31,7 +31,7 @@ public sealed class QdfEmissionPlanTests
         ResourceGovernor governor = new(QpdfLimits.Default,CancellationToken.None);
         using WriterOrder<NumberedObject> source = Source(governor,new NumberedObject(8,stream),new NumberedObject(18,new PdfReference(8,9)));
         long prior = governor.Snapshot().LiveMemoryBytes;
-        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source,new Dictionary<int, (int Number, int Generation)> { {8,(44,3)}, {18,(55,0)} },governor,CancellationToken.None);
+        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source.Borrow(governor),new Dictionary<int, (int Number, int Generation)> { {8,(44,3)}, {18,(55,0)} },governor,CancellationToken.None);
         Assert.Equal(3,plan.Count); Assert.Equal(2,plan.LastLengthNumber);
         Assert.Equal(1,plan[0].Number); Assert.Equal((44, 3),plan[0].OriginalSource);
         Assert.Equal(2,plan[1].Number); Assert.Equal(8,plan[1].LengthFor); Assert.Null(plan[1].Value);
@@ -63,7 +63,7 @@ public sealed class QdfEmissionPlanTests
         NumberedObject[] values = Enumerable.Range(1,count).Select(number => new NumberedObject(number,PdfNull.Instance)).ToArray();
         using WriterOrder<NumberedObject> source = Source(governor,values);
         long before = governor.Snapshot().LiveMemoryBytes;
-        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source,null,governor,CancellationToken.None);
+        using QdfEmissionPlan plan = QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None);
         long rowBytes = count == 0 ? 128L : 160L+32L*count;
         long indexBytes = WriterIndexBytes(count);
         Assert.Equal(before+128L+rowBytes+indexBytes,governor.Snapshot().LiveMemoryBytes);
@@ -89,11 +89,11 @@ public sealed class QdfEmissionPlanTests
         const long planBytes = 800L;
         filler.Reserve(limits.MaxMemoryBytes-governor.Snapshot().LiveMemoryBytes-planBytes+1L);
         long before=governor.Snapshot().LiveMemoryBytes,allocated=GC.GetAllocatedBytesForCurrentThread();
-        QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>QdfEmissionPlan.Create(source,null,governor,CancellationToken.None));
+        QpdfLimitException failure=Assert.Throws<QpdfLimitException>(()=>QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None));
         Assert.Equal(nameof(QpdfLimits.MaxMemoryBytes),failure.LimitName);
         Assert.True(GC.GetAllocatedBytesForCurrentThread()-allocated<32768L);
         Assert.Equal(before,governor.Snapshot().LiveMemoryBytes); Assert.Equal(97L,prior.ReservedBytes); Assert.Equal(3,source.Count);
-        filler.Dispose(); using (QdfEmissionPlan retry=QdfEmissionPlan.Create(source,null,governor,CancellationToken.None)) {Assert.Equal(3,retry.Count);}
+        filler.Dispose(); using (QdfEmissionPlan retry=QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None)) {Assert.Equal(3,retry.Count);}
         Assert.Equal(161L+208L,governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -105,7 +105,7 @@ public sealed class QdfEmissionPlanTests
         PdfArray original=new([new PdfReference(1,0),new PdfReference(999,0)]);
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,original));
         long before=governor.Snapshot().LiveMemoryBytes;
-        Assert.Throws<QpdfException>(()=>QdfEmissionPlan.Create(source,null,governor,CancellationToken.None));
+        Assert.Throws<QpdfException>(()=>QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None));
         Assert.Equal(before,governor.Snapshot().LiveMemoryBytes);Assert.Equal(97L,prior.ReservedBytes);
         Assert.Equal(999,Assert.IsType<PdfReference>(original[1]).ObjectNumber);Assert.Same(original,source[0].Value);
     }
@@ -116,7 +116,7 @@ public sealed class QdfEmissionPlanTests
         ResourceGovernor owner=new(QpdfLimits.Default,CancellationToken.None),other=new(QpdfLimits.Default,CancellationToken.None);
         using WriterOrder<NumberedObject> source=Source(owner,new NumberedObject(1,PdfNull.Instance));
         long live=owner.Snapshot().LiveMemoryBytes;
-        Assert.Throws<InvalidOperationException>(()=>QdfEmissionPlan.Create(source,null,other,CancellationToken.None));
+        Assert.Throws<InvalidOperationException>(()=>QdfEmissionPlan.Create(source.Borrow(other),null,other,CancellationToken.None));
         Assert.Equal(live, owner.Snapshot().LiveMemoryBytes); Assert.Equal(0L, other.Snapshot().LiveMemoryBytes);
     }
 
@@ -129,7 +129,7 @@ public sealed class QdfEmissionPlanTests
         ResourceGovernor governor=new(QpdfLimits.Default,governorToken ? cancellation.Token : CancellationToken.None);
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,PdfNull.Instance));
         long live=governor.Snapshot().LiveMemoryBytes;cancellation.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(()=>QdfEmissionPlan.Create(source,null,governor,governorToken ? CancellationToken.None : cancellation.Token));
+        Assert.ThrowsAny<OperationCanceledException>(()=>QdfEmissionPlan.Create(source.Borrow(governor),null,governor,governorToken ? CancellationToken.None : cancellation.Token));
         Assert.Equal(live, governor.Snapshot().LiveMemoryBytes);
     }
 
@@ -145,7 +145,7 @@ public sealed class QdfEmissionPlanTests
         long before=governor.Snapshot().LiveMemoryBytes;
         using ManualResetEventSlim reached=new(),resume=new(); GateIds ids=new(reached,resume);
         Task worker=Task.Factory.StartNew(()=>
-        {using QdfEmissionPlan plan=QdfEmissionPlan.Create(source,ids,governor,governorToken ? CancellationToken.None : cancellation.Token);},
+        {using QdfEmissionPlan plan=QdfEmissionPlan.Create(source.Borrow(governor),ids,governor,governorToken ? CancellationToken.None : cancellation.Token);},
             CancellationToken.None,TaskCreationOptions.LongRunning,TaskScheduler.Default);
         try
         {
@@ -172,7 +172,7 @@ public sealed class QdfEmissionPlanTests
         PdfStream original=new(new PdfDictionary(new Dictionary<PdfName,QpdfObject>()),new byte[2*1024*1024]);
         QpdfLimits limits=QpdfLimits.Default with {MaxMemoryBytes=4096L};ResourceGovernor governor=new(limits,CancellationToken.None);
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,original));
-        long before=GC.GetAllocatedBytesForCurrentThread();using QdfEmissionPlan plan=QdfEmissionPlan.Create(source,null,governor,CancellationToken.None);
+        long before=GC.GetAllocatedBytesForCurrentThread();using QdfEmissionPlan plan=QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None);
         Assert.True(GC.GetAllocatedBytesForCurrentThread()-before<32768L);
         Assert.True(MemoryMarshal.TryGetArray(original.RawMemory,out ArraySegment<byte> originalBytes));
         Assert.True(MemoryMarshal.TryGetArray(Assert.IsType<PdfStream>(plan[0].Value).RawMemory,out ArraySegment<byte> borrowed));
@@ -185,7 +185,7 @@ public sealed class QdfEmissionPlanTests
     {
         ResourceGovernor governor=new(QpdfLimits.Default,CancellationToken.None);
         using WriterOrder<NumberedObject> source=Source(governor,new NumberedObject(1,new PdfArray([new PdfReference(1,0)])));
-        QdfEmissionPlan plan=QdfEmissionPlan.Create(source,null,governor,CancellationToken.None);
+        QdfEmissionPlan plan=QdfEmissionPlan.Create(source.Borrow(governor),null,governor,CancellationToken.None);
         object sequence=Field(plan,"_rows"),rows=Field(sequence,"_items");
         var result=(plan,new WeakReference(rows),new WeakReference(plan[0].Value),new WeakReference(governor));
         plan.Dispose();source.Dispose();Assert.Equal(0L,governor.Snapshot().LiveMemoryBytes);return result;
