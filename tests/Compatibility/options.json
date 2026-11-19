@@ -5396,6 +5396,7 @@
         ],
         "oracle": [
           "diff:normalize-payloads",
+          "diff:json-content/normalize",
           "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceBoundNormalization",
           "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]

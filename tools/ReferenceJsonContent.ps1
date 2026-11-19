@@ -34,7 +34,8 @@ function Get-JsonContentProjection {
 
 function Invoke-ReferenceJsonContent {
   $case = New-Case 'json-content'
-  $first = [byte[]]([Text.Encoding]::ASCII.GetBytes("q % FIRST`nBI /W 1 /H 1 /BPC 8 /CS /Pixel ID ") + @(255,0,0) + [Text.Encoding]::ASCII.GetBytes(' EI'))
+  $inline = [byte[]]([Text.Encoding]::ASCII.GetBytes('BI /W 1 /H 1 /BPC 8 /CS /Pixel ID ') + @(255,0,0) + [Text.Encoding]::ASCII.GetBytes(' EI'))
+  $first = [byte[]]([Text.Encoding]::ASCII.GetBytes("q % FIRST`n") + $inline)
   $second = [Text.Encoding]::ASCII.GetBytes('Q % SECOND')
   $imageHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([byte[]]@(255,0,0,32)))
   $objects = @{
@@ -50,13 +51,14 @@ function Invoke-ReferenceJsonContent {
   @{ qpdf=@(@{ jsonversion=2; pdfversion='1.7' },$objects) } | ConvertTo-Json -Depth 12 | Set-Content "$case/source.json"
   $code = Invoke-Oracle $case @('--json-input', "$case/source.json", '--stream-data=preserve', '--object-streams=disable', "$case/inputs/a.pdf")
   if ($code -ne 0) { throw "JSON content fixture creation failed ($code)." }
+  $nativeBaseline = $null
   foreach ($row in @(
     @{ Name='baseline'; Flags=@(); Fragments=2; Images=0; Called=$false },
     @{ Name='coalesce'; Flags=@('--coalesce-contents'); Fragments=1; Images=0; Called=$true },
     @{ Name='externalize'; Flags=@('--externalize-inline-images','--ii-min-bytes=0'); Fragments=1; Images=1; Called=$true },
     @{ Name='threshold'; Flags=@('--externalize-inline-images','--ii-min-bytes=1024'); Fragments=2; Images=0; Called=$true },
     @{ Name='both'; Flags=@('--coalesce-contents','--externalize-inline-images','--ii-min-bytes=0'); Fragments=1; Images=1; Called=$true },
-    @{ Name='normalize-ignore'; Flags=@('--normalize-content=y'); Fragments=2; Images=0; Called=$false }
+    @{ Name='normalize'; Flags=@('--normalize-content=y'); Fragments=2; Images=0; Called=$true; Normalize=$true }
   )) {
     $name = $row.Name
     $arguments = @('inputs/a.pdf','--json-output=2','--decode-level=none') + $row.Flags
@@ -67,7 +69,21 @@ function Invoke-ReferenceJsonContent {
     $managed = Get-Content -LiteralPath "$case/lib-$name.json" -Raw | ConvertFrom-Json -AsHashtable
     $native = Get-Content -LiteralPath "$case/ora-$name.json" -Raw | ConvertFrom-Json -AsHashtable
     $actual = Get-JsonContentProjection $managed; $expected = Get-JsonContentProjection $native
-    if ($actual.Signature -cne $expected.Signature -or $actual.Contents.Count -ne $row.Fragments -or $actual.ImageHashes.Count -ne $row.Images) {
+    if ($name -ceq 'baseline') { $nativeBaseline = $expected.Signature }
+    if ($actual.Contents.Count -ne $row.Fragments -or $actual.ImageHashes.Count -ne $row.Images) {
+      throw "JSON content/$name content, image payload or preparation metadata differs."
+    }
+    if ($row.Normalize) {
+      if ($expected.Signature -cne $nativeBaseline) { throw 'Native JSON normalization changed the original report.' }
+      $firstStream = $actual.Table['obj:' + $actual.Contents[0]].stream
+      $secondStream = $actual.Table['obj:' + $actual.Contents[1]].stream
+      $normalizedFirst = [byte[]]([Text.Encoding]::ASCII.GetBytes("q % FIRST`n`n") + $inline)
+      $normalizedSecond = [byte[]]($second + @(10))
+      if ($firstStream.data -cne [Convert]::ToBase64String($normalizedFirst) -or
+          $secondStream.data -cne [Convert]::ToBase64String($normalizedSecond)) {
+        throw 'Managed JSON normalization did not emit the expected page program bytes.'
+      }
+    } elseif ($actual.Signature -cne $expected.Signature) {
       throw "JSON content/$name content, image payload or preparation metadata differs."
     }
     if ($managed.qpdf[0].calledgetallpages -ne $row.Called -or $managed.qpdf[0].pushedinheritedpageresources) { throw "JSON content/$name preparation flags are incorrect." }
@@ -80,7 +96,11 @@ function Invoke-ReferenceJsonContent {
     $stream = $actual.Table['obj:' + $actual.Contents[0]].stream
     $data = [Convert]::FromBase64String($stream.data); $data[0] = $data[0] -bxor 1
     $stream.data = [Convert]::ToBase64String($data)
-    if ((Get-JsonContentProjection $managed).Signature -ceq $expected.Signature) { throw "JSON content/$name altered-payload control was accepted." }
-    Write-Output "[json-content/$name] payloads, image samples and flags agree; recreation is valid and altered content rejects."
+    if ((Get-JsonContentProjection $managed).Signature -ceq $actual.Signature) { throw "JSON content/$name altered-payload control was accepted." }
+    if ($row.Normalize) {
+      Write-Output '[json-content/normalize] managed bytes are normalized and native bytes match its baseline; both recreations are valid and altered content rejects.'
+    } else {
+      Write-Output "[json-content/$name] payloads, image samples and flags agree; recreation is valid and altered content rejects."
+    }
   }
 }
