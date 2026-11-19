@@ -99,6 +99,27 @@ public sealed class CompatibilityInventoryTests
     }
 
     [Fact]
+    public void EvidenceIdentifiersAreUniqueWithinEachSlot()
+    {
+        using var inventory = ReadInventory();
+        List<string> duplicate = [];
+        foreach (JsonElement entry in inventory.RootElement.GetProperty("options").EnumerateArray())
+        {
+            string entryName = $"{entry.GetProperty("context").GetString()}/{entry.GetProperty("flag").GetString()}";
+            foreach (JsonProperty slot in entry.GetProperty("evidence").EnumerateObject())
+            {
+                HashSet<string?> identifiers = new(StringComparer.Ordinal);
+                foreach (JsonElement item in slot.Value.EnumerateArray())
+                {
+                    string? id = item.GetString();
+                    if (!identifiers.Add(id)) { duplicate.Add($"{entryName} repeats {id} in {slot.Name}."); }
+                }
+            }
+        }
+        Assert.Empty(duplicate);
+    }
+
+    [Fact]
     public void EvidenceNamesResolveToRealTests()
     {
         var discovered = new HashSet<string>(StringComparer.Ordinal);

@@ -3244,7 +3244,6 @@
           "WriterControlsTests.DefaultIdsPreservePlaceholderHashesAcrossRuns"
         ],
         "negative": [
-          "WriterControlsTests.MalformedWriterFlagsFail",
           "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
@@ -4405,7 +4404,6 @@
           "EncryptedJsonRoundTripTests.FullAuthenticatedExportsRoundTripThroughExplicitOutputPolicies",
           "EncryptedJsonRoundTripTests.CreationCannotInferProtectionFromUnauthenticatedJson",
           "JsonImportTests.JobUpdateRoundTrip",
-          "JsonCompositionTests.CreateThenPatchBindsExactPairsAndReusesTheFirstPayload",
           "JsonImportTests.TypedUpdateRoundTrip",
           "PublicationProfileTests.JsonPublicationUsesTheCopyProfile",
           "JsonImportContainerTests.CommandsEnforceEffectiveContainerLimits",
@@ -5065,7 +5063,6 @@
         ],
         "negative": [
           "LinearizedWriterTests.Pass1MalformedFormsFail",
-          "LinearizedWriterTests.Pass1MalformedFormsFail",
           "LinearizedWriterTests.Pass1MalformedJobKeysFail",
           "PublicationAdmissionTests.ActiveFirstPassCannotOverwriteAnyMainOutput",
           "PublicationAdmissionTests.FirstPassRejectsInputPathsBeforePublication",
@@ -5220,7 +5217,6 @@
           "WriterControlsTests.NewlineFlagDoublesTrailingNewline"
         ],
         "negative": [
-          "WriterControlsTests.MalformedWriterFlagsFail",
           "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
@@ -5866,8 +5862,6 @@
           "AcroFormPreservationTests.ThreeLevelTopAncestorRenames",
           "SignatureSelectionTests.EmptySignatureFieldsRemainCopyable",
           "SignatureSelectionTests.PopulatedSignatureBecomesAnAppearanceWithoutActiveSignatureValues",
-          "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
-          "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
           "SignedAppearanceTests.SelectionPreservesMarksAndDisablesOnlyTheFieldRole",
           "SignedAppearanceTests.WholeDocumentAndMergeKeepOrdinaryForms",
           "OptionalContentStateTests.StaticDefaultsKeepIndependentGroupStates",
@@ -6582,7 +6576,6 @@
           "JsonMetadataPolicyTests.ImportsApplyIndependentInfoAndXmlPolicies"
         ],
         "negative": [
-          "MetadataTests.ValuedFlagsFail",
           "MetadataTests.ValuedFlagsFail",
           "JsonMetadataPolicyTests.DatePresenceUsesTheBoundJsonGraph"
         ],
@@ -7711,7 +7704,6 @@
           "WriterControlsTests.StaticIdPreservesOriginalFirstWord"
         ],
         "negative": [
-          "WriterControlsTests.MalformedWriterFlagsFail",
           "WriterControlsTests.MalformedWriterFlagsFail"
         ],
         "interaction": [
