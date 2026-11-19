@@ -86,3 +86,63 @@ function Invoke-ReferenceJsonImportContent {
     throw 'JSON content coalescing changed an input.'
   }
 }
+
+function Invoke-ReferenceBoundNormalization {
+  $case = New-Case 'json-import-normalize'
+  $ascii = [Text.Encoding]::ASCII
+  $first = "q`r`n0 0 10 12 re f`r`nQ`r`n"
+  $changed = "q`r`n0 0 24 29 re f`r`nQ`r`n"
+  $objects = @{
+    'obj:1 0 R' = @{ value=@{ '/Type'='/Catalog'; '/Pages'='2 0 R'; '/Audit'='4 7 R' } }
+    'obj:2 0 R' = @{ value=@{ '/Type'='/Pages'; '/Count'=1; '/Kids'=@('3 0 R'); '/MediaBox'=@(0,0,100,100); '/Resources'=@{} } }
+    'obj:3 0 R' = @{ value=@{ '/Type'='/Page'; '/Parent'='2 0 R'; '/Contents'='4 7 R' } }
+    'obj:4 7 R' = @{ stream=@{ dict=@{}; data=[Convert]::ToBase64String($ascii.GetBytes($first)) } }
+    trailer = @{ value=@{ '/Root'='1 0 R'; '/Size'=5 } }
+  }
+  @{ qpdf=@(@{ jsonversion=2; pdfversion='1.7' },$objects) } |
+    ConvertTo-Json -Depth 12 | Set-Content -LiteralPath "$case/inputs/model.json"
+  if ((Invoke-Oracle $case @('inputs/model.json','--json-input','--stream-data=preserve','inputs/source.pdf')) -ne 0 -or
+      (Invoke-Oracle $case @('inputs/source.pdf','--json=2','--json-key=pages','source-pages.json')) -ne 0) {
+    throw 'Unable to prepare the normalization update source.'
+  }
+  $source = Get-Content -LiteralPath "$case/source-pages.json" -Raw | ConvertFrom-Json
+  $contentKey = 'obj:' + $source.pages[0].contents[0]
+  $replacement = @{ stream=@{ dict=@{}; data=[Convert]::ToBase64String($ascii.GetBytes($changed)) } }
+  @{ qpdf=@(@{ jsonversion=2 },@{ $contentKey=$replacement }) } |
+    ConvertTo-Json -Depth 9 | Set-Content -LiteralPath "$case/inputs/patch.json"
+  $inputs = @(Get-ChildItem -LiteralPath "$case/inputs" -File | Get-FileHash)
+
+  foreach ($row in @(
+    @{ Name='create'; Original=$first; Args=@('inputs/model.json','--json-input') },
+    @{ Name='update'; Original=$changed; Args=@('inputs/source.pdf','--update-from-json=inputs/patch.json') }
+  )) {
+    $tag = "json-import-normalize/$($row.Name)"
+    $lib = "$case/lib-$($row.Name).pdf"; $oracle = "$case/ora-$($row.Name).pdf"
+    $flags = $row.Args + @('--normalize-content=y','--stream-data=preserve')
+    if ((Invoke-Emit $case (@('emit','--workdir',$case,'--out',"output=$lib",'--') + $flags + @('output'))) -ne 0 -or
+        (Invoke-Oracle $case ($flags + @($oracle))) -ne 0) {
+      throw "$tag failed to publish normalized content."
+    }
+    Assert-Trio $tag $lib $oracle 1
+    $normalized = $row.Original.Replace("`r`n", "`n")
+    foreach ($pdf in @($lib,$oracle)) {
+      $report = "$pdf.json"
+      if ((Invoke-Oracle $case @($pdf,'--json=2','--json-key=pages','--json-key=qpdf','--json-stream-data=inline',
+          '--decode-level=none',$report)) -ne 0) { throw "$tag cannot inspect the normalized graph." }
+      $view = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json -AsHashtable
+      $table = $view.qpdf[1]
+      $catalog = $table['obj:'+$table.trailer.value['/Root']].value
+      $active = $view.pages[0].contents[0]; $alias = $catalog['/Audit']
+      $same = $pdf -eq $oracle
+      if (($active -ceq $alias) -ne $same) { throw "$tag unexpected active stream identity." }
+      $body = $ascii.GetString([Convert]::FromBase64String($table['obj:'+$active].stream.data))
+      $saved = $ascii.GetString([Convert]::FromBase64String($table['obj:'+$alias].stream.data))
+      $expectedAlias = if ($same) { $normalized } else { $row.Original }
+      if ($body -cne $normalized -or $saved -cne $expectedAlias) { throw "$tag unexpected program bytes." }
+    }
+    Write-Output "[$tag] active program agrees and managed output retains the private original."
+  }
+  if (Compare-Object $inputs @(Get-ChildItem -LiteralPath "$case/inputs" -File | Get-FileHash) -Property Path,Hash) {
+    throw 'JSON content normalization changed an input.'
+  }
+}

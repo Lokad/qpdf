@@ -945,7 +945,7 @@ internal static partial class JobPlanner
             }
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
-                || (normalizeContent && !qdf) || externalizeInlineImages || iiMinBytes != 1024L
+                || (wantJsonOutput && normalizeContent) || externalizeInlineImages || iiMinBytes != 1024L
                 || removeUnreferencedResources is not (null or "no")
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
                 || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
@@ -1020,7 +1020,7 @@ internal static partial class JobPlanner
                     LinearizePass1 = linearizePass1 is null ? null : SelectionPlan.CheckedPath(linearizePass1),
                     Qdf = qdf,
                     NoOriginalObjectIds = noOriginalObjectIds,
-                    NormalizeContent = qdf && (normalizeContent || !seenNormalizeContent),
+                    NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                 };
             }
 

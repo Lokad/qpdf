@@ -5347,6 +5347,8 @@
           "NormalizedLiteralTests.NormalizationKeepsLiteralSemanticBytes",
           "NormalizedLiteralTests.EitherCancellationRoutePrecedesNewStorage",
           "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
+          "BoundNormalizationTests.CreationNormalizesTheSharedPageProgramAndPreservesTheAlias",
+          "InlineFramingContextTests.BoundNormalizationUsesInheritedResourceContexts",
           "NormalizedContentIdentityTests.SkippedPageProgramsKeepAllPartsAndShareOriginalStreams",
           "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
           "LogicalContentPartitionTests.NormalizationPreservesPhysicalPartsAndInlineSamples",
@@ -5367,15 +5369,19 @@
           "ContentTransformsTests.JobContentFlagsRoundTrip",
           "LogicalContentPartitionTests.NormalizationWiringAndExplicitDisableHaveDistinctBytes",
           "NormalizedStreamPublicationTests.JobAndIncludedJobForwardNormalizationToTheTarget",
+          "BoundNormalizationTests.UpdateCoalescesAndNormalizesThePatchedProgramBeforeSplitting",
+          "BoundNormalizationTests.NormalizedIdentityCryptProgramReplacesTheOldStreamBeforeEncryption",
           "JsonQdfTests.QdfSettingsControlNormalizationCompressionAndPhysicalLayout"
         ],
         "resource": [
           "ResourceEnforcementTests.NormalizeYieldsToExhaustedBudget",
+          "BoundNormalizationTests.NormalizationLimitLeavesThePriorTargetAndClosesInputs",
           "InlinePacketBoundaryTests.PacketConstructionAndPublicationFailuresKeepPriorOutputAndRefundOwners",
           "Ascii85FramingTests.LongWhitespaceMarkerNeedsNoDecodeOrAllocationAllowance"
         ],
         "oracle": [
           "diff:normalize-payloads",
+          "tools/ReferenceJsonImportContent.ps1: Invoke-ReferenceBoundNormalization",
           "tools/ReferenceJsonQdf.ps1: Invoke-ReferenceJsonQdf"
         ]
       }

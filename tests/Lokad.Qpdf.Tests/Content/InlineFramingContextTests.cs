@@ -8,7 +8,7 @@ namespace Lokad.Qpdf.Tests.Content;
 
 public sealed class InlineFramingContextTests
 {
-    private static (byte[] Pdf, byte[] Program) Fixture(string shape, bool reverse)
+    private static (byte[] Pdf, byte[] Program) Fixture(string shape, bool reverse, bool inherited)
     {
         byte[] samples = Enumerable.Repeat((byte)64, 64).ToArray();
         byte[] rest = [.. " EI /Span << /ActualText (a\rline) >> BDC EMC "u8];
@@ -24,14 +24,26 @@ public sealed class InlineFramingContextTests
         string first = shape == "missing" ? "<< >>" : "<< /ColorSpace << /Local /DeviceGray >> >>";
         string second = "<< /ColorSpace << /Local /DeviceRGB >> >>";
         if (reverse) { (first, second) = (second, first); }
-        return (PdfTestDocument.Assemble([
+        List<(int Number, string Dict, byte[]? StreamData)> records = [
             (1, "<< /Type /Catalog /Pages 2 0 R /Original 7 0 R >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 8 0 R /Contents 7 0 R >>", null),
             (4, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 8 0 R /Contents 7 0 R >>", null),
             (5, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 9 0 R /Contents 7 0 R >>", null),
             (6, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources 9 0 R /Contents 7 0 R >>", null),
-            (7, "<< /Length " + program.Length + " >>", program), (8, first, null), (9, second, null)], 1), program);
+            (7, "<< /Length " + program.Length + " >>", program), (8, first, null), (9, second, null)];
+        if (inherited)
+        {
+            records[1] = (2, "<< /Type /Pages /Kids [10 0 R 11 0 R] /Count 4 /MediaBox [0 0 100 100] >>", null);
+            for (int number = 3; number <= 6; number++)
+            {
+                int parent = number < 5 ? 10 : 11;
+                records[number - 1] = (number, $"<< /Type /Page /Parent {parent} 0 R /Contents 7 0 R >>", null);
+            }
+            records.Add((10, "<< /Type /Pages /Parent 2 0 R /Count 2 /Kids [3 0 R 4 0 R] /Resources 8 0 R >>", null));
+            records.Add((11, "<< /Type /Pages /Parent 2 0 R /Count 2 /Kids [5 0 R 6 0 R] /Resources 9 0 R >>", null));
+        }
+        return (PdfTestDocument.Assemble(records, 1), program);
     }
 
     public static IEnumerable<object[]> Cases()
@@ -46,7 +58,7 @@ public sealed class InlineFramingContextTests
     [InlineData("device", false)]
     public async Task QdfImportKeepsSharedStreamsAndLeavesAmbiguousFramingOpaque(string shape, bool ambiguous)
     {
-        (byte[] pdf, byte[] program) = Fixture(shape, false);
+        (byte[] pdf, byte[] program) = Fixture(shape, false, false);
         using InMemoryQpdfHost host = new();
         QpdfPath graph = QpdfPath.From("graph"), output = QpdfPath.From("output"), published = QpdfPath.From("published");
         host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
@@ -77,7 +89,7 @@ public sealed class InlineFramingContextTests
     [MemberData(nameof(Cases))]
     public async Task NormalizationSharesOnlyContextIndependentOrMatchingResourceUses(string shape, bool reverse, bool job)
     {
-        (byte[] pdf, byte[] original) = Fixture(shape, reverse);
+        (byte[] pdf, byte[] original) = Fixture(shape, reverse, false);
         using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = job
             ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","normalizeContent":"y","compressStreams":"n","decodeLevel":"none","removeUnreferencedResources":"no"}""", CancellationToken.None)
@@ -105,5 +117,47 @@ public sealed class InlineFramingContextTests
         PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(Assert.IsType<PdfReference>(root).ObjectNumber));
         Assert.True(catalog.TryGet(PdfName.FromAscii("Original"), out QpdfObject alias));
         Assert.Equal(original, Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(alias).ObjectNumber)).RawMemory.ToArray());
+    }
+
+    [Fact]
+    public async Task BoundNormalizationUsesInheritedResourceContexts()
+    {
+        (byte[] pdf, byte[] original) = Fixture("named", false, true);
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
+        QpdfExecutionResult exported = await Qpdf.ExecuteAsync(host, new(["input", "--json-output=2", "--json-stream-data=inline"]),
+            CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, exported.ExitCode);
+        string model = Assert.IsType<string>(exported.OutputText);
+        using (JsonDocument graph = JsonDocument.Parse(model))
+        {
+            JsonElement objects = graph.RootElement.GetProperty("qpdf")[1];
+            Assert.False(objects.GetProperty("obj:3 0 R").GetProperty("value").TryGetProperty("/Resources", out _));
+            Assert.Equal("8 0 R", objects.GetProperty("obj:10 0 R").GetProperty("value").GetProperty("/Resources").GetString());
+        }
+        host.AddInput(QpdfPath.From("graph"), Encoding.UTF8.GetBytes(model), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["graph", "--json-input", "--normalize-content=y", "--stream-data=preserve", "output"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        host.AddInput(QpdfPath.From("published"), output, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("published"), CancellationToken.None);
+        Assert.Equal(4, document.PageCount);
+        PdfReference[] contents = document.PageReferences.Select(page =>
+        {
+            Assert.True(page.Page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject raw));
+            return Assert.IsType<PdfReference>(raw);
+        }).ToArray();
+        Assert.Equal(contents[0], contents[1]);
+        Assert.Equal(contents[2], contents[3]);
+        Assert.NotEqual(contents[0], contents[2]);
+        PdfStream gray = Assert.IsType<PdfStream>(document.GetObject(contents[0]));
+        PdfStream rgb = Assert.IsType<PdfStream>(document.GetObject(contents[2]));
+        Assert.True(gray.RawMemory.Span.IndexOf("(a\\nline)"u8) >= 0);
+        Assert.True(rgb.RawMemory.Span.IndexOf("(a\rline)"u8) >= 0);
+        Assert.True(document.Engine.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root));
+        PdfDictionary catalog = Assert.IsType<PdfDictionary>(document.GetObject(Assert.IsType<PdfReference>(root)));
+        Assert.True(catalog.TryGet(PdfName.FromAscii("Original"), out QpdfObject alias));
+        Assert.Equal(original, Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(alias))).RawMemory.ToArray());
     }
 }

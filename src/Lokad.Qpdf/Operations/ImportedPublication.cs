@@ -1,6 +1,7 @@
 using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
@@ -9,6 +10,29 @@ namespace Lokad.Qpdf.Operations;
 
 internal static class ImportedPublication
 {
+    internal static void NormalizePagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
+        QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
+        List<int> ids = ParserContainers.CreateList<int>(phase, pages.Count, sizeof(int));
+        foreach (PageLocation page in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            PdfReference source = page.Source ?? throw new InvalidOperationException("Missing prepared page identity.");
+            ids.Add(source.ObjectNumber);
+        }
+        if (ids.Count == 0) { return; }
+
+        int largest = 0;
+        foreach (int number in model.Objects.Keys)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
+        if (largest == int.MaxValue)
+        { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
+        GraphCopier copier = GraphCopier.CreateBoundOwned(model.Objects, resolver, governor, limits, largest + 1, memory);
+        ContentTransformRequest request = new(false, true, false, null, false, 0L) { BoundPageContent = true };
+        ContentTransforms.ApplyPageTransforms(copier, ids, request, limits, governor, diagnostics, token);
+    }
+
     internal static HashSet<int>? FindRetainedObjects(ImportedModel source, JsonImport.RenumberedModel graph,
         PdfDictionary catalog, JsonDetachedObjects policy, ParserMemoryScope? splitMemory,
         ParserMemoryScope scratch, ResourceGovernor governor, CancellationToken token, out List<QpdfObject>? splitRoots)

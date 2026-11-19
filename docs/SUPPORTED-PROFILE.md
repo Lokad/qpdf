@@ -485,7 +485,7 @@ JSON-authored values use strict parsing. Host ceilings apply with
 ### Output options
 
 Command creation and update share the writer's compression, decode level,
-packing, QDF normalization, linearization, first-pass capture and protection
+packing, QDF, linearization, first-pass capture and protection
 options. Streams over the filter limit stay opaque with a warning. Stream
 preparation precedes encryption. Typed imports retain encoded payloads and
 default to flat output. Overloads taking `QpdfJsonImportOptions` select
@@ -503,11 +503,14 @@ physical layout roles require a retained edge. Typed imports retain detached
 declarations.
 
 Commands apply `--rotate` after binding, before splitting and publication.
-Command imports can coalesce page contents before stream encoding. Shared
-arrays and streams remain available to private references. An edited direct
-page gains an indirect identity. An undecodable chunk keeps the original
-array and reports a warning. Other page, content, image and attachment edits
-remain unavailable during import and update.
+Command imports can coalesce page contents and normalize them with
+`--normalize-content=y` before stream encoding. Standalone normalization
+repoints active page content using each page's effective resources. Shared
+arrays and streams remain available to private references. QDF normalization
+uses the shared stream identities. An edited direct page gains an indirect
+identity. Undecodable content keeps its original program and reports a
+warning. Other page, content, image and attachment edits remain unavailable
+during import and update.
 
 ### Splitting and replacement
 

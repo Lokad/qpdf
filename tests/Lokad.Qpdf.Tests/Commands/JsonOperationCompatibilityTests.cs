@@ -47,7 +47,7 @@ public sealed class JsonOperationCompatibilityTests
         foreach (var setting in RefusalSettings)
         {
             string key = setting.Key;
-            if (key is not ("linearize" or "qdf")) { yield return [key, "create", "argv"]; }
+            if (key is not ("linearize" or "qdf" or "normalizeContent")) { yield return [key, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
             { yield return [key, "inspect", "argv"]; }
@@ -56,7 +56,7 @@ public sealed class JsonOperationCompatibilityTests
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
             ("externalizeInlineImages", "update", "argv"),
-            ("normalizeContent", "create", "job"),
+            ("normalizeContent", "bound-inspect", "job"),
             ("removeUnreferencedResources", "update", "mixed"),
             ("overlay", "create", "job"),
             ("flattenRotation", "inspect", "job"),
@@ -330,6 +330,8 @@ public sealed class JsonOperationCompatibilityTests
         Dictionary<string, object> settings = new(extra) { ["inputFile"] = mode == "create" ? "graph" : "input", ["outputFile"] = "output" };
         if (mode == "create") { settings["jsonInput"] = true; }
         else if (mode == "update") { settings["updateFromJson"] = "update"; }
+        else if (mode == "bound-inspect")
+        { settings["updateFromJson"] = "update"; settings["json"] = "2"; }
         else { settings[mode == "inspect" ? "json" : "jsonOutput"] = "2"; }
         return settings;
     }
@@ -345,8 +347,9 @@ public sealed class JsonOperationCompatibilityTests
             return Qpdf.ExecuteAsync(host, new(["--job-json-file=settings"]), CancellationToken.None).AsTask();
         }
         string operation = mode == "create" ? "--json-input" : mode == "update" ? "--update-from-json=update"
-            : mode == "inspect" ? "--json=2" : "--json-output=2";
+            : mode is "inspect" or "bound-inspect" ? "--json=2" : "--json-output=2";
         List<string> arguments = [mode == "create" ? "graph" : "input", operation];
+        if (mode == "bound-inspect") { arguments.Add("--update-from-json=update"); }
         arguments.AddRange(flags); arguments.AddRange(["--", "output"]);
         return Qpdf.ExecuteAsync(host, new(arguments), CancellationToken.None).AsTask();
     }
