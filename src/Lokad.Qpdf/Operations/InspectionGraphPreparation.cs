@@ -241,6 +241,8 @@ internal static partial class InspectionGraphPreparation
                 ? ParserContainers.CreateList<(Content.SourceLabels, int)>(memory) : null;
             List<(GraphCopier Copier, int Id)>? occurrences = catalogAssembly is null ? null
                 : ParserContainers.CreateList<(GraphCopier, int)>(memory);
+            Dictionary<int, PdfReference>? articleAliases = null;
+            bool hasBeads = false;
             bool anyLabels = false;
             foreach ((int source, int slot) in order)
             {
@@ -263,9 +265,12 @@ internal static partial class InspectionGraphPreparation
                 {
                     Dictionary<PdfName, QpdfObject> extra = ParserContainers.CreateDictionary<PdfName, QpdfObject>(memory);
                     (int id, PdfDictionary duplicate) = pool.CopyPageRoot(page.Page, null, extra, true, null);
+                    if (catalogAssembly is not null)
+                    { Content.ArticleThreads.RememberDuplicate(page.Page, id, page.Number, page.Generation, ref articleAliases, memory); }
                     page = new InspectionPage(id, 0, duplicate);
                     if (!ReferenceEquals(pageOwner, pool)) { StoreInspectionObject(pageOwner, id, duplicate); }
                 }
+                if (catalogAssembly is not null) { hasBeads |= Content.ArticleThreads.HasPageBeads(page.Page); }
                 ParserContainers.AddItem(memory, selectedPages, page, 16L);
                 if (pruneGroups?[source] == true && pruningMemory is not null)
                 {
@@ -369,6 +374,8 @@ internal static partial class InspectionGraphPreparation
             {
                 AssembleInspectionCatalog(document, pool, catalogAssembly, occurrences, duplicatedFields,
                     memory, limits, governor, diagnostics, cancellationToken);
+                ProjectInspectionArticles(document, pool, selectedPages, hasBeads, articleAliases, lifetime,
+                    limits, memory, governor, cancellationToken);
                 if (document.Engine.Trailer.TryGet(InspectionRoot, out QpdfObject root)
                     && Content.CatalogCopy.ResolveDictionary(root, document.Engine, governor, cancellationToken) is PdfDictionary catalog
                     && catalog.TryGet(Content.PrintPageRanges.ViewerPreferences, out QpdfObject rawPreferences))

@@ -365,7 +365,7 @@ internal static class FlattenRotation
         graph.Memory.Reserve(24L); PdfArray result = PdfArray.FromOwnedItems(items); graph.Add(24L); return result;
     }
 
-    private static PdfArray NumberArray(ReadOnlySpan<double> values, OwnedAllocationBatch graph)
+    internal static PdfArray NumberArray(ReadOnlySpan<double> values, OwnedAllocationBatch graph)
     {
         long bytes = checked(32L + IntPtr.Size * (long)values.Length);
         graph.Memory.Reserve(bytes); QpdfObject[] items = new QpdfObject[values.Length]; graph.Add(bytes);

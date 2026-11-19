@@ -111,12 +111,7 @@ internal static class SplitAssembly
         IReadOnlySet<int> groupPages, Dictionary<int, QpdfObject>? fieldEdits, ref int? maximum, int reservedNumber,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
-        int last = Content.SourceActions.ProjectionMaximum(pool, ref maximum, reservedNumber, governor, token);
-        if (fieldEdits is not null)
-        {
-            foreach (int id in fieldEdits.Keys)
-            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); last = Math.Max(last, id); }
-        }
+        int last = GroupProjectionMaximum(pool, fieldEdits, ref maximum, reservedNumber, governor, token);
         memory.Reserve(48L);
         // Destination membership is interpreted by the active roles. Other
         // traversals still use the original objects unless a role was edited.
@@ -133,6 +128,36 @@ internal static class SplitAssembly
             fieldEdits[id] = value;
         }
         return (projected, fieldEdits);
+    }
+
+    internal static (PdfDictionary Catalog, Dictionary<int, QpdfObject>? Edits) ProjectSplitArticles(
+        Content.ArticleThreads? threads, PdfDictionary catalog, IReadOnlyDictionary<int, QpdfObject> pool,
+        ReadOnlySpan<PdfReference> pages, IReadOnlySet<int> groupPages, IReadOnlyDictionary<int, PdfReference>? canonicalPages,
+        IReadOnlyDictionary<int, double[]>? rotationFrames, Dictionary<int, QpdfObject>? edits,
+        ref int? maximum, int reservedNumber, QpdfLimits limits, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        if (threads is null && !PdfDictionaryLookup.TryGet(catalog, "Threads"u8, governor, token, out _)
+            && !Content.ArticleThreads.HasRegistrations(pool, pages, governor, token)) { return (catalog, edits); }
+        int last = GroupProjectionMaximum(pool, edits, ref maximum, reservedNumber, governor, token);
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        scratch.Reserve(48L);
+        SplitResolver resolver = new(pool, groupPages, groupPages, edits);
+        return Content.ArticleThreads.Project(threads, catalog, resolver, pages, canonicalPages, rotationFrames,
+            edits, last, limits, memory, governor, token);
+    }
+
+    private static int GroupProjectionMaximum(IReadOnlyDictionary<int, QpdfObject> pool,
+        Dictionary<int, QpdfObject>? edits, ref int? maximum, int reservedNumber,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        int last = Content.SourceActions.ProjectionMaximum(pool, ref maximum, reservedNumber, governor, token);
+        if (edits is not null)
+        {
+            foreach (int id in edits.Keys)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); last = Math.Max(last, id); }
+        }
+        return last;
     }
 
     internal static PdfArray? FindSplitDetachedRoots(IReadOnlyDictionary<int, QpdfObject> pool,

@@ -5,6 +5,7 @@ using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using System.Runtime.InteropServices;
 using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
 using static Lokad.Qpdf.Writing.OutputVersionPolicy;
 
@@ -94,6 +95,46 @@ internal static partial class InspectionGraphPreparation
         PdfReference reference = pool.AddIndirectObjectWithId(catalog, pool.NextId);
         lifetime.ReplacedCatalog ??= root as PdfReference;
         return PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, reference);
+    }
+
+    private static void ProjectInspectionArticles(QpdfDocument document, GraphCopier pool, List<InspectionPage> pages,
+        bool hasBeads, Dictionary<int, PdfReference>? canonicalPages, InspectionGraph lifetime,
+        QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        PdfDictionary trailer = document.Engine.Trailer;
+        if (!trailer.TryGet(InspectionRoot, out QpdfObject root)
+            || CatalogCopy.ResolveDictionary(root, document.Engine, governor, token) is not PdfDictionary catalog)
+        { return; }
+        bool hasRole = PdfDictionaryLookup.TryGet(catalog, "Threads"u8, governor, token, out QpdfObject raw);
+        if (!hasRole && !hasBeads) { return; }
+
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        ArticleThreads? threads = hasRole ? ArticleThreads.Read(raw, document.Engine, limits, scratch, governor, token) : null;
+        List<PdfReference> references = ParserContainers.CreateList<PdfReference>(scratch, pages.Count, IntPtr.Size);
+        foreach (InspectionPage page in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            // A projected bead can retain its page reference after this scratch owner closes.
+            memory.Reserve(32L);
+            references.Add(new PdfReference(page.Number, page.Generation));
+        }
+        (PdfDictionary projected, Dictionary<int, QpdfObject>? edits) = ArticleThreads.Project(threads, catalog,
+            document.Engine, CollectionsMarshal.AsSpan(references), canonicalPages, null, null,
+            pool.NextId - 1, limits, memory, governor, token);
+        if (edits is not null)
+        {
+            foreach ((int id, QpdfObject value) in edits)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                StoreInspectionObject(pool, id, value);
+            }
+        }
+        if (!ReferenceEquals(projected, catalog))
+        {
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+            document.Engine.SetInspectionTrailer(ReplaceInspectionCatalogRoot(pool, graph, trailer, root, projected, lifetime));
+            graph.Memory.TransferTo(memory, graph.Bytes);
+        }
     }
 
     private static void ApplyInspectionPublication(QpdfDocument document, GraphCopier pool, IInspectionGraphPlan plan,

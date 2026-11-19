@@ -23,6 +23,38 @@ internal static class OutputCatalogPreparation
 {
     internal static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
 
+    internal static (PdfDictionary Catalog, bool Changed) ProjectArticles(PdfDictionary catalog,
+        Dictionary<int, QpdfObject> pool, ReadOnlySpan<PdfReference> pages, bool pageSequenceChanged,
+        IReadOnlyDictionary<int, PdfReference>? canonicalPages, IReadOnlyDictionary<int, double[]>? rotationFrames,
+        HashSet<int>? generatedPacking, QpdfLimits limits, ParserMemoryScope memory,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        bool hasThreadRole = PdfDictionaryLookup.TryGet(catalog, "Threads"u8, governor, token, out QpdfObject role);
+        if (hasThreadRole && !pageSequenceChanged && rotationFrames is not { Count: > 0 }
+            || !hasThreadRole && !Content.ArticleThreads.HasRegistrations(pool, pages, governor, token))
+        { return (catalog, false); }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        Content.PoolResolver resolver = Content.PoolResolver.Create(scratch, pool);
+        Content.ArticleThreads? threads = hasThreadRole
+            ? Content.ArticleThreads.Read(role, resolver, limits, scratch, governor, token) : null;
+        int? maximum = null;
+        int last = Content.SourceActions.ProjectionMaximum(pool, ref maximum, 2, governor, token);
+        (PdfDictionary projected, Dictionary<int, QpdfObject>? edits) = Content.ArticleThreads.Project(threads, catalog,
+            resolver, pages, canonicalPages, rotationFrames, null, last, limits, memory, governor, token);
+        if (edits is not null)
+        {
+            foreach ((int id, QpdfObject value) in edits)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                GovernedCollections.Assign(memory, governor, pool, id, value, IntPtr.Size);
+                if (generatedPacking is not null && id > last
+                    && ObjectStreamPreparation.IsCompressibleValue(id, value, 1, 2, governor, token))
+                { ParserContainers.AddSetItem(memory, generatedPacking, id, sizeof(int)); }
+            }
+        }
+        return (projected, edits is not null || !ReferenceEquals(catalog, projected));
+    }
+
     internal static PdfDictionary ProjectPrintRanges<T, TState>(PdfDictionary catalog, Dictionary<int, QpdfObject> pool,
         int total, IReadOnlyList<T> occurrences, TState state, Func<T, TState, int> sourcePage, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)

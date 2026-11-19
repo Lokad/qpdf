@@ -75,18 +75,22 @@ internal static class SinglePageSelection
                     IReadOnlyList<PageLocation> kept = KeptLocations(document, requested, copyMemory, governor, cancellationToken);
                     GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, 3, copyMemory);
                     bool duplicatePages = false;
+                    bool articlePageEdit = requested.Count != total;
+                    int pagePosition = 0;
                     foreach (int pageNumber in requested)
                     {
                         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                         PdfReference? reference = document.PageReferences[pageNumber - 1].Source;
                         duplicatePages |= reference is null || copier.SourceToDestination.ContainsKey(reference.ObjectNumber);
                         copier.RegisterPageRoot(reference?.ObjectNumber);
+                        articlePageEdit |= pageNumber != ++pagePosition;
                     }
                     copier.HintPageCapacity(requested.Count);
                     List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(copyMemory, requested.Count, IntPtr.Size);
                     copyMemory.Reserve(checked(24L * requested.Count));
                     List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(copyMemory, requested.Count, 16L);
                     PdfReference? outputParent = null;
+                    Dictionary<int, PdfReference>? articleAliases = null;
                     using (PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(requested.Count > 1,
                         document.Engine, WriterInherited, limits, governor, cancellationToken))
                     {
@@ -100,6 +104,9 @@ internal static class SinglePageSelection
                             if (outputParent is null) { copyMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
                             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                             RequireMediaBox(page);
+                            if (duplicatePages && location.Source is PdfReference original
+                                && copier.SourceToDestination.TryGetValue(original.ObjectNumber, out int canonical))
+                            { Content.ArticleThreads.RememberDuplicate(page, pageId, canonical, 0, ref articleAliases, copyMemory); }
                             kids.Add(new PdfReference(pageId, 0));
                             occurrences.Add((copier, pageId));
                         }
@@ -305,10 +312,13 @@ internal static class SinglePageSelection
                     PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = singleLabels, Metadata = singleMetadata, Names = singleAttached.NamesRef, PageMode = singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = singleOutlines, AcroForm = singleAcroForm, Structure = singleStructTree, MarkInfo = singleMarkInfo, Extras = singleExtras, OptionalContent = singleOptionalContent }, effective, extensionLevel, singlePool, governor, cancellationToken);
                     PdfDictionary projectedCatalog = ProjectPrintRanges(catalog, singlePool, total, requested, 0,
                         static (page, _) => page, limits, copyMemory, governor, cancellationToken);
+                    (projectedCatalog, bool articleEdit) = ProjectArticles(projectedCatalog, singlePool, CollectionsMarshal.AsSpan(kids),
+                        articlePageEdit, articleAliases, rotationFrames, streamMode == "generate" ? singleCompressed : null,
+                        limits, copyMemory, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
                         new OutputGraph(projectedCatalog, pages, singlePool, singleCompressed, singleInfo,
-                            (!ReferenceEquals(catalog, projectedCatalog) || singleAttached.Replaced || copier.HasReplacedObjects
+                            (articleEdit || !ReferenceEquals(catalog, projectedCatalog) || singleAttached.Replaced || copier.HasReplacedObjects
                                 || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
                             outputSecurity), copyMemory, governor, cancellationToken);
                     IReadOnlyDictionary<int, (int Number, int Generation)>? singleOriginalIds = PrepareOriginalIds(settings.Qdf,

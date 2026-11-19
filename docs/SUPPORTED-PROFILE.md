@@ -276,6 +276,13 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   retained primary page occurrences. Bound splits use part-relative positions.
   Empty or malformed ranges are omitted when projected. Other preferences and
   private aliases retain their values. Physical splits omit viewer preferences.
+- Page selection, assembled reports and splits rebuild retained primary article
+  threads and page bead registrations. Article order follows the source chain,
+  with copies of each bead in output occurrence order. Rotation baking transforms
+  active bead rectangles. Invalid chains and unmatched page registrations are
+  omitted from the active graph. Private article and bead aliases retain their
+  values under ordinary reference remapping. Article actions retain their
+  stored thread and bead indices.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.

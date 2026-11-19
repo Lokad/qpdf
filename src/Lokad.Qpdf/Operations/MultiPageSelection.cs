@@ -125,6 +125,7 @@ internal static class MultiPageSelection
         Content.SourceLabels?[] multiLabels = new Content.SourceLabels?[sources.Count];
         int nextId = 3;
         bool duplicateSourcePages = false;
+        Dictionary<int, PdfReference>? articleAliases = null;
         bool needAppearances = false;
         List<GraphCopier> copiers = ParserContainers.CreateList<GraphCopier>(selectionMemory, documentCount, IntPtr.Size);
         PdfVersion? version = null;
@@ -250,6 +251,9 @@ internal static class MultiPageSelection
                             if (outputParent is null) { selectionMemory.Reserve(32L); outputParent = new PdfReference(2, 0); }
                             (int pageId, PdfDictionary page) = copier.CopyPageRoot(location.Page, location.Source?.ObjectNumber, extra, false, outputParent);
                             RequireMediaBox(page);
+                            if (duplicateSourcePages && location.Source is PdfReference original
+                                && copier.SourceToDestination.TryGetValue(original.ObjectNumber, out int canonical))
+                            { Content.ArticleThreads.RememberDuplicate(page, pageId, canonical, 0, ref articleAliases, selectionMemory); }
                             taken.Add((copier, pageId, pageNumber));
                         }
                     }
@@ -362,11 +366,13 @@ internal static class MultiPageSelection
         List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(selectionMemory, order.Count, IntPtr.Size);
         selectionMemory.Reserve(checked(24L * order.Count));
         List<(GraphCopier Copier, int Id)> occurrences = ParserContainers.CreateList<(GraphCopier, int)>(selectionMemory, order.Count, 16L);
+        bool articlePageEdit = sources.Count != 1 || sources[0].Input != primaryInput || order.Count != sourceCounts[0];
         foreach ((int source, int slot) in order)
         {
             cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             (GraphCopier copier, int pageId, int pageNumber) = perSource[source][slot];
             kids.Add(new PdfReference(pageId, 0));
+            articlePageEdit |= pageNumber != kids.Count;
             selectionMemory.Reserve(24L);
             ParserContainers.AddItem(selectionMemory, mapping, new PdfPageSelectionMapping(source, pageNumber), IntPtr.Size);
             occurrences.Add((copier, pageId));
@@ -651,9 +657,12 @@ internal static class MultiPageSelection
             PdfDictionary projectedCatalog = ProjectPrintRanges(catalog, pool, primaryPageCount, mapping, (sources, primaryInput),
                 static (entry, state) => state.sources[entry.SourceIndex].Input == state.primaryInput ? entry.SourcePage : 0,
                 limits, selectionMemory, governor, cancellationToken);
+            (projectedCatalog, bool articleEdit) = ProjectArticles(projectedCatalog, pool, CollectionsMarshal.AsSpan(kids),
+                articlePageEdit, articleAliases, rotationFrames, multiStreamMode == "generate" ? multiCompressed : null,
+                limits, selectionMemory, governor, cancellationToken);
             PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
                 new OutputGraph(projectedCatalog, PagesNode(kids, selectionMemory, governor, cancellationToken), pool, multiCompressed, primaryInfo,
-                    (!ReferenceEquals(catalog, projectedCatalog) || multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
+                    (articleEdit || !ReferenceEquals(catalog, projectedCatalog) || multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
                         || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
                     outputSecurity), selectionMemory, governor, cancellationToken);
 
@@ -667,6 +676,10 @@ internal static class MultiPageSelection
 
         List<SplitGroup> groups = PrepareGroups(target.Value, kids.Count, splitPages.Value, selectionMemory, governor);
         await inputs.ValidateTargetsAsync(host, groups, static group => group.Target, capture, "Split", cancellationToken).ConfigureAwait(false);
+        QpdfObject? articleRoot = Content.CatalogCopy.ReadExtra(primaryExtras, "Threads"u8, governor, cancellationToken);
+        Content.ArticleThreads? threads = articleRoot is not null
+            ? Content.ArticleThreads.Read(articleRoot, Content.PoolResolver.Create(selectionMemory, pool), limits,
+                selectionMemory, governor, cancellationToken) : null;
 
         HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(selectionMemory);
         foreach (var source in perSource)
@@ -679,12 +692,12 @@ internal static class MultiPageSelection
         }
         // Split roots must use the final role identities, after source binding
         // and rotation. Earlier root snapshots can retain obsolete outlines.
-        selectionMemory.Reserve(64L + 7L * IntPtr.Size);
+        selectionMemory.Reserve(64L + 8L * IntPtr.Size);
         PdfArray sharedRoots = PdfArray.FromOwnedItems([
             (QpdfObject?)primaryInfo ?? PdfNull.Instance, (QpdfObject?)primaryMetadata ?? PdfNull.Instance,
             (QpdfObject?)primaryOutlines ?? PdfNull.Instance, (QpdfObject?)primaryStructTree ?? PdfNull.Instance,
             primaryMarkInfo is PdfReference markInfo ? markInfo : PdfNull.Instance,
-            (QpdfObject?)multiAttached.NamesRef ?? PdfNull.Instance, optionalContent ?? PdfNull.Instance,
+            (QpdfObject?)multiAttached.NamesRef ?? PdfNull.Instance, optionalContent ?? PdfNull.Instance, articleRoot ?? PdfNull.Instance,
         ]);
         PdfArray? detachedRoots = FindSplitDetachedRoots(pool, kids, sharedRoots, multiAcroForm, catalogLabels,
             preservationCandidates, selectionMemory, governor, cancellationToken);
@@ -719,6 +732,8 @@ internal static class MultiPageSelection
             }, effective, extensionLevel, pool, governor, cancellationToken);
             (catalog, Dictionary<int, QpdfObject>? edits) = ProjectSplitNavigation(catalog, pool, partPages, groupPageNumbers,
                 fieldEdits, ref projectionMaximum, 2, limits, groupMemory, governor, cancellationToken);
+            (catalog, edits) = ProjectSplitArticles(threads, catalog, pool, partPages, groupPageNumbers, articleAliases, rotationFrames,
+                edits, ref projectionMaximum, 2, limits, groupMemory, governor, cancellationToken);
             ParserContainers.AddItem(groupMemory, roots, catalog);
             if (primaryInfo is not null) { ParserContainers.AddItem(groupMemory, roots, primaryInfo); }
             if (detachedRoots is not null) { ParserContainers.AddItem(groupMemory, roots, detachedRoots); }
