@@ -13,7 +13,6 @@ namespace Lokad.Qpdf.Writing;
 /// </summary>
 internal sealed partial class PdfSerializer
 {
-    private static readonly PdfName QdfTypeKey = PdfName.FromAscii("Type");
     private static readonly byte[] QdfBinaryLine = [0x25, 0xBF, 0xF7, 0xA2, 0xFE, 0x0A];
 
     private ValueTask WriteQdfOriginalIdAsync((int Number, int Generation) source, IByteSink sink, CancellationToken token)
