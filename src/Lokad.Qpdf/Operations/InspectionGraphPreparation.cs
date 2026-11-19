@@ -369,6 +369,22 @@ internal static partial class InspectionGraphPreparation
             {
                 AssembleInspectionCatalog(document, pool, catalogAssembly, occurrences, duplicatedFields,
                     memory, limits, governor, diagnostics, cancellationToken);
+                if (document.Engine.Trailer.TryGet(InspectionRoot, out QpdfObject root)
+                    && Content.CatalogCopy.ResolveDictionary(root, document.Engine, governor, cancellationToken) is PdfDictionary catalog
+                    && catalog.TryGet(Content.PrintPageRanges.ViewerPreferences, out QpdfObject rawPreferences))
+                {
+                    PdfDictionary? preferences = Content.PrintPageRanges.Project(rawPreferences, document.Engine, original.Count,
+                        order, (groups, catalogAssembly, pool), static (entry, state) =>
+                        {
+                            var page = state.catalogAssembly.Pages[state.groups[entry.Source][entry.Slot].Number];
+                            return ReferenceEquals(page.Copier, state.pool) ? page.Page : 0;
+                        }, limits, memory, governor, cancellationToken);
+                    if (preferences is not null)
+                    {
+                        ReplaceInspectionCatalogEntry(document, pool, Content.PrintPageRanges.ViewerPreferences,
+                            preferences, memory, limits, governor);
+                    }
+                }
             }
 
             if (content || pruneIds is not null)

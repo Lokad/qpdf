@@ -272,6 +272,10 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   labels apply in assembled order before splitting; unchanged whole-file labels stay raw.
   Label starts default to 1 even with an empty slash field: `1:D//A-` numbers
   pages with prefix A-, while `1://Cover` supplies a prefix without numbering.
+- When page selection retains viewer preferences, the active print preset follows
+  retained primary page occurrences. Bound splits use part-relative positions.
+  Empty or malformed ranges are omitted when projected. Other preferences and
+  private aliases retain their values. Physical splits omit viewer preferences.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.

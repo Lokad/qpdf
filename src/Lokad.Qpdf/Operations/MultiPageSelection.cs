@@ -146,6 +146,7 @@ internal static class MultiPageSelection
         PdfReference? primaryStructTree = null;
         QpdfObject? primaryMarkInfo = null;
         IReadOnlyDictionary<PdfName, QpdfObject>? primaryExtras = null;
+        int primaryPageCount = 0;
         long selected = 0L;
         (bool multiCompress, string multiDecode, int? multiLevel) = ResolveCompression(settings.Compression, settings.Qdf.Enabled);
         Content.ContentTransformRequest? finalTransforms = null;
@@ -295,6 +296,8 @@ internal static class MultiPageSelection
                     primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
                     (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
                     (primaryPageMode, primaryExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
+                    if (!splitPages.HasValue && primaryExtras.ContainsKey(Content.PrintPageRanges.ViewerPreferences))
+                    { primaryPageCount = document.PageReferences.Count; }
 
                     primaryExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, selectionMemory, cancellationToken);
                 }
@@ -645,9 +648,12 @@ internal static class MultiPageSelection
                     limits, governor, selectionMemory, cancellationToken);
             }
             PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = catalogLabels, Metadata = primaryMetadata, Names = multiAttached.NamesRef, PageMode = primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = primaryOutlines, AcroForm = multiAcroForm, Structure = primaryStructTree, MarkInfo = primaryMarkInfo, Extras = primaryExtras, OptionalContent = optionalContent }, effective, extensionLevel, pool, governor, cancellationToken);
+            PdfDictionary projectedCatalog = ProjectPrintRanges(catalog, pool, primaryPageCount, mapping, (sources, primaryInput),
+                static (entry, state) => state.sources[entry.SourceIndex].Input == state.primaryInput ? entry.SourcePage : 0,
+                limits, selectionMemory, governor, cancellationToken);
             PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
-                new OutputGraph(catalog, PagesNode(kids, selectionMemory, governor, cancellationToken), pool, multiCompressed, primaryInfo,
-                    (multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
+                new OutputGraph(projectedCatalog, PagesNode(kids, selectionMemory, governor, cancellationToken), pool, multiCompressed, primaryInfo,
+                    (!ReferenceEquals(catalog, projectedCatalog) || multiAttached.Replaced || copiers.Exists(static item => item.HasReplacedObjects)
                         || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
                     outputSecurity), selectionMemory, governor, cancellationToken);
 

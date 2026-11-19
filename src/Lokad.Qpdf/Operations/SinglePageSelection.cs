@@ -303,10 +303,12 @@ internal static class SinglePageSelection
                     (PdfVersion effective, int extensionLevel) = RequireObjectStreamVersion(negotiated, negotiatedExtension, singleCompressed.Count != 0, governor);
 
                     PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = singleLabels, Metadata = singleMetadata, Names = singleAttached.NamesRef, PageMode = singlePageMode ?? (singleAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = singleOutlines, AcroForm = singleAcroForm, Structure = singleStructTree, MarkInfo = singleMarkInfo, Extras = singleExtras, OptionalContent = singleOptionalContent }, effective, extensionLevel, singlePool, governor, cancellationToken);
+                    PdfDictionary projectedCatalog = ProjectPrintRanges(catalog, singlePool, total, requested, 0,
+                        static (page, _) => page, limits, copyMemory, governor, cancellationToken);
                     PdfDictionary pages = PagesNode(kids, copyMemory, governor, cancellationToken);
                     PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
-                        new OutputGraph(catalog, pages, singlePool, singleCompressed, singleInfo,
-                            (singleAttached.Replaced || copier.HasReplacedObjects
+                        new OutputGraph(projectedCatalog, pages, singlePool, singleCompressed, singleInfo,
+                            (!ReferenceEquals(catalog, projectedCatalog) || singleAttached.Replaced || copier.HasReplacedObjects
                                 || overlayApplied.Copiers.Exists(static item => item.HasReplacedObjects)) && !settings.PreserveUnreferenced,
                             outputSecurity), copyMemory, governor, cancellationToken);
                     IReadOnlyDictionary<int, (int Number, int Generation)>? singleOriginalIds = PrepareOriginalIds(settings.Qdf,

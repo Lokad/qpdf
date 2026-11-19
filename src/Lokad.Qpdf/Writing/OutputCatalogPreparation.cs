@@ -23,6 +23,22 @@ internal static class OutputCatalogPreparation
 {
     internal static readonly PdfName UseAttachmentsPageMode = PdfName.FromAscii("UseAttachments");
 
+    internal static PdfDictionary ProjectPrintRanges<T, TState>(PdfDictionary catalog, Dictionary<int, QpdfObject> pool,
+        int total, IReadOnlyList<T> occurrences, TState state, Func<T, TState, int> sourcePage, QpdfLimits limits,
+        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (!PdfDictionaryLookup.TryGet(catalog, "ViewerPreferences"u8, governor, token, out QpdfObject raw))
+        { return catalog; }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        PdfDictionary? preferences = Content.PrintPageRanges.Project(raw, Content.PoolResolver.Create(scratch, pool),
+            total, occurrences, state, sourcePage, limits, memory, governor, token);
+        if (preferences is null) { return catalog; }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfDictionary projected = PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "ViewerPreferences"u8, preferences);
+        graph.Memory.TransferTo(memory, graph.Bytes);
+        return projected;
+    }
+
     internal static PdfDictionary PagesNode(IReadOnlyList<PdfReference> groupKids,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {

@@ -34,6 +34,10 @@ internal static class JsonSplitPublication
             Dictionary<int, QpdfObject> pool = graph.Objects;
             PdfDictionary catalog = (PdfDictionary)pool[1];
             PoolResolver resolver = PoolResolver.Create(split, pool);
+            PrintPageRanges? printRanges = null;
+            if (groupSize < pages.Count
+                && PdfDictionaryLookup.TryGet(catalog, "ViewerPreferences"u8, governor, token, out QpdfObject preferences))
+            { printRanges = PrintPageRanges.Read(preferences, resolver, pages.Count, split, governor, token); }
             List<(int Index, PdfDictionary Label)> labels = authoredLabels
                 ?? PageLabelMerge.ReadBoundLabels(resolver, catalog, pages.Count, limits, governor, split, token);
             int maximum = 0;
@@ -63,7 +67,7 @@ internal static class JsonSplitPublication
             {
                 using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
                 (int first, int last) = groups[group];
-                SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, form, detachedRoots, first, last,
+                SplitPart part = PreparePart(graph, catalog, kids, pageNumbers, pagesNumber, labels, printRanges, form, detachedRoots, first, last,
                     ref projectionMaximum, limits, groupMemory, governor, token);
                 HashSet<int> packing = originalPacking is null && part.ProjectedGraph
                     ? ObjectStreamPreparation.ResolveGeneratedCompressedSet(part.Objects, groupMemory, governor, token)
@@ -191,7 +195,7 @@ internal static class JsonSplitPublication
     private readonly record struct SplitPart(List<NumberedObject> Objects, GroupNumbers Numbers, int? Info, int Metadata, bool ProjectedGraph);
 
     private static SplitPart PreparePart(JsonImport.RenumberedModel graph, PdfDictionary catalog, List<PdfReference> kids,
-        HashSet<int> pageNumbers, int pagesNumber, List<(int Index, PdfDictionary Label)> labels, CopiedForm? form,
+        HashSet<int> pageNumbers, int pagesNumber, List<(int Index, PdfDictionary Label)> labels, PrintPageRanges? printRanges, CopiedForm? form,
         List<QpdfObject>? detachedRoots, int first, int last, ref int? projectionMaximum, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
@@ -209,6 +213,11 @@ internal static class JsonSplitPublication
         catalog = PdfDictionaryRebuild.ReplaceEntry(headers, catalog, "Pages"u8, new PdfReference(pagesNumber, 0));
         PdfDictionary? groupLabels = PageLabelAssembly.SlicePageLabels(labels, first, last, governor);
         catalog = WithRole(headers, catalog, "PageLabels"u8, groupLabels);
+        if (printRanges is PrintPageRanges preset)
+        {
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+            catalog = WithRole(headers, catalog, "ViewerPreferences"u8, preset.Slice(first, last, limits, scratch, headers));
+        }
         var (groupForm, fieldEdits) = ProjectSplitForm(form, graph.Objects, group, true,
             ref projectionMaximum, pagesNumber, limits, memory, governor, token);
         catalog = WithRole(headers, catalog, "AcroForm"u8, groupForm);
@@ -244,7 +253,7 @@ internal static class JsonSplitPublication
         headers.Memory.TransferTo(memory, headers.Bytes);
         int? mappedInfo = graph.InfoNumber is int originalInfo && numbers.Map.TryGetValue(originalInfo, out int infoNumber)
             ? infoNumber : null;
-        return new(objects, numbers, mappedInfo, numbers.Map.GetValueOrDefault(graph.MetadataNumber), edits is not null);
+        return new(objects, numbers, mappedInfo, numbers.Map.GetValueOrDefault(graph.MetadataNumber), edits is not null || printRanges.HasValue);
     }
 
     private static PdfDictionary WithRole(OwnedAllocationBatch headers, PdfDictionary catalog, ReadOnlySpan<byte> key,
