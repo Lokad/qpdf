@@ -216,6 +216,9 @@ internal static class MultiPageSelection
                 }
                 if (groupedPageCount > Array.MaxLength)
                 { throw new QpdfLimitException("Selected pages", groupedPageCount, Array.MaxLength); }
+                bool changesTagTopology = sources.Count != 1 || sources[0].Input != primaryInput
+                    || groupedPageCount != document.PageReferences.Count || splitPages < groupedPageCount
+                    || settings.FlattenAnnotations is not null;
                 List<PageLocation> kept = ParserContainers.CreateList<PageLocation>(sourcePlan, (int)groupedPageCount, 16L);
                 GraphCopier copier = GraphCopier.CreateOwned(document.Engine, governor, limits, nextId, selectionMemory);
                 for (int group = 0; group < sourceGroupIndices.Count; group++)
@@ -229,6 +232,7 @@ internal static class MultiPageSelection
                         if (!included) { continue; }
                         PageLocation location = document.PageReferences[pageNumber - 1];
                         kept.Add(location);
+                        changesTagTopology |= pageNumber != kept.Count;
                         duplicateSourcePages |= location.Source is null || copier.SourceToDestination.ContainsKey(location.Source.ObjectNumber);
                         copier.RegisterPageRoot(location.Source?.ObjectNumber);
                     }
@@ -299,7 +303,9 @@ internal static class MultiPageSelection
                 {
                     (primaryInfo, primaryMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics, governor, cancellationToken);
                     primaryOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
-                    (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
+                    (primaryStructTree, primaryMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier,
+                        settings.PreserveCatalog, settings.RemoveStructure, changesTagTopology || duplicateSourcePages,
+                        governor, diagnostics, cancellationToken);
                     (primaryPageMode, primaryExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, selectionMemory, cancellationToken);
                     if (!splitPages.HasValue && primaryExtras.ContainsKey(Content.PrintPageRanges.ViewerPreferences))
                     { primaryPageCount = document.PageReferences.Count; }

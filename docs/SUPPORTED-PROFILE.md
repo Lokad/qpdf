@@ -291,6 +291,11 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   actions with omitted targets or unusable selectors are skipped and live
   Next actions continue in order. Imported secondary pages and placements omit their local
   Thread actions with their article catalogs. Remote Thread selectors are kept.
+- Catalog-preserving rewrites can carry the active structure tree and mark
+  information forward when the original page sequence survives. Selection and
+  splitting warn and omit those roles when the page set or order changes.
+  Annotation flattening applies the same fallback. Marked-content programs and
+  private references follow ordinary copying and remapping rules.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.

@@ -33,6 +33,7 @@ internal static class JsonSplitPublication
         {
             Dictionary<int, QpdfObject> pool = graph.Objects;
             PdfDictionary catalog = (PdfDictionary)pool[1];
+            bool changesTagTopology = groupSize < pages.Count;
             PoolResolver resolver = PoolResolver.Create(split, pool);
             ArticleThreads? threads = null;
             if (PdfDictionaryLookup.TryGet(catalog, "Threads"u8, governor, token, out QpdfObject articleRole))
@@ -51,7 +52,9 @@ internal static class JsonSplitPublication
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             Dictionary<int, PdfReference>? articleAliases = null;
             List<PdfReference> kids = PreparePages(pages, pool, resolver, pagesNumber, ref maximum, pageNumbers,
-                ref articleAliases, limits, split, governor, diagnostics, token);
+                ref articleAliases, ref changesTagTopology, limits, split, governor, diagnostics, token);
+            if (changesTagTopology)
+            { catalog = CatalogCopy.WithoutActiveStructure(catalog, resolver, split, governor, diagnostics, token); }
             if (pruneResources)
             {
                 maximum = PrunePageResources(kids, pool, resolver, maximum, limits, split, governor, diagnostics, token);
@@ -113,7 +116,7 @@ internal static class JsonSplitPublication
 
     private static List<PdfReference> PreparePages(IReadOnlyList<PageLocation> pages, Dictionary<int, QpdfObject> pool,
         IIndirectResolver resolver, int pagesNumber, ref int maximum, HashSet<int> pageNumbers,
-        ref Dictionary<int, PdfReference>? articleAliases, QpdfLimits limits,
+        ref Dictionary<int, PdfReference>? articleAliases, ref bool changesTagTopology, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(memory, pages.Count, IntPtr.Size);
@@ -126,7 +129,9 @@ internal static class JsonSplitPublication
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             int number = location.Source?.ObjectNumber ?? checked(++maximum);
-            if (number == 1 || pageNumbers.Contains(number)) { number = checked(++maximum); }
+            if (number == 1 || pageNumbers.Contains(number))
+            { number = checked(++maximum); changesTagTopology = true; }
+            changesTagTopology |= location.Source is null;
             ParserContainers.AddSetItem(memory, pageNumbers, number, sizeof(int));
             PageInheritance.InheritedValues inherited = ancestry?.Find(location) ?? PageInheritance.FindAncestors(resolver, location,
                 PageAssembly.WriterInherited, limits, governor, token);

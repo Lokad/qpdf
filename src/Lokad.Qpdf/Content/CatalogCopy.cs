@@ -140,7 +140,9 @@ internal static class CatalogCopy
         GraphCopier copier,
         bool preserveCatalog,
         bool removeStructure,
+        bool changesTagTopology,
         ResourceGovernor governor,
+        DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
         if (engine is null)
@@ -170,6 +172,8 @@ internal static class CatalogCopy
         {
             return (null, null);
         }
+        if (changesTagTopology && ReportDroppedStructure(catalog, engine, governor, diagnostics, cancellationToken))
+        { return (null, null); }
 
         PdfReference? tree = null;
         QpdfObject? mark = null;
@@ -198,6 +202,47 @@ internal static class CatalogCopy
         finally { copier.EndCopyAttempt(); }
 
         return (tree, mark);
+    }
+
+    internal static PdfDictionary WithoutActiveStructure(PdfDictionary catalog, IIndirectResolver resolver, ParserMemoryScope ownership,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        if (!ReportDroppedStructure(catalog, resolver, governor, diagnostics, token)) { return catalog; }
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(graph, out long bytes);
+        using PdfDictionary.EntryEnumerator source = catalog.GetEntryEnumerator();
+        while (source.MoveNext(governor, token))
+        {
+            (PdfName key, QpdfObject value) = source.Current;
+            if (key.RawSpan.SequenceEqual("StructTreeRoot"u8) || key.RawSpan.SequenceEqual("MarkInfo"u8)) { continue; }
+            entries.Assign(graph.Memory, governor, key, value, token);
+        }
+        PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, entries, bytes);
+        graph.Memory.TransferTo(ownership, graph.Bytes);
+        return rebuilt;
+    }
+
+    private static bool ReportDroppedStructure(PdfDictionary catalog, IIndirectResolver resolver, ResourceGovernor governor,
+        DiagnosticBag diagnostics, CancellationToken token)
+    {
+        if (!HasActiveStructure(catalog, resolver, governor, token)) { return false; }
+        diagnostics.Add(QpdfDiagnosticCode.PageStructureWarning, QpdfDiagnosticSeverity.Warning,
+            "Omitted the active structure tree and mark information because the page or annotation relationships changed.");
+        return true;
+    }
+
+    private static bool HasActiveStructure(PdfDictionary catalog, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
+    {
+        if (PdfDictionaryLookup.TryGet(catalog, "StructTreeRoot"u8, governor, token, out QpdfObject tree)
+            && tree is not PdfNull) { return true; }
+        try
+        {
+            return PdfDictionaryLookup.TryGet(catalog, "MarkInfo"u8, governor, token, out QpdfObject mark)
+                && ResolveDictionary(mark, resolver, governor, token) is PdfDictionary info
+                && PdfDictionaryLookup.TryGet(info, "Marked"u8, governor, token, out QpdfObject marked)
+                && ResolveValue(marked, resolver, governor, token) is PdfBoolean { Value: true };
+        }
+        catch (QpdfParseException) { return false; }
     }
 
     /// <summary>

@@ -126,7 +126,10 @@ internal static class SinglePageSelection
 
                     (PdfReference? singleInfo, PdfReference? singleMetadata) = CopyDocumentMetadata(copier, document.Engine, settings.RemoveInfo, settings.RemoveMetadata, diagnostics, governor, cancellationToken);
                     PdfReference? singleOutlines = Content.CatalogCopy.TryCopyOutlines(document.Engine, copier, settings.PreserveCatalog, settings.Linearize, governor, cancellationToken);
-                    (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine, copier, settings.PreserveCatalog, settings.RemoveStructure, governor, cancellationToken);
+                    (PdfReference? singleStructTree, QpdfObject? singleMarkInfo) = Content.CatalogCopy.TryCopyStructure(document.Engine,
+                        copier, settings.PreserveCatalog, settings.RemoveStructure,
+                        articlePageEdit || duplicatePages || settings.FlattenAnnotations is not null,
+                        governor, diagnostics, cancellationToken);
                     (QpdfObject? singlePageMode, IReadOnlyDictionary<PdfName, QpdfObject> singleExtras) = Content.CatalogCopy.TryCopyExtras(document.Engine, copier, settings.PreserveCatalog, settings.RemoveAcroform, governor, copyMemory, cancellationToken);
                     SortedDictionary<string, AttachmentReference> singleExisting = PreserveExistingAttachments(copier, document.Engine, settings.Edits, limits, governor, diagnostics, copyMemory, cancellationToken);
 
