@@ -225,11 +225,11 @@ Predicates take precedence over other inspections and ignore `--remove-restricti
 acceptance does not establish restriction removal.
 Malformed or unsupported security handlers fail explicitly.
 
-`--show-encryption` / `showEncryption` reports declared permissions, cipher methods
-and password-match status for supported handlers. Incorrect credentials still allow
-this report and skip combined content inspections; the report does not validate
-encrypted payloads. Passwords and keys are never included, even when native qpdf
-would print a recovered password. Explicit output paths are rejected.
+`--show-encryption` / `showEncryption` reports declared permissions and password
+match status. V4 and V5 reports include per-filter cipher names. Incorrect
+credentials still allow this report and skip combined content inspections.
+An authenticated check can validate supported payloads. Reports omit passwords
+and keys. Explicit output paths are rejected.
 
 JSON inspection accepts the same primary credential, including raw bytes through
 `QpdfJsonOptions.Password`. Both JSON versions report encryption facts and export
@@ -322,6 +322,8 @@ program; unavailable fragments preserve original content and report incomplete c
 
 Stored annotation geometry and supported appearances follow page frames, UserUnit
 and NoRotate anchors. Imported static appearances clip to the source page.
+Popup and reply links stay within each page occurrence. Damaged optional
+annotations can be skipped with a warning.
 Form generation uses source defaults/resources; missing usable fonts preserve
 appearances and prevent unsupported flattening. General interactive appearance
 generation and malformed-field parity are not claimed.
@@ -608,7 +610,8 @@ each setter, while duplicate job properties use the last value.
 Authored dates use `D:YYYYMMDDHHmmSS`, optionally followed by `Z` or a signed
 `HH'mm'` offset. Validation checks syntax, including ASCII digits, rather than
 calendar ranges. Typed null/empty dates mean omission; explicit empty command
-setters reject. Existing stored dates remain readable and survive copying.
+setters reject. Stored CreationDate and ModDate are read independently and survive
+copying.
 Authoring rejects embedded NUL; native job JSON can truncate the timestamp at NUL.
 
 ### Attachment extraction
