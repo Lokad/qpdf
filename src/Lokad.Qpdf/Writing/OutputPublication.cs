@@ -173,7 +173,7 @@ internal static class OutputPublication
         }
 
         await using IQpdfOutputTransaction pass1Transaction = await GovernedHost.CreateOutputAsync(host, linearizePass1.Value, governor, cancellationToken).ConfigureAwait(false);
-        TransactionSink pass1Destination = new(pass1Transaction, governor);
+        TransactionSink pass1Destination = new(pass1Transaction, governor, staging, limits);
         using BatchingSink pass1Sink = BatchingSink.Create(pass1Destination, limits, governor, cancellationToken);
         await serialization.WriteLinearizedAsync(writer, id1, id2, sink, pass1Sink, cancellationToken).ConfigureAwait(false);
         await sink.FlushAsync(cancellationToken).ConfigureAwait(false);

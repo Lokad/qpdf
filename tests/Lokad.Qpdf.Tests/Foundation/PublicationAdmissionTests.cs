@@ -19,6 +19,66 @@ public sealed class PublicationAdmissionTests
         QpdfLimits limits, CancellationToken token)
         => PublicationTestJobs.ExecuteAsync(host, host.Inner, route, operation, flags, limits, token);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WholeLinearizationAdmitsBothStagedOutputs(bool observeAsyncWrites)
+    {
+        using InMemoryQpdfHost storage = new();
+        QpdfPath source = QpdfPath.From("input.pdf"), main = QpdfPath.From("output.pdf"), capture = QpdfPath.From("pass1.pdf");
+        byte[] program = Encoding.ASCII.GetBytes("%" + new string('x', (1 << 20) - 2) + "\n");
+        storage.AddInput(source, PdfTestDocument.Assemble([
+            (1, "<< /Type /Catalog /Pages 2 0 R >>", null),
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
+            (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Resources << >> /Contents 4 0 R >>", null),
+            (4, $"<< /Length {program.Length} >>", program)
+        ], 1), QpdfInputOwnership.Transfer);
+        foreach (QpdfPath target in new[] { main, capture })
+        {
+            await using IQpdfOutputTransaction transaction = await storage.CreateOutputAsync(target, CancellationToken.None);
+            await transaction.WriteAsync(PublicationTestJobs.Prior, CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
+        }
+
+        ObservedHost? observed = observeAsyncWrites ? new(storage) { DeferWrites = true } : null;
+        IQpdfHost host = (IQpdfHost?)observed ?? storage;
+        QpdfLimits tight = QpdfLimits.Default with { MaxMemoryBytes = 2_300_000, MaxOpenHandles = 2 };
+        string[] args = [source.Value, "--linearize", "--static-id", "--stream-data=preserve", main.Value];
+        string[] withCapture = [.. args, "--linearize-pass1=" + capture.Value];
+        QpdfExecutionResult refusal = await Qpdf.ExecuteAsync(host, new(withCapture), new(tight), CancellationToken.None);
+        Assert.Equal(QpdfExecutionStatus.Failed, refusal.Status);
+        Assert.Contains(refusal.Diagnostics, item => item.Code == QpdfDiagnosticCode.BudgetExceeded
+            && item.Message.Contains(nameof(QpdfLimits.MaxMemoryBytes), StringComparison.Ordinal));
+        Assert.Equal(0L, refusal.Counters.OpenHandles);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        Assert.True(storage.TryGetOutput(main, out byte[] priorMain));
+        Assert.True(storage.TryGetOutput(capture, out byte[] priorCapture));
+        Assert.Equal(PublicationTestJobs.Prior, priorMain);
+        Assert.Equal(PublicationTestJobs.Prior, priorCapture);
+        if (observed is not null) { Assert.Empty(observed.Committed); }
+
+        QpdfExecutionResult baseline = await Qpdf.ExecuteAsync(host, new(args), new(tight), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, baseline.ExitCode);
+        Assert.True(storage.TryGetOutput(main, out byte[] expected));
+        observed?.Committed.Clear();
+
+        QpdfLimits generous = tight with { MaxMemoryBytes = 5_000_000 };
+        QpdfExecutionResult completed = await Qpdf.ExecuteAsync(host, new(withCapture), new(generous), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, completed.ExitCode);
+        Assert.True(storage.TryGetOutput(main, out byte[] actual));
+        Assert.True(storage.TryGetOutput(capture, out byte[] pass1));
+        Assert.Equal(expected, actual);
+        Assert.True(pass1.AsSpan().IndexOf(program) >= 0);
+        Assert.Equal((long)actual.Length + pass1.Length, completed.Counters.TotalOutputBytes);
+        Assert.Equal(0L, completed.Counters.OpenHandles);
+        Assert.Equal(0L, storage.OpenLeaseCount);
+        if (observed is not null)
+        {
+            Assert.Equal(new[] { main.Value, capture.Value }, observed.Committed);
+            Assert.Equal(2L, observed.PeakHandles);
+        }
+    }
+
 
     public static IEnumerable<object[]> ExecutedJobs()
     {
@@ -685,6 +745,7 @@ public sealed class PublicationAdmissionTests
         internal CancellationTokenSource? Cancellation;
         internal bool HostCancellation;
         internal bool Triggered;
+        internal bool DeferWrites;
 
         private void Check(string phase, QpdfPath path, int output)
         {
@@ -728,7 +789,12 @@ public sealed class PublicationAdmissionTests
         {
             public QpdfPath Path => transaction.Path;
             public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken token)
-            { host.Operations++; host.Check("write", Path, index); return transaction.WriteAsync(data, token); }
+            {
+                host.Operations++; host.Check("write", Path, index);
+                return host.DeferWrites ? WriteDeferredAsync(data, token) : transaction.WriteAsync(data, token);
+            }
+            private async ValueTask WriteDeferredAsync(ReadOnlyMemory<byte> data, CancellationToken token)
+            { await Task.Yield(); await transaction.WriteAsync(data, token); }
             public async ValueTask CommitAsync(CancellationToken token)
             { host.Check("commit", Path, index); await transaction.CommitAsync(token); host.Committed.Add(Path.Value); }
             public ValueTask DiscardAsync(CancellationToken token) => transaction.DiscardAsync(token);

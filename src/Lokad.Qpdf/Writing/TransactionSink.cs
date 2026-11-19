@@ -29,12 +29,17 @@ internal sealed class TransactionSink : ISynchronousByteSink, IOutputCapacityHin
         cancellationToken.ThrowIfCancellationRequested(); _governor.CheckCancellation();
         if (length > _maximumOutputBytes)
         { throw new QpdfLimitException(nameof(QpdfLimits.MaxOutputBytes), length, _maximumOutputBytes); }
+        AdmitStaging(length);
+        GovernedHost.PrepareOutputCapacity(_transaction, length, cancellationToken);
+    }
+
+    private void AdmitStaging(long length)
+    {
         if (_staging is not null && length > _capacityCharge)
         {
             _staging.ReserveHostMemory(length - _capacityCharge);
             _capacityCharge = length;
         }
-        GovernedHost.PrepareOutputCapacity(_transaction, length, cancellationToken);
     }
 
     public long Length => _length;
@@ -44,18 +49,19 @@ internal sealed class TransactionSink : ISynchronousByteSink, IOutputCapacityHin
     public void Append(ReadOnlySpan<byte> chunk, CancellationToken cancellationToken)
     {
         _governor.ChargeOutputBytes(chunk.Length);
+        long next = checked(_length + chunk.Length);
+        AdmitStaging(next);
         GovernedHost.WriteSynchronously(_transaction, chunk, cancellationToken);
-        _length = checked(_length + chunk.Length);
+        _length = next;
     }
 
     public async ValueTask AppendAsync(ReadOnlyMemory<byte> chunk, CancellationToken cancellationToken)
     {
         _governor.ChargeOutputBytes(chunk.Length);
+        long next = checked(_length + chunk.Length);
+        AdmitStaging(next);
         await _transaction.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
-        checked
-        {
-            _length += chunk.Length;
-        }
+        _length = next;
     }
 }
 

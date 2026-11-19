@@ -645,8 +645,9 @@ rejects. Zlib-flate stops at the first complete frame and rejects truncation/che
 Linearization uses two passes and page, shared and outline hints. Checking
 validates physical layout and available hints. `--linearize-pass1` /
 `linearizePass1` captures the first pass when linearization is enabled.
-Split capture keeps the last group's pass. Linearization takes precedence
-over QDF. [Publication checks](#governance)
+Whole-file capture and main staging share the invocation's memory allowance
+and commit in main-then-capture order. Split capture keeps the last group's
+pass. Linearization takes precedence over QDF. [Publication checks](#governance)
 The linearized writer keeps the outline closure outside object streams so its
 hints describe one contiguous physical group; other eligible objects still pack.
 Direct outline dictionaries are promoted before physical planning, including
