@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Runtime;
@@ -94,83 +92,10 @@ public sealed class CodecProbeTests
             jpeg, new byte[8 * 8 * 3], Lokad.Image.JpegSampleFormat.Rgb, cancellationToken: cancellation.Token));
     }
 
-    private static string FindProbeDll()
-    {
-        string baseDir = AppContext.BaseDirectory;
-        DirectoryInfo? current = new DirectoryInfo(baseDir);
-        for (int i = 0; i < 8 && current is not null; i++)
-        {
-            string candidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Release", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            string debugCandidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Debug", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
-            if (File.Exists(debugCandidate))
-            {
-                return debugCandidate;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new Xunit.Sdk.XunitException("QpdfProbe.dll not found. Build the solution first.");
-    }
-
-    private static (int ExitCode, string Stdout, string Stderr) RunProbe(params string[] probeArgs)
-    {
-        string probeDll = FindProbeDll();
-        ProcessStartInfo start = new()
-        {
-            FileName = "dotnet",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        foreach (string arg in probeArgs)
-        {
-            start.ArgumentList.Add(arg);
-        }
-
-        start.ArgumentList.Insert(0, probeDll);
-        Process? started = Process.Start(start);
-        if (started is null)
-        {
-            throw new Xunit.Sdk.XunitException("Failed to start QpdfProbe process.");
-        }
-
-        using Process process = started;
-        StringBuilder stdout = new();
-        StringBuilder stderr = new();
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stdout.AppendLine(e.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stderr.AppendLine(e.Data);
-            }
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        Assert.True(process.WaitForExit(30000), "QpdfProbe timed out after 30s.");
-        process.WaitForExit();
-        return (process.ExitCode, stdout.ToString(), stderr.ToString());
-    }
-
     [Fact]
     public void ProbeJpegCommandSucceeds()
     {
-        (int exit, string stdout, _) = RunProbe("probe-jpeg");
+        (int exit, string stdout, _) = ProbeTestProcess.Run(null, "probe-jpeg");
         Assert.Equal(0, exit);
         Assert.Contains("jpeg:", stdout, StringComparison.Ordinal);
     }

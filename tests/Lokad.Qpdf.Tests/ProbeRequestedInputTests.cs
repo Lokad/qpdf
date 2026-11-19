@@ -20,7 +20,7 @@ public sealed class ProbeRequestedInputTests
                 ["inputs/unrelated"] = Path.Combine(directory.FullName, "absent"),
             };
             using InMemoryQpdfHost storage = new();
-            Assembly probe = Assembly.LoadFrom(ProbeCliTests.FindProbeDll());
+            Assembly probe = Assembly.LoadFrom(ProbeTestProcess.AssemblyPath);
             Type type = probe.GetType("Lokad.Qpdf.Probe.ProbeInputFiles+Requested", true)
                 ?? throw new InvalidOperationException("Missing requested-input host.");
             IQpdfHost host = Assert.IsAssignableFrom<IQpdfHost>(Activator.CreateInstance(type,

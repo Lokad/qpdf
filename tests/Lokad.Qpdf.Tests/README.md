@@ -7,6 +7,8 @@ security and native vectors retain independent construction.
 
 The [fixture manifest](../Fixtures/manifest.json) records PDF checksums and page counts.
 `independentPageCount` selects the entries also checked by PdfPig.
+Probe tests run the executable copied by the matching project build. Source
+audits use the checkout path recorded when building the test assembly.
 
 `TestDocumentEngine` supplies an empty, admitted engine for object-graph tests.
 `MemoryBudgetHost` borrows storage and a caller budget.

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -15,33 +14,8 @@ public sealed class ProbeCliTests
         return Path.Combine(AppContext.BaseDirectory, "Fixtures");
     }
 
-    internal static string FindProbeDll()
-    {
-        string baseDir = AppContext.BaseDirectory;
-        DirectoryInfo? current = new DirectoryInfo(baseDir);
-        for (int i = 0; i < 8 && current is not null; i++)
-        {
-            string candidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Release", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            string debugCandidate = Path.Combine(current.FullName, "tools", "QpdfProbe", "bin", "Debug", "net" + Environment.Version.Major + ".0", "QpdfProbe.dll");
-            if (File.Exists(debugCandidate))
-            {
-                return debugCandidate;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new Xunit.Sdk.XunitException(
-            "QpdfProbe.dll not found. Build the solution first (dotnet build Lokad.Qpdf.slnx -c Release); the probe is required by integration tests and CI builds it explicitly.");
-    }
-
     private static (int ExitCode, string Stdout, string Stderr) RunProbe(params string[] probeArgs)
-        => RunProbeInput(null, probeArgs);
+        => ProbeTestProcess.Run(null, probeArgs);
 
     [Theory]
     [InlineData("input")]
@@ -87,59 +61,6 @@ public sealed class ProbeCliTests
             Assert.StartsWith(tempRoot, Path.GetFullPath(directory.FullName), StringComparison.OrdinalIgnoreCase);
             directory.Delete(true);
         }
-    }
-
-    private static (int ExitCode, string Stdout, string Stderr) RunProbeInput(string? input, params string[] probeArgs)
-    {
-        string probeDll = FindProbeDll();
-        ProcessStartInfo start = new()
-        {
-            FileName = "dotnet",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = input is not null,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-        };
-        foreach (string arg in probeArgs)
-        {
-            start.ArgumentList.Add(arg);
-        }
-
-        // First argument to dotnet must be the probe dll.
-        start.ArgumentList.Insert(0, probeDll);
-
-        Process? started = Process.Start(start);
-        if (started is null)
-        {
-            throw new Xunit.Sdk.XunitException("Failed to start QpdfProbe process.");
-        }
-
-        using Process process = started;
-        StringBuilder stdout = new();
-        StringBuilder stderr = new();
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stdout.AppendLine(e.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                stderr.AppendLine(e.Data);
-            }
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        if (input is not null) { process.StandardInput.Write(input); process.StandardInput.Close(); }
-        Assert.True(process.WaitForExit(30000), "QpdfProbe timed out after 30s.");
-        process.WaitForExit();
-        return (process.ExitCode, stdout.ToString(), stderr.ToString());
     }
 
     private static string WriteFakeQpdf(string directory, string versionOutput, string npagesOutput, int checkExit)
@@ -195,7 +116,7 @@ public sealed class ProbeCliTests
     {
         string[] paths = [Path.Combine(FixtureDir(), "minimal-1page.pdf"), Path.Combine(FixtureDir(), "minimal-2page.pdf")];
         string requests = string.Concat(paths.Select(path => "2\nread-input\n" + path + "\n"));
-        (int exit, string stdout, string stderr) = RunProbeInput(requests, "warm");
+        (int exit, string stdout, string stderr) = ProbeTestProcess.Run(requests, "warm");
         Assert.Equal(0, exit); Assert.Empty(stderr);
         string[] lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(paths.Length, lines.Length);
@@ -219,7 +140,7 @@ public sealed class ProbeCliTests
     [InlineData("1\nunknown\n")]
     public void WarmInputDiagnosticRejectsInvalidRequests(string request)
     {
-        (int exit, _, string stderr) = RunProbeInput(request, "warm");
+        (int exit, _, string stderr) = ProbeTestProcess.Run(request, "warm");
         Assert.NotEqual(0, exit);
         Assert.Contains("qpdfprobe:", stderr, StringComparison.Ordinal);
     }

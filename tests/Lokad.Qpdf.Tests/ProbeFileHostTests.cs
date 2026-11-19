@@ -20,7 +20,7 @@ public sealed class ProbeFileHostTests
             if (outcome == "success") { File.WriteAllBytes(physical, "data"u8.ToArray()); }
             if (outcome == "directory") { physical = directory.FullName; }
             using InMemoryQpdfHost output = new();
-            Assembly probe = Assembly.LoadFrom(ProbeCliTests.FindProbeDll());
+            Assembly probe = Assembly.LoadFrom(ProbeTestProcess.AssemblyPath);
             Type type = probe.GetType("Lokad.Qpdf.Probe.FileSelectionCommand+FileHost", true)
                 ?? throw new InvalidOperationException("Missing live file host.");
             IQpdfHost host = Assert.IsAssignableFrom<IQpdfHost>(Activator.CreateInstance(type,

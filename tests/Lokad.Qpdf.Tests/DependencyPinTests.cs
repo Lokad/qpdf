@@ -5,26 +5,10 @@ namespace Lokad.Qpdf.Tests;
 
 public sealed class DependencyPinTests
 {
-    private static string RepoRoot()
-    {
-        string? directory = AppContext.BaseDirectory;
-        for (int i = 0; i < 8 && directory is not null; i++)
-        {
-            if (File.Exists(Path.Combine(directory, "Directory.Packages.props")))
-            {
-                return directory;
-            }
-
-            directory = Path.GetDirectoryName(directory);
-        }
-
-        throw new InvalidOperationException("Repository root with Directory.Packages.props was not found.");
-    }
-
     [Fact]
     public void CentralVersionsPinTheApprovedCodec()
     {
-        XDocument versions = XDocument.Load(Path.Combine(RepoRoot(), "Directory.Packages.props"));
+        XDocument versions = XDocument.Load(Path.Combine(TestSourceTree.Root, "Directory.Packages.props"));
         string? codec = versions.Descendants("PackageVersion")
             .Where(element => string.Equals(element.Attribute("Include")?.Value, "Lokad.Image", StringComparison.Ordinal))
             .Select(element => element.Attribute("Version")?.Value)
@@ -42,7 +26,7 @@ public sealed class DependencyPinTests
     [Fact]
     public void LibraryProjectHasNoRuntimePackageDependencies()
     {
-        XDocument project = XDocument.Load(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "Lokad.Qpdf.csproj"));
+        XDocument project = XDocument.Load(Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf", "Lokad.Qpdf.csproj"));
         List<string> runtime = project.Descendants("PackageReference")
             .Where(element => element.Attribute("PrivateAssets") is null)
             .Select(element => element.Attribute("Include")?.Value ?? string.Empty)
@@ -55,7 +39,7 @@ public sealed class DependencyPinTests
     [Fact]
     public void CentralVersionsPinBenchmarkHarness()
     {
-        XDocument versions = XDocument.Load(Path.Combine(RepoRoot(), "Directory.Packages.props"));
+        XDocument versions = XDocument.Load(Path.Combine(TestSourceTree.Root, "Directory.Packages.props"));
         string? harness = versions.Descendants("PackageVersion")
             .Where(element => string.Equals(element.Attribute("Include")?.Value, "BenchmarkDotNet", StringComparison.Ordinal))
             .Select(element => element.Attribute("Version")?.Value)
@@ -66,7 +50,7 @@ public sealed class DependencyPinTests
     [Fact]
     public void LibraryLockContainsOnlyPrivateBuildTooling()
     {
-        using JsonDocument inventory = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(RepoRoot(), "src", "Lokad.Qpdf", "packages.lock.json")));
+        using JsonDocument inventory = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf", "packages.lock.json")));
         JsonElement frameworks = inventory.RootElement.GetProperty("dependencies");
         Assert.Equal(new[] { "net10.0", "net11.0" }, frameworks.EnumerateObject().Select(p => p.Name).OrderBy(name => name, StringComparer.Ordinal));
         foreach (JsonProperty framework in frameworks.EnumerateObject())

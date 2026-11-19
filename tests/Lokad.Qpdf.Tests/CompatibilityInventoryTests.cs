@@ -194,21 +194,7 @@ public sealed class CompatibilityInventoryTests
     [Fact]
     public void JobJsonPathsMatchParserKeys()
     {
-        string? directory = AppContext.BaseDirectory;
-        string parser = string.Empty;
-        for (int i = 0; i < 8 && directory is not null; i++)
-        {
-            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf", "Jobs", "JobPlanner.cs");
-            if (File.Exists(candidate))
-            {
-                parser = File.ReadAllText(candidate);
-                break;
-            }
-
-            directory = Path.GetDirectoryName(directory);
-        }
-
-        Assert.NotEqual(string.Empty, parser);
+        string parser = File.ReadAllText(Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf", "Jobs", "JobPlanner.cs"));
         using var inventory = ReadInventory();
         var bad = new List<string>();
         foreach (var entry in inventory.RootElement.GetProperty("options").EnumerateArray())

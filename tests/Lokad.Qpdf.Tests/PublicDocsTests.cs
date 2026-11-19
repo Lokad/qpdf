@@ -7,20 +7,7 @@ public sealed class PublicDocsTests
     [Fact]
     public void PublicFilesCarryNoMachineSpecificPaths()
     {
-        string? directory = AppContext.BaseDirectory;
-        string root = string.Empty;
-        for (int i = 0; i < 8 && directory is not null; i++)
-        {
-            if (File.Exists(Path.Combine(directory, "README.md")) && Directory.Exists(Path.Combine(directory, "docs")))
-            {
-                root = directory;
-                break;
-            }
-
-            directory = Path.GetDirectoryName(directory);
-        }
-
-        Assert.NotEqual(string.Empty, root);
+        string root = TestSourceTree.Root;
         List<string> files = new() { Path.Combine(root, "README.md"), Path.Combine(root, "CHANGELOG.md") };
         files.AddRange(Directory.EnumerateFiles(Path.Combine(root, "docs"), "*.md"));
         List<string> offending = new();

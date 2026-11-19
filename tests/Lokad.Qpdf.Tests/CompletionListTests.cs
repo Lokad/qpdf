@@ -7,21 +7,7 @@ public sealed class CompletionListTests
     [Fact]
     public void CompletionListsOnlyRecognizedFlags()
     {
-        string? directory = AppContext.BaseDirectory;
-        string sources = string.Empty;
-        for (int i = 0; i < 8 && directory is not null; i++)
-        {
-            string candidate = Path.Combine(directory, "src", "Lokad.Qpdf");
-            if (Directory.Exists(candidate))
-            {
-                sources = candidate;
-                break;
-            }
-
-            directory = Path.GetDirectoryName(directory);
-        }
-
-        Assert.NotEqual(string.Empty, sources);
+        string sources = Path.Combine(TestSourceTree.Root, "src", "Lokad.Qpdf");
         HashSet<string> literals = new(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(sources, "*.cs", SearchOption.AllDirectories))
         {
