@@ -41,7 +41,11 @@ limits and reports warnings on the document/result (check diagnostics).
 | Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
 | Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding uses a [host JPEG codec](#jpeg-codec-capabilities). Zopfli is unavailable. |
 
-Bounded xref repair can rebuild a table with a zero-entry subsection.
+Bounded xref repair can rebuild a table with a zero-entry subsection. After
+damaged footer offsets, it can reanchor an intact terminal xref stream using
+the usual section and coverage validation. This preserves compressed objects
+and encryption metadata. Later objects or sections rule out an older stream.
+Resource exhaustion or cancellation ends repair.
 
 Empty `DecodeParms` arrays select the filters' defaults.
 ASCII85 inline-image framing accepts PDF whitespace inside the `~>` end marker,
@@ -60,7 +64,8 @@ budget exhaustion remains a resource failure, never permission to discard retain
 with user or owner credentials, including empty passwords. Authentication tries
 the supplied representation first, consuming up to 32 bytes for R2–R4 or 127
 for R5/R6. UTF-8 text is not normalized.
-Missing credentials try empty; failed absent and supplied passwords are distinct.
+An omitted credential tries the empty password. Absent and incorrect
+credentials have distinct diagnostic codes.
 
 Failed text authentication can retry PDFDoc, WinAnsi and MacRoman encodings when
 the bounded prefix is representable. Command byte credentials can convert among
@@ -70,42 +75,54 @@ of at most 512 bytes, with the same revision-specific authentication limits.
 Typed raw bytes remain borrowed until the operation completes and are never
 reinterpreted by recovery.
 
-Standalone `--show-crypto` reports `managed` through the result diagnostics; it takes no other arguments or job JSON key.
-Encryption facts expose permissions and authentication status without passwords
-or keys. Typed `SelectPageAsync` authenticates with the same password values and
-preserves R2–R6 protection, both passwords, permissions and metadata policy. It
-supports ordered/repeated pages, first/last previews and rotations.
-Overloads with an explicit `QpdfRecoveryMode` permit bounded
-syntax/cross-reference repair and return its warnings; existing overloads remain
-strict. Both policies preserve opaque stream data and stored appearances. Missing
-credentials try empty. An explicit `QpdfOutputEncryption` policy can preserve,
-remove or replace protection with fresh AES-256 R6. Creation uses UTF-8 or exact
-password bytes, fresh keys/salts/IVs, the requested permission word and metadata
-policy. Reserved permission bits and accessibility must have their R6 values;
-nonempty user passwords require nonempty owner passwords.
-Bounded repair can reanchor an intact terminal cross-reference stream after
-damaged footer offsets, using ordinary section/coverage validation to preserve
-compressed objects and encryption metadata. Later objects or sections prevent
-using an older stream. Resource/cancellation failures abort without weaker repair.
-
 ### Page sources and output protection
 
-Typed `SelectPagesAsync` accepts credentials on each `PdfPageSource`. The first
-source controls preserved output protection, even if collation omits its pages;
-secondary sources cannot replace it. `PdfPageMergeOptions.OutputEncryption`
-sets an explicit policy, including for split output. Newly encrypted split outputs
-use separate keys. Repeated paths share one opened document and require equal
-credential values and representations, including absent versus explicit passwords;
-conflicts fail before opening inputs. R2 uses 40-bit RC4; R3 accepts 40..128-bit keys in eight-bit steps.
-`PdfPageMergeOptions.RecoveryMode` defaults to Strict; BoundedRepair applies one
-policy to all source documents and any output-encryption template, returns repair
-warnings and retains the same source identity, credential and publication rules.
+PDF publication preserves supported primary protection by default, including
+both passwords, permissions and metadata policy. The first source sets that
+policy even if selection or collation omits all of its pages. An empty primary
+keeps the output plaintext unless an explicit policy protects it. A forced
+version below the output handler's requirement fails before publication.
+
+Typed `SelectPageAsync` accepts a primary credential. `SelectPagesAsync` accepts
+one credential per `PdfPageSource`. Repeated paths require matching credentials
+and representations, including absent versus explicit passwords. Conflicts
+fail before opening inputs. `PdfPageMergeOptions.RecoveryMode` applies the same
+[input recovery policy](#entry-paths) to all sources and encryption templates.
+`QpdfOutputEncryption` selects preservation, removal, creation or a template.
+Set `PdfPageMergeOptions.OutputEncryption` for multiple sources or split output.
+
+R2 uses 40-bit RC4; R3 accepts 40–128-bit keys in eight-bit steps.
 Preserved/copied R2/R3 output keeps RC4 and requires PDF 1.3/1.4 respectively.
 Preserved/copied R4 output uses AES-128 and requires PDF 1.6, including RC4 inputs.
-Newly selected weak encryption remains unsupported.
+Legacy creation, `--force-R5` and `--allow-insecure` remain unavailable.
 Existing R5 AES-256 inputs can be inspected, transformed, preserved or copied as
 templates. Preservation keeps R5 and requires PDF 1.7 extension level 3; new
-encryption continues to use R6. No fresh R5 creation is exposed.
+encryption uses AES-256 R6. Creation takes UTF-8 or exact password bytes and
+generates fresh keys, salts and IVs. Split parts receive independent keys.
+Reserved permission bits and accessibility keep their R6 values. A nonempty
+user password requires a nonempty owner password.
+
+Use `--decrypt` / `decrypt` to publish plaintext after authentication.
+`--encrypt user owner 256 [options] --` and
+`--encrypt --user-password=... --owner-password=... --bits=256 --`
+create fresh protection. The job form is
+`"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
+Supported setters cover printing, modification, extraction, annotations,
+forms, assembly and cleartext metadata.
+
+`QpdfOutputEncryption.CopyFrom(template, password)` authenticates the template
+independently with a text or raw-byte credential, then copies its password
+entries, permissions, metadata policy and first identifier. The lease closes
+before publication. Split parts use
+the template key. A plaintext template selects plaintext output. Commands use
+`--copy-encryption=file` / `copyEncryption` and
+`--encryption-file-password=text` / `encryptionFilePassword`. The credential
+follows the [command password modes](#command-password-files-and-modes).
+
+Copy, decrypt and encrypt replace the preceding output policy in argv order
+or job lexical-key order. Permission setters obey the same order. Creation
+and copying reject deterministic IDs. Output-free inspections ignore output
+protection and leave template inputs unopened.
 
 ### Inspection and secondary sources
 
@@ -120,68 +137,37 @@ to PDF transformations and transformed inspections, including empty-password inp
 Global password-mode and recovery settings apply to these credentials. A password
 specified on any occurrence applies to all occurrences of that file; contradictory
 nonempty setters reject before opening inputs. Primary-page password setters are ignored
-because the primary document uses its main credential. With an empty primary,
-secondary protection is removed unless an explicit new output policy is requested.
-Missing and supplied-but-invalid credentials have distinct diagnostic codes.
-PDF rewrites, page selection/merging/splitting, object streams, QDF, linearization
-and attachment edits preserve supported primary protection, including when none
-of its pages is selected. A forced version incompatible with that protection fails
-before publication. Typed attachment listing accepts primary credentials with
-explicit limits. Typed add/remove/copy edits accept primary credentials and an
-explicit output policy.
-Their existing overloads try empty passwords and preserve supported protection.
+because the primary document uses its main credential.
+
+Typed attachment listing accepts primary credentials with explicit limits.
+Typed attachment edits also accept an [output policy](#page-sources-and-output-protection).
 [Attachment extraction](#attachment-extraction)
 Argv/job object-stream extraction accepts primary credentials for named output.
 Both modes decrypt payloads. Raw stream mode retains compression. Filtered mode
 decodes it.
-`--decrypt` / `decrypt` explicitly removes protection after authentication,
-including from split outputs. Output-free inspections ignore this output policy.
-`--encrypt user owner 256 [options] --` creates fresh AES-256 R6 protection, as
-does the named form `--encrypt --user-password=... --owner-password=... --bits=256 --`.
-The job equivalent is `"encrypt":{"userPassword":"...","ownerPassword":"...","256bit":{}}`.
-Print, modification, extraction, annotation, form and assembly permissions and
-cleartext metadata are supported; accessibility remains enabled for R6. Argv
-permission setters retain their order; job JSON applies keys in lexical order.
-Encryption/decryption setters replace the preceding output policy. Split outputs
-receive independent keys, including with an empty primary document. New encryption
-cannot combine with deterministic IDs. Legacy creation, force-R5 and allow-insecure
-remain unsupported.
+
 Attachment-copy sources accept independent text credentials inside their argv/job
 blocks, including the global password mode and recovery settings. Typed
 `QpdfAttachmentCopy` accepts `QpdfPassword` text/raw credentials. These readers close
 after copying their plaintext graph; the primary's output policy protects the
-result. A source credential is required independently even when the copy source
-names the primary file. Missing credentials try empty passwords.
+result. Each copy source uses its own credential, including copies from the
+primary path.
 Overlay/underlay argv blocks and job entries also accept independent passwords,
 including the global mode and recovery settings. The same file can use different
 valid credentials in separate placements; each distinct credential authenticates
 before its graph is reused. A missing placement credential does not inherit the
 primary password. Publication and transformed inspections share this reader path.
-Typed page selection, merging and splitting accept
-`QpdfOutputEncryption.CopyFrom(template, password)`. The host authenticates this
-independent R2–R6 input with either password, then copies both password entries,
-permissions, metadata policy and the first identifier. Its reader closes before
-publication; split outputs retain the template key. A plaintext template removes
-input protection. Template passwords may be text, raw bytes or absent for empty.
-Argv/job operations use the same policy through `--copy-encryption=file` /
-`copyEncryption`, with `--encryption-file-password=text` / `encryptionFilePassword`.
-The credential follows global password-mode and recovery settings. Copy, decrypt
-and encrypt setters replace one another in argv order or job lexical-key order.
-Output-free inspections do not open the template. Copied encryption cannot combine
-with deterministic IDs or an insufficient forced version; it never falls back to
-plaintext after such a failure.
+
 ### Authenticated JSON updates and creation
 
-Typed `UpdatePdfFromJsonAsync` accepts an input password and the same explicit
-preserve/remove/create/template output policies. Its existing overloads try an
-empty password and preserve supported protection. JSON object patches supply
+Typed `UpdatePdfFromJsonAsync` accepts an input password and an explicit
+[output policy](#page-sources-and-output-protection). JSON object patches supply
 plaintext strings and stream data, including catalog metadata; protection is
 applied after final numbering. Full exports may repeat the authenticated input's
 unchanged `/Encrypt` reference and dictionary. Preservation rejects handler edits;
 use an explicit remove/create/template policy to define different output protection.
 Argv/job updates use `--update-from-json` / `updateFromJson` with primary text or
-host-file credentials, including password modes and recovery settings. Preserve,
-decrypt, encrypt and template policies use the same version and metadata rules.
+host-file credentials, including password modes and recovery settings.
 Typed `CreatePdfFromJsonAsync` accepts an output policy with explicit limits.
 Plaintext JSON can produce new AES-256 or copied R2–R6 protection, including the
 chosen metadata policy. Creation has no authenticated PDF input: Preserve produces
@@ -192,6 +178,7 @@ Argv/job `--json-input` / `jsonInput` accepts the same output policies and globa
 password modes. Primary text passwords are ignored for plaintext JSON; password
 files are still read through the host, and missing files fail. Template inputs
 use the operation's recovery mode and their independent credential.
+
 ### Command password files and modes
 
 File setters retain native order: a zero-byte file leaves the previous password
@@ -214,6 +201,8 @@ For new R6 output, auto, bytes and unicode encode the managed text as UTF-8;
 hex-bytes uses the same bounded hex decoder. Both output passwords use this mode.
 
 ### Reports and predicates
+
+`--show-crypto` is a standalone argv report with the value `managed`.
 
 `--is-encrypted` returns 0 for supported encrypted inputs and 2 for plain inputs.
 `--requires-password` returns 0 when credentials do not match, 2 for plain inputs,

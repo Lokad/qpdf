@@ -17,7 +17,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Development candidate with AES-256 R6 output. See CHANGELOG.md and docs/SUPPORTED-PROFILE.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>PDF JSON creation and update, transformed inspection reports, and AES-256 R6 output. See CHANGELOG.md.</PackageReleaseNotes>
     <PackageTags>pdf;qpdf;structural-processing;embedding;managed</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
