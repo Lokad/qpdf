@@ -50,11 +50,12 @@ public sealed class LinearizedHintNativeTests
         Assert.True(host.TryGetOutput(QpdfPath.From("outputs/a.pdf"), out byte[] pdf));
         Assert.Equal(0L, host.OpenLeaseCount);
         (byte[] actual, PdfDictionary header) = await HintAsync(pdf);
-        Assert.Equal((long)(row["NativeHint"]?["Header"]?["/S"]?.GetValue<int>() ?? throw new InvalidOperationException()), Integer(header, "S"));
-        JsonObject nativeEncoded = Assert.IsType<JsonObject>(row["NativeEncodedHint"]?["Header"]);
-        Assert.Equal(nativeEncoded.ContainsKey("/Filter"), header.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
-        if (nativeEncoded.ContainsKey("/Filter")) { Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText); }
-        Assert.Equal(new[] { "Length", "S" }.Concat(nativeEncoded.ContainsKey("/Filter") ? ["Filter"] : Array.Empty<string>()).Order(), header.Keys.Select(key => key.DisplayText).Order());
+        Assert.Equal((long)(row["NativeSharedOffset"]?.GetValue<int>() ?? throw new InvalidOperationException()), Integer(header, "S"));
+        bool compressed = row["NativeCompressed"]?.GetValue<bool>() ?? throw new InvalidOperationException();
+        Assert.Equal(compressed, header.TryGet(PdfName.FromAscii("Filter"), out QpdfObject filter));
+        if (compressed) { Assert.Equal("FlateDecode", Assert.IsType<PdfName>(filter).DisplayText); }
+        Assert.Equal(new[] { "Length", "S" }.Concat(compressed ? ["Filter"] : Array.Empty<string>()).Order(),
+            header.Keys.Select(key => key.DisplayText).Order());
 
         string text = Encoding.Latin1.GetString(pdf);
         Match linear = Regex.Match(text, @"/Linearized\s+1\s+/L\s+(\d+)\s+/H\s*\[\s*(\d+)\s+(\d+)\s*\]\s+/O\s+(\d+)\s+/E\s+(\d+)\s+/N\s+(\d+)", RegexOptions.CultureInvariant);
@@ -72,7 +73,7 @@ public sealed class LinearizedHintNativeTests
         Assert.Equal(Number(5), objects[page + 3].Offset + objects[page + 3].Length);
         Assert.Contains(objects.Values, value => value.Offset == Number(2) && value.Length == Number(3));
 
-        byte[] native = Convert.FromBase64String(Text(row["NativeHint"]?["Data"]));
+        byte[] native = Convert.FromBase64String(Text(row["NativeHint"]));
         byte[] expected = ExpectedForLayout(native, objects[page].Offset - Number(3), lengths);
         Assert.Equal(expected, actual);
         using PdfDocument reread = PdfDocument.Open(new MemoryStream(pdf));

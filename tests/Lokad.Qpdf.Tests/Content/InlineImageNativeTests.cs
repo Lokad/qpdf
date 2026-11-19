@@ -20,20 +20,9 @@ public sealed class InlineImageNativeTests
     }
     public static IEnumerable<object[]> NativeCases()
     {
-        static string Text(JsonObject row, string key) => row[key]?.GetValue<string>() ?? throw new InvalidOperationException(key);
-        JsonObject[] rows = Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>().ToArray();
-        foreach (IGrouping<string, JsonObject> group in rows.GroupBy(row => Text(row, "Id")[..Text(row, "Id").LastIndexOf('-')]))
+        foreach (JsonObject row in Assert.IsType<JsonArray>(Corpus["Cases"]).OfType<JsonObject>())
         {
-            JsonObject primary = group.Single(row => Text(row, "Id").EndsWith("-argv", StringComparison.Ordinal));
-            yield return [Text(primary, "Id")];
-            // Preserve every route where the independent native observation or
-            // fixture differs. Other routes are targeted planner wiring controls.
-            bool differs = group.Any(row => !JsonNode.DeepEquals(row["Fixture"], primary["Fixture"])
-                || !JsonNode.DeepEquals(row["Exit"], primary["Exit"])
-                || !JsonNode.DeepEquals(Corpus["Expected"]?[Text(row, "Expected")], Corpus["Expected"]?[Text(primary, "Expected")]));
-            bool wiring = group.Key is "native-baseline/names-ordinary-False-externalize" or "native-baseline/names-ordinary-False-optimize";
-            foreach (JsonObject row in group.Where(row => !ReferenceEquals(row, primary)))
-            { if (differs || wiring) { yield return [Text(row, "Id")]; } }
+            yield return [row["Id"]?.GetValue<string>() ?? throw new InvalidOperationException("Missing case id.")];
         }
     }
     private static JsonObject Case(string id)
