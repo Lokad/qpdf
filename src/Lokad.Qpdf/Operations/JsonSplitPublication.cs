@@ -14,8 +14,6 @@ namespace Lokad.Qpdf.Operations;
 
 internal static class JsonSplitPublication
 {
-    private static readonly PdfName ParentKey = PdfName.FromAscii("Parent");
-
     internal static async ValueTask PublishAsync(IQpdfHost host, QpdfPath outputPath, int groupSize,
         JsonImportWriterSettings writer, PdfVersion version, JsonImport.RenumberedModel graph,
         IReadOnlyList<PageLocation> pages, List<(int Index, PdfDictionary Label)>? authoredLabels,
@@ -51,7 +49,7 @@ internal static class JsonSplitPublication
             CopiedForm? form = AcroFormCopy.ReadBoundForm(catalog, resolver, pool, ref maximum, false, split, governor, token);
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             Dictionary<int, PdfReference>? articleAliases = null;
-            List<PdfReference> kids = PreparePages(pages, pool, resolver, pagesNumber, ref maximum, pageNumbers,
+            List<PdfReference> kids = BoundPageAssembly.PreparePages(pages, pool, resolver, pagesNumber, 1, ref maximum, pageNumbers,
                 ref articleAliases, ref changesTagTopology, limits, split, governor, diagnostics, token);
             if (changesTagTopology)
             { catalog = CatalogCopy.WithoutActiveStructure(catalog, resolver, split, governor, diagnostics, token); }
@@ -112,57 +110,6 @@ internal static class JsonSplitPublication
         GraphCopier copier = GraphCopier.CreateBoundOwned(pool, resolver, governor, limits, maximum + 1, memory);
         ContentTransforms.ApplyResourcePruning(copier, pageIds, limits, governor, diagnostics, token);
         return copier.NextId - 1;
-    }
-
-    private static List<PdfReference> PreparePages(IReadOnlyList<PageLocation> pages, Dictionary<int, QpdfObject> pool,
-        IIndirectResolver resolver, int pagesNumber, ref int maximum, HashSet<int> pageNumbers,
-        ref Dictionary<int, PdfReference>? articleAliases, ref bool changesTagTopology, QpdfLimits limits,
-        ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
-    {
-        List<PdfReference> kids = ParserContainers.CreateList<PdfReference>(memory, pages.Count, IntPtr.Size);
-        memory.Reserve(32L);
-        PdfReference parent = new(pagesNumber, 0);
-        using OwnedAllocationBatch headers = OwnedAllocationBatch.Create(governor, token);
-        using PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(pages.Count > 1, resolver,
-            PageAssembly.WriterInherited, limits, governor, token);
-        foreach (PageLocation location in pages)
-        {
-            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            int number = location.Source?.ObjectNumber ?? checked(++maximum);
-            if (number == 1 || pageNumbers.Contains(number))
-            { number = checked(++maximum); changesTagTopology = true; }
-            changesTagTopology |= location.Source is null;
-            ParserContainers.AddSetItem(memory, pageNumbers, number, sizeof(int));
-            PageInheritance.InheritedValues inherited = ancestry?.Find(location) ?? PageInheritance.FindAncestors(resolver, location,
-                PageAssembly.WriterInherited, limits, governor, token);
-            PdfNameTable<QpdfObject> entries = PdfDictionaryRebuild.CreateEntries(headers, out long allocation);
-            using PdfDictionary.EntryEnumerator original = location.Page.GetEntryEnumerator();
-            while (original.MoveNext(governor, token))
-            { entries.Assign(headers.Memory, governor, original.Current.Key, original.Current.Value, token); }
-            entries.Assign(headers.Memory, governor, ParentKey, parent, token);
-            for (int i = 0; i < PageAssembly.WriterInherited.Length; i++)
-            {
-                PdfName key = PageAssembly.WriterInherited[i];
-                QpdfObject? value = inherited[i];
-                if (key.Equals(PageResources.Key))
-                { value = PageResources.PrepareSelection(location.Page, value, resolver, limits, governor, diagnostics, token); }
-                if (value is not null) { entries.Assign(headers.Memory, governor, key, value, token); }
-            }
-            PdfDictionary page = PdfDictionaryRebuild.Complete(headers, entries, allocation);
-            PageAssembly.RequireMediaBox(page);
-            if (location.Source is PdfReference canonical)
-            { ArticleThreads.RememberDuplicate(page, number, canonical.ObjectNumber, canonical.Generation, ref articleAliases, memory); }
-            // Replacing a visited parent changes its dictionary. A newly
-            // resolvable value can also change an earlier absence observation.
-            if (ancestry is not null && (ancestry.Knows(number, 0)
-                || !pool.TryGetValue(number, out QpdfObject? previous) || previous is not PdfDictionary))
-            { ancestry.Clear(); }
-            GovernedCollections.Assign(memory, governor, pool, number, page, IntPtr.Size);
-            memory.Reserve(32L);
-            kids.Add(new PdfReference(number, 0));
-        }
-        headers.Memory.TransferTo(memory, headers.Bytes);
-        return kids;
     }
 
     private static CopiedForm? IsolateWidgets(List<PdfReference> kids, CopiedForm? form, Dictionary<int, QpdfObject> pool,
