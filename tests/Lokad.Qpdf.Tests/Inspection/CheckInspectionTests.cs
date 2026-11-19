@@ -1,5 +1,6 @@
 using System.Text;
 using System.Runtime.CompilerServices;
+using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 using Lokad.Qpdf.Hosting;
@@ -338,31 +339,39 @@ public sealed class CheckInspectionTests
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 
-    public static IEnumerable<object[]> SelectorCases()
-    {
-        foreach (string route in new[] { "job", "argv", "file" })
-        {
-            foreach (string selector in new[] { "x", "", "0", "-1", "1junk", "1,2,3", "1,-1", "1," })
-            {
-                yield return [route, selector];
-            }
-        }
-    }
+    [Theory]
+    [InlineData("x", 0, 0)]
+    [InlineData("", 0, 0)]
+    [InlineData("0", 0, 0)]
+    [InlineData("-1", -1, 0)]
+    [InlineData("1junk", 1, 0)]
+    [InlineData("1,2,3", 1, 2)]
+    [InlineData("1,-1", 1, -1)]
+    [InlineData("1,", 1, 0)]
+    public void ObjectSelectorUsesNativeIntegerPrefixes(string selector, int number, int generation)
+        => Assert.Equal((false, number, generation), SelectionPlan.ParseInspectionSelector(selector, 0));
 
     [Theory]
-    [MemberData(nameof(SelectorCases))]
-    public async Task ObjectInspectionUsesNativeIntegerPrefixesAndDisabledSelectors(string route, string selector)
+    [InlineData("argv", "2junk", "<< /Count 1 /Kids [ 3 0 R ] /Type /Pages >>")]
+    [InlineData("argv", "-1", null)]
+    [InlineData("job", "", null)]
+    [InlineData("job", null, null)]
+    [InlineData("file", "4,1", "(current)")]
+    public async Task ObjectSelectorWiresIntoCombinedInspection(string route, string? selector, string? expected)
     {
-        InMemoryQpdfHost host = Host(Fixture());
-        QpdfExecutionResult result = await Execute(host, route,
-            "\"showNpages\":\"\",\"showObject\":\"" + selector + "\"",
-            ["--check", "--show-npages", "--show-object=" + selector], new QpdfExecutionOptions(QpdfLimits.Default));
+        using InMemoryQpdfHost host = Host(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "reference-pairs-1page.pdf")));
+        string properties = "\"showNpages\":\"\"";
+        List<string> flags = ["--check", "--show-npages"];
+        if (selector is not null)
+        {
+            properties += ",\"showObject\":\"" + selector + "\"";
+            flags.Add("--show-object=" + selector);
+        }
+        QpdfExecutionResult result = await Execute(host, route, properties, [.. flags], new QpdfExecutionOptions(QpdfLimits.Default));
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        Assert.EndsWith(": 2", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount).Message, StringComparison.Ordinal);
-        QpdfDiagnostic[] listing = result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.ObjectListing).ToArray();
-        if (selector is "x" or "" or "0" or "-1") { Assert.Empty(listing); }
-        else if (selector is "1,2,3" or "1,-1") { Assert.Equal("null", Assert.Single(listing).Message); }
-        else { Assert.Equal("<< /Pages 2 0 R /Type /Catalog >>", Assert.Single(listing).Message); }
+        Assert.EndsWith(": 1", Assert.Single(result.Diagnostics, d => d.Code == QpdfDiagnosticCode.PageCount).Message, StringComparison.Ordinal);
+        string[] listings = result.Diagnostics.Where(d => d.Code == QpdfDiagnosticCode.ObjectListing).Select(d => d.Message).ToArray();
+        Assert.Equal(expected is null ? [] : [expected], listings);
         Assert.Equal(0L, host.OpenLeaseCount);
     }
 

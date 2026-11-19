@@ -2666,7 +2666,7 @@
           "CheckInspectionTests.RecoveryWarningsPreserveCombinedInspectionAndWarningExitPolicy",
           "CheckInspectionTests.FatalStreamCheckingStopsEveryFollowingInspection",
           "CheckInspectionTests.SerializationControlsDoNotRewriteInspectedObjects",
-          "CheckInspectionTests.ObjectInspectionUsesNativeIntegerPrefixesAndDisabledSelectors",
+          "CheckInspectionTests.ObjectSelectorWiresIntoCombinedInspection",
           "CheckInspectionTests.SelectorGenerationPersistsAcrossSettersButNotOverwrittenJsonKeys",
           "CheckInspectionTests.RepeatedPresentationFlagsRetainNativeSetterSemantics",
           "CheckInspectionTests.ExplicitGlobalBlocksKeepNativeRepeatedSettings",
@@ -7418,6 +7418,7 @@
           "ShowObjectTests.ReportsNullForMissingObject",
           "FutureXrefTests.FutureRowsResolveToNullAndMaskOlderEntries",
           "ShowObjectTests.ReportsCompressedMember",
+          "CheckInspectionTests.ObjectSelectorUsesNativeIntegerPrefixes",
           "ShowObjectTests.JobShowObjectMatchesArgv"
         ],
         "negative": [
