@@ -155,19 +155,23 @@ if ($large.ExitCode -ne 1 -or $large.Error -notmatch 'four MiB') { throw 'Protoc
 # malformed payload. The first pixel byte is whitespace and must not be skipped.
 $rasterHeader = [Text.Encoding]::ASCII.GetBytes("P6`n1 1`n255`n")
 $ink = Join-Path $WorkRoot 'ink.ppm'; $blank = Join-Path $WorkRoot 'blank.ppm'; $broken = Join-Path $WorkRoot 'broken.ppm'
+$wide = Join-Path $WorkRoot 'wide.ppm'
 [IO.File]::WriteAllBytes($ink, [byte[]]($rasterHeader + [byte[]]@(10,20,30)))
 [IO.File]::WriteAllBytes($blank, [byte[]]($rasterHeader + [byte[]]@(255,255,255)))
 [IO.File]::WriteAllBytes($broken, [byte[]]($rasterHeader + [byte[]]@(10,20)))
+[IO.File]::WriteAllBytes($wide, [byte[]]([Text.Encoding]::ASCII.GetBytes("P6`n2 1`n255`n") + [byte[]]@(10,20,30,40,50,60)))
 $rasterOptions = @('--expected-width','1','--expected-height','1','--max-mean-error','0','--max-changed-fraction','0','--channel-threshold','8')
 foreach ($rasterCase in @(
     @{Name='same'; Left=$ink; Right=$ink; Options=$rasterOptions; Exit=0; Message='mean-error=0.000000'},
     @{Name='mismatch'; Left=$blank; Right=$ink; Options=$rasterOptions; Exit=2; Message='changed-fraction=1.000000'},
     @{Name='blank'; Left=$blank; Right=$blank; Options=$rasterOptions; Exit=1; Message='Reference crop is blank'},
-    @{Name='wrong-crop'; Left=$ink; Right=$ink; Options=@('--expected-width','2') + $rasterOptions[2..9]; Exit=2; Message='dimensions differ'},
+    @{Name='wrong-crop'; Left=$wide; Right=$ink; Options=$rasterOptions; Exit=1; Message='dimensions differ'},
     @{Name='broken'; Left=$broken; Right=$ink; Options=$rasterOptions; Exit=1; Message='payload length mismatch'}
 )) {
     $rasterResult = Invoke-ColdProbe -Arguments (@('compare-raster','--left',$rasterCase.Left,'--right',$rasterCase.Right) + $rasterCase.Options) -InputText ''
-    if ($rasterResult.ExitCode -ne $rasterCase.Exit -or ($rasterResult.Output + $rasterResult.Error) -notmatch [regex]::Escape($rasterCase.Message)) { throw "Raster control failed: $($rasterCase.Name)" }
+    $message = if ($rasterCase.Exit -eq 1) { $rasterResult.Error } else { $rasterResult.Output }
+    if ($rasterResult.ExitCode -ne $rasterCase.Exit -or $message -notmatch [regex]::Escape($rasterCase.Message) -or
+        ($rasterCase.Exit -eq 1 -and $rasterResult.Output -match 'mean-error=')) { throw "Raster control failed: $($rasterCase.Name)" }
 }
 Write-Output 'Reference probe controls passed: eight cold/batch semantic pairs including Unicode filenames, checked argv/job/Unicode-label bytes, fresh hosts, lazy inputs, both pipeline/process wrappers, 88 requests/two bounded workers and both protocol negatives.'
 Write-Output 'Raster controls passed: exact nonblank match, mismatch, blank crop, wrong expected dimensions and truncated payload.'

@@ -29,7 +29,7 @@ internal static class RasterComparison
         Raster left = Read(Option("--left"));
         Raster right = Read(Option("--right"));
         if (left.Width != width || right.Width != width || left.Height != height || right.Height != height)
-        { Console.Error.WriteLine("raster: dimensions differ from the expected crop"); return 2; }
+        { throw new ProbeException("Raster dimensions differ from the expected crop.", 1); }
         long absolute = 0;
         int changed = 0;
         int visible = 0;

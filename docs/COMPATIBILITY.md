@@ -143,12 +143,17 @@ evidence. The runner builds the net11.0 probe with a locked restore. Pass
 `tools/bootstrap-qpdf.ps1` checks that the supplied executable reports qpdf
 12.4.2 and records its SHA-256.
 
-Run the visual lane separately with a Release solution build, PowerShell on
-.NET 10 or later, the pinned qpdf executable and an identified `pdftoppm`.
-Use a fresh workspace for the rendered comparisons and their negative controls.
+Run the visual lane in a fresh PowerShell process on .NET 10 or later. Supply
+the pinned qpdf and `pdftoppm` executables, the Release probe DLL and a test
+assembly with its dependencies and copied fixtures. Use a fresh workspace.
+The receipt records the checkout and the hashes of the supplied binaries and
+PDF inputs. Negative controls must reach pixel comparison and exceed tolerance.
 
 ```powershell
-pwsh -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer -WorkRoot artifacts/visual-check
+pwsh -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer `
+  -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
+  -FixtureAssembly tests/Lokad.Qpdf.Tests/bin/Release/net10.0/Lokad.Qpdf.Tests.dll `
+  -WorkRoot artifacts/visual-check
 ```
 
 The pinned source commit is `4eba95899886e851cc41d76886483b347612f2a8`.

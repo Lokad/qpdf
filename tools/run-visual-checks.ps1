@@ -6,32 +6,46 @@
 param(
     [Parameter(Mandatory = $true)] [string] $QpdfExe,
     [Parameter(Mandatory = $true)] [string] $RendererExe,
+    [Parameter(Mandatory = $true)] [string] $ProbeDll,
+    [Parameter(Mandatory = $true)] [string] $FixtureAssembly,
     [Parameter(Mandatory = $true)] [string] $WorkRoot,
     [switch] $SignaturesOnly
 )
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $QpdfExe = (Resolve-Path -LiteralPath $QpdfExe).Path
 $RendererExe = (Resolve-Path -LiteralPath $RendererExe).Path
+$probe = (Resolve-Path -LiteralPath $ProbeDll).Path
+$fixture = (Resolve-Path -LiteralPath $FixtureAssembly).Path
+$bin = Split-Path -Parent $fixture
 $root = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $root) { throw "Visual workspace already exists: $root" }
-if ([Environment]::Version.Major -lt 10) { throw 'Fixture reuse requires PowerShell running on .NET 10.' }
-$probe = Join-Path $repo 'tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll'
-# Fixture builders load inside PowerShell; use its compatible target. The probe
-# still runs out of process on the primary .NET 11 target.
-$fixtureTarget = if ([Environment]::Version.Major -ge 11) { 'net11.0' } else { 'net10.0' }
-$bin = Join-Path $repo "tests/Lokad.Qpdf.Tests/bin/Release/$fixtureTarget"
-foreach ($file in @($probe, (Join-Path $bin 'Lokad.Qpdf.Tests.dll'))) {
-    if (!(Test-Path -LiteralPath $file)) { throw 'Build the Release solution before visual checks.' }
+if ([Environment]::Version.Major -lt 10) { throw 'Fixture reuse requires PowerShell running on .NET 10 or later.' }
+$managedPaths = [ordered]@{
+    Probe = $probe
+    ProbeLibrary = Join-Path (Split-Path -Parent $probe) 'Lokad.Qpdf.dll'
+    Fixture = $fixture
+    FixtureLibrary = Join-Path $bin 'Lokad.Qpdf.dll'
+}
+$managedHashes = [ordered]@{}
+foreach ($name in $managedPaths.Keys) {
+    $managedHashes[$name] = (Get-FileHash -LiteralPath $managedPaths[$name]).Hash
+}
+function Import-VisualAssembly([string] $Path) {
+    $assembly = [Reflection.Assembly]::LoadFrom($Path)
+    if ($assembly.Location -cne $Path) { throw "Start a fresh PowerShell process to load '$Path'." }
+    return $assembly
 }
 & (Join-Path $PSScriptRoot 'bootstrap-qpdf.ps1') -QpdfExe $QpdfExe | Out-Host
 $rendererVersion = & $RendererExe -v 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0 -or $rendererVersion -notmatch 'pdftoppm version') { throw 'Renderer identification failed.' }
 New-Item -ItemType Directory -Path (Join-Path $root 'inputs') | Out-Null
 foreach ($name in @('xunit.assert.dll','xunit.core.dll','Lokad.Qpdf.dll')) {
-    [Reflection.Assembly]::LoadFrom((Join-Path $bin $name)) | Out-Null
+    Import-VisualAssembly (Join-Path $bin $name) | Out-Null
 }
-$tests = [Reflection.Assembly]::LoadFrom((Join-Path $bin 'Lokad.Qpdf.Tests.dll'))
+$tests = Import-VisualAssembly $fixture
+$fixtureTarget = [Attribute]::GetCustomAttribute($tests, [Runtime.Versioning.TargetFrameworkAttribute]).FrameworkName
 $members = [Reflection.BindingFlags]'Static,NonPublic,Public'
 $images = $tests.GetType('Lokad.Qpdf.Tests.Content.ImageOptimizeTests')
 foreach ($color in @('gray','rgb')) {
@@ -42,7 +56,7 @@ foreach ($color in @('gray','rgb')) {
     [IO.File]::WriteAllBytes((Join-Path $root ('inputs/' + $color + '.pdf')), $pdf)
 }
 foreach ($name in @('photo-1page.pdf','rotated-ap-1page.pdf','forms-1page.pdf','signature-visible.pdf','signature-incremental.pdf')) {
-    Copy-Item -LiteralPath (Join-Path $repo ('tests/Fixtures/' + $name)) -Destination (Join-Path $root ('inputs/' + $name))
+    Copy-Item -LiteralPath (Join-Path $bin "Fixtures/$name") -Destination (Join-Path $root "inputs/$name")
 }
 $appearances = $tests.GetType('Lokad.Qpdf.Tests.Content.GenerateAppearancesTests')
 $extras = [Collections.Generic.List[ValueTuple[string,byte[]]]]::new()
@@ -84,7 +98,12 @@ function Render([string] $Pdf, [string] $Prefix, [int[]] $Crop) {
 }
 function Compare-Raster([string] $Left, [string] $Right, [int[]] $Crop, [string] $Mean, [string] $Fraction, [string] $Threshold, [string] $Log) {
     & dotnet $probe compare-raster --left $Left --right $Right --expected-width $Crop[2] --expected-height $Crop[3] --max-mean-error $Mean --max-changed-fraction $Fraction --channel-threshold $Threshold *> $Log
-    return $LASTEXITCODE
+    $code = $LASTEXITCODE
+    if ($code -notin @(0,2) -or (Get-Content -LiteralPath $Log -Raw).Trim() -cnotmatch
+        "\Araster: width=$($Crop[2]) height=$($Crop[3]) mean-error=[0-9]+\.[0-9]{6} changed-fraction=[0-9]+\.[0-9]{6}\z") {
+        throw "Raster comparison did not measure the expected crop. See '$Log'."
+    }
+    return $code
 }
 function Check-Jpeg([string] $Pdf, [string] $Color, [string] $Log) {
     $json = & $QpdfExe --json --json-key=pages $Pdf 2> ($Log + '.stderr')
@@ -111,6 +130,10 @@ foreach ($case in $cases) {
     New-Item -ItemType Directory -Path $dir | Out-Null
     $managed = Join-Path $dir 'managed.pdf'; $native = Join-Path $dir 'native.pdf'
     $input = Join-Path $root ('inputs/' + $case.Input)
+    $inputHashes = [ordered]@{}
+    foreach ($path in @("inputs/$($case.Input)") + @($case.Flags | Where-Object { $_ -like 'inputs/*' })) {
+        $inputHashes[$path] = (Get-FileHash -LiteralPath (Join-Path $root $path)).Hash
+    }
     $flags = @($case.Flags | ForEach-Object { if ($_ -like 'inputs/*') { Join-Path $root $_ } else { $_ } })
     & dotnet $probe emit --workdir $root --out ('output.pdf=' + $managed) -- ('inputs/' + $case.Input) @($case.Flags) output.pdf *> (Join-Path $dir 'managed.log')
     if ($LASTEXITCODE -ne 0) { throw "$($case.Name): managed operation failed." }
@@ -126,7 +149,6 @@ foreach ($case in $cases) {
     $mean='0.005'; $fraction='0.01'; $threshold='8'
     if ($case.Jpeg) { $mean='0.04'; $fraction='0.10'; $threshold='32' }
     $comparison = Compare-Raster ($managed -replace '\.pdf$','.ppm') ($native -replace '\.pdf$','.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir 'comparison.log')
-    if ($comparison -notin @(0,2)) { throw "$($case.Name): raster comparison could not complete." }
     if ($comparison -ne 0 -and -not $case.RecordCodecDifference) {
         throw "$($case.Name): visual mismatch; tolerances are unchanged."
     }
@@ -145,7 +167,7 @@ foreach ($case in $cases) {
             if ((Compare-Raster (Join-Path $dir ($kind + '.ppm')) (Join-Path $dir 'original.ppm') $case.Crop $mean $fraction $threshold (Join-Path $dir ($kind + '-original.log'))) -ne 0) { throw "$kind changed the stored signature appearance." }
         }
     }
-    $results.Add(@{Case=$case.Name; InputSHA256=(Get-FileHash -LiteralPath $input).Hash; Crop=$case.Crop; MeanLimit=$mean; ChangedLimit=$fraction; Threshold=$threshold; Comparison=(Get-Content -LiteralPath (Join-Path $dir 'comparison.log') -Raw).Trim(); Result=$result; OriginalComparisons=$originalComparisons})
+    $results.Add(@{Case=$case.Name; InputSHA256=$inputHashes["inputs/$($case.Input)"]; Inputs=$inputHashes; Crop=$case.Crop; MeanLimit=$mean; ChangedLimit=$fraction; Threshold=$threshold; Comparison=(Get-Content -LiteralPath (Join-Path $dir 'comparison.log') -Raw).Trim(); Result=$result; OriginalComparisons=$originalComparisons})
     Write-Output "$($case.Name): $result"
 }
 # Valid PDF with a deliberately misplaced image, and stale flattened appearance.
@@ -164,7 +186,15 @@ $rgbCrop = @($cases | Where-Object { $_.Name -eq 'rgb' })[0].Crop
 Render (Join-Path $root 'negative-rgb.pdf') (Join-Path $root 'negative-rgb') $rgbCrop
 if ((Compare-Raster (Join-Path $root 'negative-rgb.ppm') (Join-Path $root 'rgb/original.ppm') $rgbCrop '0.20' '0.30' '64' (Join-Path $root 'negative-rgb-comparison.log')) -ne 2) { throw 'Missing-color-image negative did not fail original-image bounds.' }
 }
-$sourceState = if (@(& git -C $repo status --porcelain -- src tools tests .github Directory.Build.props).Count -eq 0) { 'committed' } else { 'uncommitted changes' }
+foreach ($name in $managedPaths.Keys) {
+    if ((Get-FileHash -LiteralPath $managedPaths[$name]).Hash -cne $managedHashes[$name]) {
+        throw "Visual build input '$name' changed during verification."
+    }
+}
+$checkout = & git -C $repo rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Could not identify the visual runner checkout.' }
+$changes = @(& git -C $repo status --porcelain)
+if ($LASTEXITCODE -ne 0) { throw 'Could not identify the visual runner checkout state.' }
 $controls = if ($SignaturesOnly) { 'not selected; original and native signature crops must remain nonblank' } else { 'misplaced image, stale appearance and replaced RGB image reject' }
-@{SourceCommit=(& git -C $repo rev-parse HEAD); SourceState=$sourceState; RendererVersion=$rendererVersion.Trim(); RendererSHA256=(Get-FileHash -LiteralPath $RendererExe).Hash; QpdfSHA256=(Get-FileHash -LiteralPath $QpdfExe).Hash; Cases=$results; OriginalJpegTolerance=@{MeanLimit='0.20'; ChangedLimit='0.30'; Threshold='64'}; NegativeControls=$controls; WallSeconds=$watch.Elapsed.TotalSeconds} |
+@{CheckoutCommit=$checkout; CheckoutClean=($changes.Count -eq 0); ManagedInputsSHA256=$managedHashes; FixtureTargetFramework=$fixtureTarget; RendererVersion=$rendererVersion.Trim(); RendererSHA256=(Get-FileHash -LiteralPath $RendererExe).Hash; QpdfSHA256=(Get-FileHash -LiteralPath $QpdfExe).Hash; Cases=$results; OriginalJpegTolerance=@{MeanLimit='0.20'; ChangedLimit='0.30'; Threshold='64'}; NegativeControls=$controls; WallSeconds=$watch.Elapsed.TotalSeconds} |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'result.json') -Encoding utf8
