@@ -4,7 +4,7 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Filters;
 
-/// <summary>Operation-local decoded bytes; current-page chunks pin their borrowed payloads.</summary>
+/// <summary>Operation-local decoded bytes and validation results for structural checks.</summary>
 internal sealed class DecodedStreamCache : IDisposable
 {
     private const int MaximumEntries = 32;
@@ -15,6 +15,7 @@ internal sealed class DecodedStreamCache : IDisposable
     private readonly long _maximumBytes;
     private ParserMemoryScope? _memory;
     private List<Entry>? _entries;
+    private HashSet<PdfStream>? _validated;
     private long _payloadBytes;
     private bool _pageActive;
 
@@ -30,7 +31,7 @@ internal sealed class DecodedStreamCache : IDisposable
     {
         token.ThrowIfCancellationRequested();
         ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        try { memory.Reserve(80L); return new(memory, governor, limits, token); }
+        try { memory.Reserve(88L); return new(memory, governor, limits, token); }
         catch { memory.Dispose(); throw; }
     }
 
@@ -50,6 +51,19 @@ internal sealed class DecodedStreamCache : IDisposable
     }
 
     internal void EndPage() => _pageActive = false;
+
+    internal bool WasValidated(PdfStream stream) => _validated?.Contains(stream) == true;
+
+    internal void RecordValidation(PdfStream stream)
+    {
+        ParserMemoryScope memory = Memory;
+        if (_validated is null)
+        {
+            memory.Reserve(96L);
+            _validated = new(ReferenceEqualityComparer.Instance);
+        }
+        ParserContainers.AddSetItem(memory, _validated, stream, IntPtr.Size);
+    }
 
     internal bool TryBorrow(PdfStream stream, out ReadOnlyMemory<byte> bytes)
     {
@@ -97,7 +111,7 @@ internal sealed class DecodedStreamCache : IDisposable
     public void Dispose()
     {
         ParserMemoryScope? memory = _memory;
-        _entries = null; _memory = null; _governor = null; _token = default; _payloadBytes = 0L; _pageActive = false;
+        _entries = null; _validated = null; _memory = null; _governor = null; _token = default; _payloadBytes = 0L; _pageActive = false;
         memory?.Dispose();
     }
 }

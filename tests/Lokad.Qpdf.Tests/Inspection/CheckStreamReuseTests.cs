@@ -53,6 +53,54 @@ public sealed class CheckStreamReuseTests
     }
 
     [Theory]
+    [InlineData(33, 4096, false)] // Over the entry limit, within the byte limit.
+    [InlineData(16, 81920, false)] // Over the byte limit, within the entry limit.
+    [InlineData(33, 4096, true)] // Sample the bound graph with the same exact quota.
+    public async Task ChecksUseOneDecodePerStreamBeyondTheCacheCapacity(int count, int size, bool bound)
+    {
+        byte[][] programs = Enumerable.Range(0, count)
+            .Select(index => Encoding.ASCII.GetBytes($"% {index:D2}" + new string('a', size - 5) + "\n")).ToArray();
+        QpdfPath input = QpdfPath.From("large-array.pdf");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(input, Document(programs, [Enumerable.Range(0, count).ToArray()], ["<< >>"]), QpdfInputOwnership.Transfer);
+        long decodedBytes = count * (long)size;
+        string[] args = bound ? ["graph.json", "--json-input", "--check"] : [input.Value, "--check"];
+        if (bound)
+        {
+            QpdfPath graph = QpdfPath.From("graph.json");
+            QpdfExecutionResult export = await Qpdf.ExecuteAsync(host,
+                new([input.Value, "--json-output", "--decode-level=none", "--json-stream-data=inline", graph.Value]), CancellationToken.None);
+            Assert.Equal(QpdfExitCode.Success, export.ExitCode);
+            Assert.True(host.TryGetOutput(graph, out byte[] json));
+            host.AddInput(graph, json, QpdfInputOwnership.Transfer);
+        }
+
+        QpdfLimits exact = QpdfLimits.Default with { MaxDecodedBytes = decodedBytes };
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(args), new(exact), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Equal(decodedBytes, result.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, result.Counters.OpenHandles);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task EqualDetachedStreamStillFollowsTheEntryPointsTraversalPolicy()
+    {
+        byte[] program = "q Q\n"u8.ToArray();
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("detached.pdf");
+        host.AddInput(input, Document([program, program], [[0]], ["<< >>"]), QpdfInputOwnership.Transfer);
+
+        QpdfCheckResult typed = await Qpdf.CheckAsync(host, input, CancellationToken.None);
+        Assert.True(typed.Passed);
+        Assert.Equal(2L * program.Length, typed.Counters.TotalDecodedBytes);
+        QpdfExecutionResult command = await Qpdf.ExecuteAsync(host, new([input.Value, "--check"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, command.ExitCode);
+        Assert.Equal(program.Length, command.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CommandContentArraysBorrowDecodedBytesThroughJoining(bool job)

@@ -162,10 +162,13 @@ internal static class DocumentCheck
     {
         using (DecodedStreamCache decoded = DecodedStreamCache.Create(governor, limits, token))
         {
+            // Page programs need decoded bytes in page order. The stream pass
+            // can reuse successful validation after the payload cache evicts them.
+            QpdfCheckOutcome pageContent = CheckPageContent(resolver, pages, options, limits, governor,
+                diagnostics, decoded, token);
             AddItem(memory, governor, outcomes, CheckStreams(resolver, options.DecodeLevel, limits, governor,
                 diagnostics, streams, decoded, token), IntPtr.Size);
-            AddItem(memory, governor, outcomes, CheckPageContent(resolver, pages, options, limits, governor,
-                diagnostics, decoded, token), IntPtr.Size);
+            AddItem(memory, governor, outcomes, pageContent, IntPtr.Size);
         }
         AddItem(memory, governor, outcomes, CheckFormTree(resolver, trailer, pages, governor, diagnostics, token), IntPtr.Size);
     }
@@ -320,6 +323,11 @@ internal static class DocumentCheck
         foreach ((int number, PdfStream stream) in streams)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (cache.WasValidated(stream))
+            {
+                decoded += 1;
+                continue;
+            }
             FilterPlan stages;
             try
             {
@@ -975,6 +983,7 @@ internal static class DocumentCheck
         try
         {
             byte[] decoded = FilterChain.Decode(stream.ArrayData(memory, governor, cancellationToken), stages, limits, governor, memory, cancellationToken);
+            cache.RecordValidation(stream);
             owned = !cache.Remember(stream, decoded, memory);
             return decoded;
         }

@@ -73,7 +73,8 @@ become static stamps using their stored appearances.
 
 Checking and listing use the same effective graph. Physical checks use the
 acquired file. Shared inspection analysis preserves page stream order and
-resource context.
+resource context. Stream checks reuse successful page stream validation when
+the bounded byte cache has evicted the decoded payload.
 [Inspection profile](SUPPORTED-PROFILE.md#inspection-profile)
 
 JSON imports and ordinary writes share catalog, version and split policies.
