@@ -273,7 +273,8 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.
 - Split link annotations and bookmarks omit direct destinations to absent pages.
-  Local GoTo actions without a continuation are removed for those targets.
+  Local GoTo actions aimed at absent pages are skipped. Remaining Next actions
+  run in their original order.
   Remote actions and private aliases remain subject to ordinary split remapping.
   Physical splits omit the catalog OpenAction. Bound splits retain destinations
   aimed at retained pages.

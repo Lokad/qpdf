@@ -7594,6 +7594,7 @@
           "SplitFieldProjectionTests.PdfSplitBuildsIndependentActiveFieldsAndLeavesPrivateChildren",
           "SplitFieldProjectionTests.BoundJsonSplitUsesTheSameProjectedWidgetAndCalculationField",
           "SplitNavigationTests.SplitProjectsLocalDestinationsAndPreservesPrivateAndRemoteRoles",
+          "SplitNavigationTests.SplitPromotesLiveNextActionsInOrderAndKeepsPrivateChain",
           "JsonSplitTests.SharedResourceMemberIsPackedInEachPart",
           "SplitReplaceTests.SplitGroupsShareNamingRule",
           "SplitReplaceTests.SplitPercentDPatternApplies",

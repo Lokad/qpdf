@@ -40,9 +40,10 @@ internal static partial class SourceActions
         internal readonly Role Roles = role;
         internal List<Node>? Parents;
         internal QpdfObject? Edited, Result;
+        internal PdfArray? PromotedNext;
         internal PdfName? Subtype;
         internal PdfReference? Reference;
-        internal bool Changed;
+        internal bool Changed, SkippedGoTo;
     }
 
     internal static (CopiedForm? Form, CopiedForm? AppearanceForm, IReadOnlyDictionary<PdfName, QpdfObject>? Extras, PdfReference? Outlines) BindDocument(
@@ -451,6 +452,7 @@ internal static partial class SourceActions
                     { if (node.Roles != Role.DestinationPairs || (item & 1) != 0) { Add(array[item], role, node); } }
                 }
             }
+            if (_hasStaleContinuations) { PrepareActionContinuations(); }
             _pending.Clear();
             foreach (Node node in _nodes.Values)
             { Check(); if (node.Edited is not null) { node.Changed = true; ParserContainers.AddItem(_scratch, _pending, node, IntPtr.Size); } }
@@ -551,11 +553,15 @@ internal static partial class SourceActions
                 while (source.MoveNext(_governor, _token))
                 {
                     QpdfObject value = source.Current.Value;
-                    Role role = ChildRole(node, source.Current.Key.RawSpan);
+                    ReadOnlySpan<byte> key = source.Current.Key.RawSpan;
+                    if (node.SkippedGoTo && key.SequenceEqual("Next"u8)) { continue; }
+                    Role role = ChildRole(node, key);
                     if (role != Role.None) { value = Remap(value, role); }
                     if (_splitPages is not null && !ReferenceEquals(source.Current.Value, value) && value is PdfNull) { continue; }
                     entries.Assign(Graph.Memory, _governor, source.Current.Key, value, _token);
                 }
+                if (node.PromotedNext is PdfArray next)
+                { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "Next"u8), BuildActionArray(next, depth), _token); }
                 if (IsSubtype(node, "Widget"u8) && _widgetPages?.TryGetValue(node.Number, out PdfReference? page) == true)
                 { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "P"u8), page, _token); }
                 node.Result = PdfDictionaryRebuild.Complete(Graph, entries, bytes);
