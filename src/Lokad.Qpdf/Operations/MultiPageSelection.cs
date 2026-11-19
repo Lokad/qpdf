@@ -592,12 +592,14 @@ internal static class MultiPageSelection
             ? null
             : Content.AcroFormCopy.Combine(renameForms, renameCopiers, overlayApplied.FieldImports,
                 pool, limits, governor, diagnostics, selectionMemory, cancellationToken);
-        PdfDictionary? multiAcroForm = multiCombined is null
+        HashSet<int>? survivingAnnots = multiCombined is null ? null
+            : Content.AcroFormCopy.CollectAnnotRefs(pool, CollectionsMarshal.AsSpan(kids), governor, selectionMemory, cancellationToken);
+        PdfDictionary? multiAcroForm = multiCombined is null || survivingAnnots is null
             ? null
             : Content.AcroFormCopy.BuildCatalogForm(
                 multiCombined,
                 pool,
-                Content.AcroFormCopy.CollectAnnotRefs(pool, CollectionsMarshal.AsSpan(kids), governor, selectionMemory, cancellationToken),
+                survivingAnnots,
                 pruneUnreachableFields,
                 limits,
                 governor,
@@ -626,6 +628,15 @@ internal static class MultiPageSelection
         QpdfPath? capture = settings.Linearize ? settings.LinearizePass1 : null;
         if (!splitPages.HasValue)
         {
+            if (survivingAnnots is not null && (pruneUnreachableFields || settings.FlattenAnnotations is not null))
+            {
+                // Rotation binding may have replaced annotation identities.
+                if (rotationFrames is not null)
+                { survivingAnnots = Content.AcroFormCopy.CollectAnnotRefs(pool, CollectionsMarshal.AsSpan(kids), governor, selectionMemory, cancellationToken); }
+                multiAcroForm = Content.SourceActions.ProjectOutputForm(multiAcroForm, pool, copiers[0],
+                    CollectionsMarshal.AsSpan(kids), survivingAnnots, multiStreamMode == "generate" ? multiCompressed : null,
+                    limits, governor, selectionMemory, cancellationToken);
+            }
             PdfDictionary catalog = NewCatalog(new CatalogContents { PageLabels = catalogLabels, Metadata = primaryMetadata, Names = multiAttached.NamesRef, PageMode = primaryPageMode ?? (multiAttached.Inserted ? UseAttachmentsPageMode : null), Outlines = primaryOutlines, AcroForm = multiAcroForm, Structure = primaryStructTree, MarkInfo = primaryMarkInfo, Extras = primaryExtras, OptionalContent = optionalContent }, effective, extensionLevel, pool, governor, cancellationToken);
             PreparedOutputModel preparedModel = OutputModelPreparation.Prepare(
                 new OutputGraph(catalog, PagesNode(kids, selectionMemory, governor, cancellationToken), pool, multiCompressed, primaryInfo,
@@ -666,6 +677,7 @@ internal static class MultiPageSelection
         PdfArray? detachedRoots = FindSplitDetachedRoots(pool, kids, sharedRoots, multiAcroForm, catalogLabels,
             preservationCandidates, selectionMemory, governor, cancellationToken);
         using PreparedSplitPublications preparation = PreparedSplitPublications.Create(governor);
+        int? projectionMaximum = null;
         for (int g = 0; g < groups.Count; g++)
         {
             using ParserMemoryScope groupMemory = ParserMemoryScope.Create(governor);
@@ -680,17 +692,10 @@ internal static class MultiPageSelection
                 ParserContainers.AddSetItem(groupMemory, groupPageNumbers, kids[slot].ObjectNumber, sizeof(int));
             }
 
-            PdfDictionary? groupAcroForm = null;
-            if (multiCombined is not null)
-            {
-                HashSet<int> groupAnnots = Content.AcroFormCopy.CollectAnnotRefs(pool,
-                    CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1), governor, groupMemory, cancellationToken);
-                groupAcroForm = Content.AcroFormCopy.BuildCatalogForm(multiCombined, pool, groupAnnots, pruneUnreachableFields, limits, governor, cancellationToken);
-                if (multiGenerated)
-                {
-                    groupAcroForm = ClearNeedAppearances(groupAcroForm, governor, cancellationToken);
-                }
-            }
+            var (groupAcroForm, fieldEdits) = ProjectSplitForm(multiCombined, pool,
+                CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1), pruneUnreachableFields,
+                ref projectionMaximum, 2, limits, groupMemory, governor, cancellationToken);
+            if (multiGenerated) { groupAcroForm = ClearNeedAppearances(groupAcroForm, governor, cancellationToken); }
 
             PdfDictionary? slicedLabels = SlicePageLabels(labelItems, first, last, governor);
             ParserContainers.AddItem(groupMemory, roots, sharedRoots);
@@ -699,10 +704,10 @@ internal static class MultiPageSelection
             if (detachedRoots is not null) { ParserContainers.AddItem(groupMemory, roots, detachedRoots); }
 
             using ParserMemoryScope reachabilityMemory = ParserMemoryScope.Create(governor);
-            groupMemory.Reserve(40L);
-            HashSet<int> reachable = GraphReachability.Find(new SplitResolver(pool, pageNumbers, groupPageNumbers),
-                roots, reachabilityMemory, governor);
-            GroupNumbers numbers = NumberGroup(pool, reachable, 0, 2, groupMemory, governor, cancellationToken);
+            groupMemory.Reserve(48L);
+            SplitResolver resolver = new(pool, pageNumbers, groupPageNumbers, fieldEdits);
+            HashSet<int> reachable = GraphReachability.Find(resolver, roots, reachabilityMemory, governor);
+            GroupNumbers numbers = NumberGroup(reachable, 0, 2, groupMemory, governor, cancellationToken);
             Dictionary<int, int> renumber = numbers.Map;
             List<PdfReference> renumberedKids = MapKids(CollectionsMarshal.AsSpan(kids).Slice(first - 1, last - first + 1),
                 renumber, groupMemory, governor, cancellationToken);
@@ -773,9 +778,11 @@ internal static class MultiPageSelection
             NumberedObject groupPages = new(2, PagesNode(renumberedKids, groupMemory, governor, cancellationToken));
             ParserContainers.AddItem(groupMemory, sub, groupCatalog, 16L);
             ParserContainers.AddItem(groupMemory, sub, groupPages, 16L);
-            AppendGroupObjects(sub, pool, numbers, pageNumbers, groupMemory, governor, cancellationToken);
+            AppendGroupObjects(sub, resolver, numbers, pageNumbers, groupMemory, governor, cancellationToken);
             QpdfPath path = QpdfPath.From(names[g]);
-            HashSet<int> groupCompressed = RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
+            HashSet<int> groupCompressed = multiStreamMode == "generate" && fieldEdits is not null
+                ? ResolveGeneratedCompressedSet(sub, groupMemory, governor, cancellationToken)
+                : RemapCompressedSet(multiCompressed, renumber, groupMemory, governor, cancellationToken);
             Dictionary<int, (int Number, int Generation)>? groupOriginalIds =
                 MapOriginalIds(multiOriginalIds, numbers, groupMemory, governor, cancellationToken);
 

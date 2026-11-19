@@ -89,14 +89,31 @@ internal static class SplitAssembly
     }
 
     internal sealed class SplitResolver(IReadOnlyDictionary<int, QpdfObject> pool, IReadOnlySet<int> pages,
-        IReadOnlySet<int> groupPages) : IIndirectResolver
+        IReadOnlySet<int> groupPages, IReadOnlyDictionary<int, QpdfObject>? edits) : IIndirectResolver
     {
         public bool TryResolve(PdfReference reference, out QpdfObject? value)
         {
-            if ((!pages.Contains(reference.ObjectNumber) || groupPages.Contains(reference.ObjectNumber))
-                && pool.TryGetValue(reference.ObjectNumber, out value)) { return true; }
+            int number = reference.ObjectNumber;
+            if ((!pages.Contains(number) || groupPages.Contains(number))
+                && (edits?.TryGetValue(number, out value) == true || pool.TryGetValue(number, out value))) { return true; }
             value = null; return false;
         }
+
+        internal QpdfObject GetObject(int number)
+            => edits?.TryGetValue(number, out QpdfObject? value) == true ? value : pool[number];
+    }
+
+    internal static (PdfDictionary? Form, Dictionary<int, QpdfObject>? Edits) ProjectSplitForm(Content.CopiedForm? form,
+        Dictionary<int, QpdfObject> pool, ReadOnlySpan<PdfReference> pages, bool pruneUnreachableFields, ref int? maximum,
+        int reservedNumber, QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        if (form is null) { return (null, null); }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        HashSet<int> survivors = Content.AcroFormCopy.CollectAnnotRefs(pool, pages, governor, scratch, token);
+        PdfDictionary? catalog = Content.AcroFormCopy.BuildCatalogForm(form, pool, survivors, pruneUnreachableFields,
+            limits, governor, token);
+        return Content.SourceActions.ProjectForm(catalog, pool, Content.PoolResolver.Create(scratch, pool), pages, survivors,
+            ref maximum, reservedNumber, limits, governor, memory, token);
     }
 
     internal static PdfArray? FindSplitDetachedRoots(IReadOnlyDictionary<int, QpdfObject> pool,
@@ -133,7 +150,7 @@ internal static class SplitAssembly
 
     internal readonly record struct GroupNumbers(List<int> Kept, Dictionary<int, int> Map);
 
-    internal static GroupNumbers NumberGroup(IReadOnlyDictionary<int, QpdfObject> pool, HashSet<int> reachable,
+    internal static GroupNumbers NumberGroup(HashSet<int> reachable,
         int catalogNumber, int pagesNumber, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         memory.Reserve(checked(64L + sizeof(int) * (long)reachable.Count));
@@ -141,7 +158,7 @@ internal static class SplitAssembly
         foreach (int id in reachable)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            if (id != catalogNumber && id != pagesNumber && pool.ContainsKey(id)) { kept.Add(id); }
+            if (id != catalogNumber && id != pagesNumber) { kept.Add(id); }
         }
         GovernedSort.Sort(CollectionsMarshal.AsSpan(kept), new WriterNumberOrder(), governor, token);
         Dictionary<int, int> map = ParserContainers.CreateDictionary<int, int>(memory);
@@ -169,12 +186,12 @@ internal static class SplitAssembly
         return result;
     }
 
-    internal static void AppendGroupObjects(List<NumberedObject> objects, IReadOnlyDictionary<int, QpdfObject> pool,
+    internal static void AppendGroupObjects(List<NumberedObject> objects, SplitResolver resolver,
         GroupNumbers numbers, IReadOnlySet<int> allPages, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         foreach (int id in numbers.Kept)
         {
-            NumberedObject item = new(numbers.Map[id], ObjectRemap.RemapSplit(pool[id], numbers.Map, allPages, memory, governor, token));
+            NumberedObject item = new(numbers.Map[id], ObjectRemap.RemapSplit(resolver.GetObject(id), numbers.Map, allPages, memory, governor, token));
             ParserContainers.AddItem(memory, objects, item, 16L);
         }
     }

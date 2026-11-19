@@ -5,6 +5,7 @@ using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using System.Runtime.InteropServices;
 using static Lokad.Qpdf.Operations.AttachmentAssembler;
 using static Lokad.Qpdf.Operations.PageAssembly;
 using static Lokad.Qpdf.Operations.PageLabelAssembly;
@@ -285,6 +286,13 @@ internal static class SinglePageSelection
                     QpdfObject? singleOptionalContent = Content.OptionalContent.Combine(copier, Array.Empty<GraphCopier>(), overlayApplied.Copiers, singleExtras, singlePool, governor, cancellationToken);
                     if (singleOptionalContent is not null && settings.ForceVersion is null)
                     { IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, new QpdfDocument.VersionParts(1, 5), 0, governor); }
+                    if (singleAcroForm is not null)
+                    {
+                        ReadOnlySpan<PdfReference> pagesToProject = CollectionsMarshal.AsSpan(kids);
+                        HashSet<int> survivors = Content.AcroFormCopy.CollectAnnotRefs(singlePool, pagesToProject, governor, copyMemory, cancellationToken);
+                        singleAcroForm = Content.SourceActions.ProjectOutputForm(singleAcroForm, singlePool, copier,
+                            pagesToProject, survivors, null, limits, governor, copyMemory, cancellationToken);
+                    }
                     HashSet<int> singleCompressed = ResolveCompressedSet(streamMode, singlePool, singleSources, copyMemory, governor, cancellationToken);
                     (PdfVersion effective, int extensionLevel) = RequireObjectStreamVersion(negotiated, negotiatedExtension, singleCompressed.Count != 0, governor);
 

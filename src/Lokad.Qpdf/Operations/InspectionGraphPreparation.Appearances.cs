@@ -4,6 +4,7 @@ using Lokad.Qpdf.Reading;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
+using System.Runtime.InteropServices;
 
 namespace Lokad.Qpdf.Operations;
 
@@ -42,6 +43,17 @@ internal static partial class InspectionGraphPreparation
         }
         HashSet<int> surviving = AcroFormCopy.CollectAnnotRefs(occurrences, governor, scratch, token);
         PdfDictionary? updatedForm = AcroFormCopy.BuildCatalogForm(form, pool.CopiedObjects, surviving, false, limits, governor, token);
+        if (updatedForm is not null)
+        {
+            List<PdfReference> pageRefs = ParserContainers.CreateList<PdfReference>(scratch, pages.Count, IntPtr.Size);
+            foreach (InspectionPage page in pages)
+            {
+                governor.NoteOperation(); scratch.Reserve(32L);
+                pageRefs.Add(new PdfReference(page.Number, page.Generation));
+            }
+            updatedForm = ProjectInspectionForm(updatedForm, pool, CollectionsMarshal.AsSpan(pageRefs),
+                surviving, limits, governor, memory, token);
+        }
 
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PdfDictionary trailer = document.Engine.Trailer;
@@ -53,5 +65,38 @@ internal static partial class InspectionGraphPreparation
                 pool.AddIndirectObjectWithId(updatedForm, pool.NextId));
         document.Engine.SetInspectionTrailer(ReplaceInspectionCatalogRoot(pool, graph, trailer, root, updated, lifetime));
         graph.Memory.TransferTo(memory, graph.Bytes);
+    }
+
+    private static PdfDictionary? ProjectSelectedInspectionForm(PdfDictionary form, GraphCopier pool,
+        DocumentEngine engine, IReadOnlyList<(GraphCopier Copier, int Id)> occurrences, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<PdfReference> pages = ParserContainers.CreateList<PdfReference>(scratch, occurrences.Count, IntPtr.Size);
+        foreach ((_, int number) in occurrences)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation(); scratch.Reserve(32L);
+            pages.Add(new PdfReference(number, engine.InspectionObjectGeneration(number)));
+        }
+        ReadOnlySpan<PdfReference> pageRefs = CollectionsMarshal.AsSpan(pages);
+        HashSet<int> survivors = AcroFormCopy.CollectAnnotRefs(pool.CopiedObjects, pageRefs, governor, scratch, token);
+        return ProjectInspectionForm(form, pool, pageRefs, survivors, limits, governor, memory, token);
+    }
+
+    private static PdfDictionary? ProjectInspectionForm(PdfDictionary form, GraphCopier pool,
+        ReadOnlySpan<PdfReference> pages, HashSet<int> survivors,
+        QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
+    {
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        int? maximum = null;
+        var (projected, objects) = SourceActions.ProjectForm(form, pool.CopiedObjects, pool.CreateResolver(scratch),
+            pages, survivors, ref maximum, pool.NextId - 1, limits, governor, memory, token);
+        if (objects is null) { return projected; }
+        foreach ((int number, QpdfObject value) in objects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            StoreInspectionObject(pool, number, value);
+        }
+        return projected;
     }
 }

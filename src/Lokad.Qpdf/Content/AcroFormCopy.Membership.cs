@@ -23,6 +23,7 @@ internal static partial class AcroFormCopy
         None = 0,
         HasWidget = 1,
         HasSurvivor = 2,
+        HasRemovedWidget = 4,
     }
 
     // Summaries are limited to one immutable pool and one set of retained widgets.
@@ -90,6 +91,13 @@ internal static partial class AcroFormCopy
             return Keeps(status, prune);
         }
 
+        internal MemberStatus? CompleteStatus(PdfReference reference, PdfDictionary field)
+            => Summarize(reference, field, 0)?.Status;
+
+        internal MemberStatus? CompleteStatus(PdfReference reference)
+            => CatalogCopy.ResolveValue(reference, _resolver, _governor, _token) is PdfDictionary field
+                ? CompleteStatus(reference, field) : null;
+
         private static bool Keeps(MemberStatus status, bool prune)
             => (status & MemberStatus.HasSurvivor) != 0 || (status == MemberStatus.None && !prune);
 
@@ -129,7 +137,7 @@ internal static partial class AcroFormCopy
         }
 
         private MemberStatus WidgetStatus(int number)
-            => MemberStatus.HasWidget | (_survivors.Contains(number) ? MemberStatus.HasSurvivor : MemberStatus.None);
+            => MemberStatus.HasWidget | (_survivors.Contains(number) ? MemberStatus.HasSurvivor : MemberStatus.HasRemovedWidget);
 
         private void Check()
         {

@@ -654,6 +654,8 @@ internal static partial class InspectionGraphPreparation
         PdfDictionary? form = BuildInspectionForm(pool, assembly.Forms[pool], occurrences,
             Array.Empty<Content.AcroFormCopy.FieldImport>(), additional, true, memory, limits, governor, diagnostics, token);
         if (form is not null)
+        { form = ProjectSelectedInspectionForm(form, pool, document.Engine, occurrences, limits, governor, memory, token); }
+        if (form is not null)
         {
             ReplaceInspectionCatalogEntry(document, pool, PdfName.FromAscii("AcroForm"),
                 pool.AddIndirectObjectWithId(form, pool.NextId), memory, limits, governor);
@@ -726,6 +728,13 @@ internal static partial class InspectionGraphPreparation
         PdfDictionary? form = BuildInspectionForm(pool, sourceForm, occurrences, imports,
             Array.Empty<(GraphCopier, Content.CopiedForm, int)>(), pruneFields, memory, limits, governor, diagnostics, cancellationToken);
         if (form is null) { return; }
+        if (pruneFields && ProjectSelectedInspectionForm(form, pool, document.Engine, occurrences,
+            limits, governor, memory, cancellationToken) is PdfDictionary projected && !ReferenceEquals(projected, form))
+        {
+            ReplaceInspectionCatalogEntry(document, pool, PdfName.FromAscii("AcroForm"),
+                pool.AddIndirectObjectWithId(projected, pool.NextId), memory, limits, governor);
+            return;
+        }
         QpdfObject root = document.Engine.Trailer.TryGet(InspectionRoot, out QpdfObject raw) ? raw
             : throw new QpdfParseException("Trailer has no catalog root.", null, null);
         PdfDictionary catalog = PageInheritance.Resolve(document.Engine, root, limits, governor) as PdfDictionary

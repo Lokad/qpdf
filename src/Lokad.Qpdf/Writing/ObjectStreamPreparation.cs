@@ -55,7 +55,7 @@ internal static class ObjectStreamPreparation
         return compressed;
     }
 
-    private static bool IsCompressibleValue(int number, QpdfObject value, int catalogNumber, int pagesNumber,
+    internal static bool IsCompressibleValue(int number, QpdfObject value, int catalogNumber, int pagesNumber,
         ResourceGovernor governor, CancellationToken token)
     {
         if (number == catalogNumber || number == pagesNumber)
@@ -98,6 +98,19 @@ internal static class ObjectStreamPreparation
         }
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         candidate.TransferTo(ownership);
+        return compressed;
+    }
+
+    internal static HashSet<int> ResolveGeneratedCompressedSet(IReadOnlyList<NumberedObject> objects,
+        ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
+    {
+        HashSet<int> compressed = ParserContainers.CreateSet<int>(ownership);
+        foreach (NumberedObject item in objects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (IsCompressibleValue(item.Number, item.Value, 1, 2, governor, token))
+            { ParserContainers.AddSetItem(ownership, compressed, item.Number, sizeof(int)); }
+        }
         return compressed;
     }
 

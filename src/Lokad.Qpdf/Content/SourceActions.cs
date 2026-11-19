@@ -108,6 +108,61 @@ internal static class SourceActions
             binding.Map(outlines, Role.Outline) as PdfReference);
     }
 
+    internal static (PdfDictionary? Form, Dictionary<int, QpdfObject>? Objects) ProjectForm(
+        PdfDictionary? form, IReadOnlyDictionary<int, QpdfObject> pool, PoolResolver resolver,
+        ReadOnlySpan<PdfReference> pages, HashSet<int> survivors, ref int? maximum, int reservedNumber,
+        QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+    {
+        if (form is null || survivors.Count == 0) { return (form, null); }
+        Dictionary<int, PdfArray>? children = AcroFormCopy.ProjectFieldKids(form, resolver, survivors, limits,
+            ownership, governor, token, out PdfArray? calculationOrder);
+        if (children is null) { return (form, null); }
+        using Binding binding = new(resolver, children, calculationOrder, governor, ownership, token);
+        foreach (PdfReference page in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (pool.TryGetValue(page.ObjectNumber, out QpdfObject? value) && value is PdfDictionary dictionary)
+            { binding.AddProjectionPage(page, dictionary); }
+        }
+        binding.Add(form, Role.Form, null);
+        if (!maximum.HasValue)
+        {
+            int last = reservedNumber;
+            foreach (int number in pool.Keys)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                last = Math.Max(last, number);
+            }
+            maximum = last;
+        }
+        Dictionary<int, QpdfObject> objects = binding.ApplyProjection(maximum.Value, limits);
+        return ((PdfDictionary?)binding.Map(form, Role.Form), objects);
+    }
+
+    internal static PdfDictionary? ProjectOutputForm(PdfDictionary? form, Dictionary<int, QpdfObject> pool,
+        GraphCopier copier, ReadOnlySpan<PdfReference> pages, HashSet<int> survivors, HashSet<int>? generatedPacking, QpdfLimits limits,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+    {
+        if (form is null) { return null; }
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        int? maximum = null;
+        (PdfDictionary? projected, Dictionary<int, QpdfObject>? objects) = ProjectForm(form, pool,
+            PoolResolver.Create(scratch, pool), pages, survivors, ref maximum, copier.NextId - 1,
+            limits, governor, ownership, token);
+        if (objects is null) { return projected; }
+        foreach ((int number, QpdfObject value) in objects)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (!pool.ContainsKey(number))
+            { ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size, (int)Math.Min(int.MaxValue, limits.MaxContainerSize)); }
+            pool[number] = value;
+            if (generatedPacking is not null && ObjectStreamPreparation.IsCompressibleValue(number, value, 1, 2, governor, token))
+            { ParserContainers.AddSetItem(ownership, generatedPacking, number, sizeof(int)); }
+        }
+        copier.MarkChangedRoots();
+        return projected;
+    }
+
     private static PdfDictionary? Context(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
     {
         PdfDictionary? catalog = CatalogCopy.ResolveDictionary(Read(engine.Trailer, "Root"u8, governor, token), engine, governor, token);
@@ -150,7 +205,7 @@ internal static class SourceActions
     {
         private readonly DocumentEngine? _source;
         private readonly GraphCopier? _sourceCopier;
-        private readonly GraphCopier _copier;
+        private readonly GraphCopier? _copier;
         private readonly PdfDictionary? _catalog;
         private readonly IReadOnlyDictionary<int, double[]>? _frames;
         private readonly ResourceGovernor _governor;
@@ -158,6 +213,9 @@ internal static class SourceActions
         private readonly CancellationToken _token;
         private readonly Dictionary<NodeKey, Node> _nodes;
         private readonly List<Node> _pending;
+        private readonly Dictionary<int, PdfArray>? _fieldKids;
+        private readonly PdfArray? _calculationOrder;
+        private readonly Dictionary<int, PdfReference>? _widgetPages;
         private OwnedAllocationBatch? _graph;
         private NamedDestinations? _destinations;
         internal PoolResolver Resolver { get; }
@@ -165,23 +223,33 @@ internal static class SourceActions
 
         internal Binding(DocumentEngine source, GraphCopier sourceCopier, GraphCopier copier, PdfDictionary catalog,
             ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
-            : this(copier, governor, ownership, token)
+            : this(new PoolResolver(copier.CopiedObjects), governor, ownership, token)
         {
-            _source = source; _sourceCopier = sourceCopier; _catalog = catalog;
+            _source = source; _sourceCopier = sourceCopier; _copier = copier; _catalog = catalog;
         }
 
         internal Binding(GraphCopier copier, IReadOnlyDictionary<int, double[]> frames,
             ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
-            : this(copier, governor, ownership, token) { _frames = frames; }
+            : this(new PoolResolver(copier.CopiedObjects), governor, ownership, token)
+        { _copier = copier; _frames = frames; }
 
-        private Binding(GraphCopier copier, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        internal Binding(PoolResolver resolver, Dictionary<int, PdfArray> fieldKids, PdfArray? calculationOrder,
+            ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+            : this(resolver, governor, ownership, token)
         {
-            _copier = copier;
+            _fieldKids = fieldKids; _calculationOrder = calculationOrder;
+            try { _widgetPages = ParserContainers.CreateDictionary<int, PdfReference>(_scratch); }
+            catch { _scratch.Dispose(); throw; }
+        }
+
+        private Binding(PoolResolver resolver, ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token)
+        {
+            Resolver = resolver;
             _governor = governor; _ownership = ownership; _token = token;
             _scratch = ParserMemoryScope.Create(governor);
             try
             {
-                _scratch.Reserve(256L); Resolver = new(copier.CopiedObjects);
+                _scratch.Reserve(280L);
                 _nodes = ParserContainers.CreateDictionary<NodeKey, Node>(_scratch);
                 _pending = ParserContainers.CreateList<Node>(_scratch);
             }
@@ -197,6 +265,20 @@ internal static class SourceActions
             if (Read(page, "Annots"u8, _governor, _token) is null or PdfNull
                 && Read(page, "AA"u8, _governor, _token) is null or PdfNull) { return; }
             AddNode(page, number, Role.Page, null);
+        }
+
+        internal void AddProjectionPage(PdfReference page, PdfDictionary dictionary)
+        {
+            if (Resolve(Read(dictionary, "Annots"u8, _governor, _token)) is not PdfArray annotations) { return; }
+            Dictionary<int, PdfReference> widgetPages = _widgetPages ?? throw new InvalidOperationException("Missing projection page map.");
+            for (int index = 0; index < annotations.Count; index++)
+            {
+                Check();
+                if (annotations[index] is not PdfReference annotation || widgetPages.ContainsKey(annotation.ObjectNumber)) { continue; }
+                ParserContainers.EnsureEntryCapacity(_scratch, widgetPages, IntPtr.Size);
+                widgetPages.Add(annotation.ObjectNumber, page);
+            }
+            AddNode(dictionary, page.ObjectNumber, Role.Page, null);
         }
 
         internal void Add(QpdfObject? raw, Role role, Node? parent)
@@ -258,9 +340,10 @@ internal static class SourceActions
         private Role ChildRole(Node node, ReadOnlySpan<byte> key)
         {
             Role roles = node.Roles, result = Role.None;
+            if ((_frames is not null || _fieldKids is not null) && (roles & Role.Form) != 0
+                && (key.SequenceEqual("Fields"u8) || key.SequenceEqual("CO"u8))) { result |= Role.Fields; }
             if (_frames is not null)
             {
-                if ((roles & Role.Form) != 0 && (key.SequenceEqual("Fields"u8) || key.SequenceEqual("CO"u8))) { result |= Role.Fields; }
                 if ((roles & Role.Names) != 0 && key.SequenceEqual("Dests"u8)) { result |= Role.DestinationTree; }
                 if ((roles & Role.DestinationIndex) != 0) { result |= Role.Destination; }
                 if ((roles & Role.DestinationTree) != 0)
@@ -324,7 +407,7 @@ internal static class SourceActions
                 | ((role & Role.DestinationTrees) != 0 ? Role.DestinationTree : Role.None)
                 | ((role & Role.DestinationPairs) != 0 ? Role.Destination : Role.None);
 
-        internal void Apply()
+        private void PrepareChanges()
         {
             for (int index = 0; index < _pending.Count; index++)
             {
@@ -333,6 +416,10 @@ internal static class SourceActions
                 {
                     if ((node.Roles & (Role.Field | Role.Annotation)) != 0)
                     { node.Subtype = Resolve(Read(dictionary, "Subtype"u8, _governor, _token)) as PdfName; }
+                    if ((node.Roles & Role.Field) != 0 && _fieldKids?.TryGetValue(node.Number, out PdfArray? kids) == true)
+                    { node.Edited = dictionary = PdfDictionaryRebuild.ReplaceEntry(Graph, dictionary, "Kids"u8, kids); }
+                    if ((node.Roles & Role.Form) != 0 && _calculationOrder is not null)
+                    { node.Edited = dictionary = PdfDictionaryRebuild.ReplaceEntry(Graph, dictionary, "CO"u8, _calculationOrder); }
                     using PdfDictionary.EntryEnumerator entries = dictionary.GetEntryEnumerator();
                     while (entries.MoveNext(_governor, _token)) { Add(entries.Current.Value, ChildRole(node, entries.Current.Key.RawSpan), node); }
                     BindLeaves(node, dictionary);
@@ -366,18 +453,45 @@ internal static class SourceActions
                     parent.Changed = true; ParserContainers.AddItem(_scratch, _pending, parent, IntPtr.Size);
                 }
             }
+        }
+
+        internal void Apply()
+        {
+            GraphCopier copier = _copier ?? throw new InvalidOperationException("Missing action copier.");
+            PrepareChanges();
             foreach (Node node in _pending)
             {
                 Check();
                 if (node.Number != 0 && (node.Roles & Role.Page) == 0)
-                { node.Reference = _copier.AddIndirectObjectWithId(node.Original, _copier.NextId); }
+                { node.Reference = copier.AddIndirectObjectWithId(node.Original, copier.NextId); }
             }
             foreach (Node node in _pending)
             {
                 Check();
-                if (node.Number != 0) { _copier.ReplaceCopiedObject(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0)); }
+                if (node.Number != 0) { copier.ReplaceCopiedObject(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0)); }
             }
-            if (_pending.Count > 0) { _copier.MarkChangedRoots(); }
+            if (_pending.Count > 0) { copier.MarkChangedRoots(); }
+        }
+
+        internal Dictionary<int, QpdfObject> ApplyProjection(int maximum, QpdfLimits limits)
+        {
+            PrepareChanges();
+            Dictionary<int, QpdfObject> result = ParserContainers.CreateDictionary<int, QpdfObject>(_ownership);
+            foreach (Node node in _pending)
+            {
+                Check();
+                if (node.Number == 0 || (node.Roles & Role.Page) != 0) { continue; }
+                _ownership.Reserve(32L);
+                node.Reference = new PdfReference(checked(++maximum), 0);
+            }
+            foreach (Node node in _pending)
+            {
+                Check();
+                if (node.Number == 0) { continue; }
+                ParserContainers.EnsureEntryCapacity(_ownership, result, IntPtr.Size, (int)Math.Min(int.MaxValue, limits.MaxContainerSize));
+                result.Add(node.Reference?.ObjectNumber ?? node.Number, Build(node, 0));
+            }
+            return result;
         }
 
         private Node? Find(QpdfObject? raw, Role role)
@@ -425,6 +539,8 @@ internal static class SourceActions
                     if (role != Role.None) { value = Remap(value, role); }
                     entries.Assign(Graph.Memory, _governor, source.Current.Key, value, _token);
                 }
+                if (IsSubtype(node, "Widget"u8) && _widgetPages?.TryGetValue(node.Number, out PdfReference? page) == true)
+                { entries.Assign(Graph.Memory, _governor, PdfDictionaryRebuild.CreateName(Graph, "P"u8), page, _token); }
                 node.Result = PdfDictionaryRebuild.Complete(Graph, entries, bytes);
             }
             return node.Result;
@@ -477,7 +593,7 @@ internal static class SourceActions
 
         private void BindLeaves(Node node, PdfDictionary dictionary)
         {
-            if (_frames is not null) { return; }
+            if (_source is null) { return; }
             PdfDictionary result = node.Edited as PdfDictionary ?? dictionary;
             bool hasDestination = (node.Roles & Role.Outline) != 0 || (node.Roles & Role.Annotation) != 0 && IsSubtype(node, "Link"u8);
             if (hasDestination && Read(result, "Dest"u8, _governor, _token) is QpdfObject rawDestination)
@@ -509,14 +625,15 @@ internal static class SourceActions
         {
             DocumentEngine source = _source ?? throw new InvalidOperationException("Missing source context.");
             GraphCopier sourceCopier = _sourceCopier ?? throw new InvalidOperationException("Missing source copier.");
+            GraphCopier copier = _copier ?? throw new InvalidOperationException("Missing action copier.");
             PdfDictionary catalog = _catalog ?? throw new InvalidOperationException("Missing source catalog.");
             QpdfObject? value = Resolve(raw);
             if (value is not (PdfName or PdfByteString)) { return raw; }
             _destinations ??= NamedDestinations.Create(source, catalog, _scratch, _governor, _token);
             QpdfObject? found = _destinations.Find(value);
             if (found is not PdfArray) { throw new QpdfParseException("The retained source-local named destination cannot be resolved.", null, null); }
-            sourceCopier.AdvanceNextId(_copier.NextId);
-            QpdfObject result = sourceCopier.CopyValue(found, 0); _copier.AdvanceNextId(sourceCopier.NextId);
+            sourceCopier.AdvanceNextId(copier.NextId);
+            QpdfObject result = sourceCopier.CopyValue(found, 0); copier.AdvanceNextId(sourceCopier.NextId);
             return result;
         }
 

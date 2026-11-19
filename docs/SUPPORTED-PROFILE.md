@@ -272,6 +272,10 @@ policy. `PdfPageMergeOptions.RecoveryMode` applies to all sources and templates.
 - A split keeps the graph reached from its pages and retained catalog roles.
   Explicit unreferenced preservation also keeps eligible detached roots and
   their dependencies in each part.
+- When selection, splitting or flattening removes some widgets from a field,
+  the active form keeps its surviving branches and their calculation order.
+  Surviving widgets point to their page and projected field. Private references
+  to the original form objects retain their original branches.
 - Bind retained source resources, local actions, destinations and static View
   optional-content context before cleanup. Unsupported context combinations fail
   before publication. Private aliases keep their original values.
