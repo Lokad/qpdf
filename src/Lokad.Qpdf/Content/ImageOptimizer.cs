@@ -1,6 +1,7 @@
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
@@ -16,6 +17,7 @@ internal sealed record ImageOptimizeRequest(
     int? Quality)
 {
     internal static ImageOptimizeRequest Disabled { get; } = new(false, 128L, 128L, 16384L, false, null);
+    internal bool PrepareIdentityCrypt { get; init; }
 }
 
 /// <summary>
@@ -179,6 +181,8 @@ internal static class ImageOptimizer
         }
 
         FilterChain.RequireEmbeddedData(image, resolver, governor, cancellationToken);
+        using OwnedAllocationBatch? cryptHeader = StreamCryptFilter.PrepareIdentityForAnalysis(image, resolver, request.PrepareIdentityCrypt,
+            governor, cancellationToken, out image);
         FilterPlan stages;
         try
         {

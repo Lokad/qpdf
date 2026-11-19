@@ -47,7 +47,9 @@ public sealed class JsonOperationCompatibilityTests
         foreach (var setting in RefusalSettings)
         {
             string key = setting.Key;
-            if (key is not ("linearize" or "qdf" or "normalizeContent" or "removeUnreferencedResources"))
+            if (key is "externalizeInlineImages" or "iiMinBytes" or "optimizeImages" or "oiMinWidth"
+                or "keepInlineImages" or "jpegQuality") { yield return [key, "bound-inspect", "argv"]; }
+            else if (key is not ("linearize" or "qdf" or "normalizeContent" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
             if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
@@ -56,7 +58,7 @@ public sealed class JsonOperationCompatibilityTests
 
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
-            ("externalizeInlineImages", "update", "argv"),
+            ("externalizeInlineImages", "bound-inspect", "job"),
             ("normalizeContent", "bound-inspect", "job"),
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
             ("overlay", "create", "job"),

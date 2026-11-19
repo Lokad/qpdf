@@ -12,7 +12,7 @@ public sealed class InlineContentInputTests
 {
     private static AnalysisChunks? Collect(GraphCopier copier, PdfDictionary page, QpdfLimits limits,
         ResourceGovernor governor, CancellationToken token)
-        => InlineImages.CollectDecodedContents(copier, page, limits, governor, token);
+        => InlineImages.CollectDecodedContents(copier, page, false, limits, governor, token);
     private static IReadOnlyList<ReadOnlyMemory<byte>> Parts(object owner) => ((AnalysisChunks)owner).Parts;
     private static void Close(object? owner) => (owner as AnalysisChunks)?.Dispose();
     private static PdfDictionary Dictionary(params (string Key, QpdfObject Value)[] entries) => DecoderOwnershipFixtures.Dictionary(entries);
@@ -168,10 +168,11 @@ public sealed class InlineContentInputTests
         PdfStream bad = new(Dictionary(("Filter", PdfName.FromAscii("ASCIIHexDecode"))), "ABCG>"u8.ToArray()); using Prepared prepared = new(bad);
         PdfDictionary page = Dictionary(("Contents", new PdfReference(7, 11)));
         ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None); DiagnosticBag diagnostics = new(prepared.Construction);
-        if (form) { InlineImages.ExternalizeForm(prepared.Copier, 7, bad, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 0); Assert.Empty(diagnostics.Entries); }
+        ContentTransformRequest request = new(false, false, false, null, true, 0L);
+        if (form) { InlineImages.ExternalizeForm(prepared.Copier, 7, bad, request, QpdfLimits.Default, governor, diagnostics, CancellationToken.None); Assert.Empty(diagnostics.Entries); }
         else
         {
-            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, 0L, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 0, null));
+            Assert.Same(page, InlineImages.ExternalizePage(prepared.Copier, 3, page, request, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, null));
             QpdfDiagnostic warning = Assert.Single(diagnostics.Entries); Assert.Equal(QpdfDiagnosticSeverity.Warning, warning.Severity);
             Assert.Equal(QpdfDiagnosticCode.UnsupportedFeature, warning.Code);
             Assert.Equal("Unable to filter content stream; not attempting to externalize inline images.", warning.Message);

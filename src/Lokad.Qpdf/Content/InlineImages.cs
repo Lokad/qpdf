@@ -2,6 +2,7 @@ using System.Text;
 using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Runtime;
+using Lokad.Qpdf.Security;
 using Lokad.Qpdf.Syntax;
 using Lokad.Qpdf.Writing;
 
@@ -16,9 +17,9 @@ namespace Lokad.Qpdf.Content;
 internal static class InlineImages
 {
     internal static PdfDictionary ExternalizePage(
-        GraphCopier copier, int pageId, PdfDictionary page, long minBytes, bool compress, int? level,
+        GraphCopier copier, int pageId, PdfDictionary page, ContentTransformRequest request,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        CancellationToken cancellationToken, byte filterOptions, ExternalizedPageContents? externalized)
+        CancellationToken cancellationToken, ExternalizedPageContents? externalized)
     {
         QpdfObject? source = null;
         PdfDictionary? context = null;
@@ -43,7 +44,7 @@ internal static class InlineImages
             }
         }
         long diagnosticsBefore = diagnostics.EmissionVersion;
-        using AnalysisChunks? chunks = CollectDecodedContents(copier, page, limits, governor, cancellationToken);
+        using AnalysisChunks? chunks = CollectDecodedContents(copier, page, request.BoundPageContent, limits, governor, cancellationToken);
         if (chunks is null)
         {
             diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Unable to filter content stream; not attempting to externalize inline images.");
@@ -51,7 +52,8 @@ internal static class InlineImages
         }
 
         using JoinedContent joined = chunks.Join();
-        RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, minBytes, compress, level, limits, governor, diagnostics, cancellationToken, false, filterOptions);
+        RewriteResult rewritten = RewriteContentCore(copier, page, joined.RawBytes, request,
+            limits, governor, diagnostics, cancellationToken, false);
         CompleteResourceWalk(page, rewritten.Resources, pageId, governor, diagnostics, cancellationToken);
         PdfDictionary replaced = page;
         if (rewritten.Resources is QpdfObject resources)
@@ -73,19 +75,22 @@ internal static class InlineImages
     }
 
     internal static PdfStream? ExternalizeForm(
-        GraphCopier copier, int formId, PdfStream form, long minBytes, bool compress, int? level,
+        GraphCopier copier, int formId, PdfStream form, ContentTransformRequest request,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
-        CancellationToken cancellationToken, byte filterOptions)
+        CancellationToken cancellationToken)
     {
         using ParserMemoryScope resolverMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = copier.CreateResolver(resolverMemory);
+        using OwnedAllocationBatch? cryptHeader = StreamCryptFilter.PrepareIdentityForAnalysis(form, resolver, request.BoundPageContent,
+            governor, cancellationToken, out PdfStream input);
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, cancellationToken);
-        if (!chunks.TryAdd(form, resolver, limits))
+        if (!chunks.TryAdd(input, resolver, limits))
         {
             return null;
         }
 
-        RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], minBytes, compress, level, limits, governor, diagnostics, cancellationToken, true, filterOptions);
+        RewriteResult rewritten = RewriteContentCore(copier, form.Dictionary, chunks.Parts[0], request,
+            limits, governor, diagnostics, cancellationToken, true);
         chunks.Dispose();
         resolverMemory.Dispose();
         CompleteResourceWalk(form.Dictionary, rewritten.Resources, formId, governor, diagnostics, cancellationToken);
@@ -110,6 +115,7 @@ internal static class InlineImages
     internal static AnalysisChunks? CollectDecodedContents(
         GraphCopier copier,
         PdfDictionary page,
+        bool prepareIdentityCrypt,
         QpdfLimits limits,
         ResourceGovernor governor,
         CancellationToken cancellationToken)
@@ -129,9 +135,11 @@ internal static class InlineImages
         {
             for (int index = 0; index < streams.Count; index++)
             {
-                if (!chunks.TryAdd(streams.Get(index).Stream, resolver, limits))
+                using OwnedAllocationBatch? cryptHeader = StreamCryptFilter.PrepareIdentityForAnalysis(streams.Get(index).Stream,
+                    resolver, prepareIdentityCrypt, governor, cancellationToken, out PdfStream input);
+                if (!chunks.TryAdd(input, resolver, limits))
                 {
-                    FilterChain.RequireEmbeddedData(streams.Get(index).Stream, resolver, governor, cancellationToken);
+                    FilterChain.RequireEmbeddedData(input, resolver, governor, cancellationToken);
                     chunks.Dispose(); return null;
                 }
             }
@@ -148,16 +156,16 @@ internal static class InlineImages
     }
 
     internal static RewriteResult RewriteContentCore(
-        GraphCopier copier, PdfDictionary? page, ReadOnlyMemory<byte> joined, long minBytes, bool compress, int? level,
+        GraphCopier copier, PdfDictionary? page, ReadOnlyMemory<byte> joined, ContentTransformRequest request,
         QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken cancellationToken,
-        bool form, byte filterOptions)
+        bool form)
     {
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         PoolResolver resolver = copier.CreateResolver(scratch);
         QpdfObject? resources = EnsureResources(resolver, page, governor, cancellationToken);
         bool canAttach = resources is PdfDictionary prepared &&
             PdfDictionaryLookup.TryGet(prepared, "XObject"u8, governor, cancellationToken, out QpdfObject objects) && objects is PdfDictionary;
-        if (joined.Length < minBytes) { return page is null ? default : new(false, null, resources); }
+        if (joined.Length < request.MinBytes) { return page is null ? default : new(false, null, resources); }
         scratch.Reserve(160L);
         ContentTokenizer tokenizer = new(joined, governor, cancellationToken) { IncludeComments = true, IncludeWhitespace = true };
         using InlineImageBuffer output = InlineImageBuffer.Create(governor, limits, cancellationToken);
@@ -178,11 +186,13 @@ internal static class InlineImages
                 {
                     int dictionaryLength = checked((int)(token.Offset - dictStart));
                     InlineImageEntry? converted = InlineImageStorage.ReadWithResources(joined.Slice(checked((int)dictStart), dictionaryLength), tokenizer,
-                        minBytes, token.Offset, resources, canAttach, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
+                        request.MinBytes, token.Offset, resources, canAttach, ref suffix, limits, governor, diagnostics, resolver, cancellationToken);
                     if (converted is InlineImageEntry entry)
                     {
-                        PdfStream candidate = StreamTransformer.Transform(entry.Stream, copier.NextId, resolver, compress,
-                            StreamTransformer.DecodeLevel(filterOptions), (filterOptions & 4) != 0, level,
+                        // Bound publication encodes streams after image optimization.
+                        PdfStream candidate = request.BoundPageContent ? entry.Stream
+                            : StreamTransformer.Transform(entry.Stream, copier.NextId, resolver, request.Compress,
+                            StreamTransformer.DecodeLevel(request.FilterOptions), (request.FilterOptions & 4) != 0, request.Level,
                             limits, governor, diagnostics, cancellationToken) ?? entry.Stream;
                         output.Add(new(entry.Name, candidate));
                         output.WriteImage(entry.Name);
@@ -209,7 +219,7 @@ internal static class InlineImages
         }
         if (output.Count == 0) { return page is null ? default : new(false, null, resources); }
         resources = AddXObjects(copier, resources, output, governor, cancellationToken);
-        PdfStream stream = output.Complete(compress, level, limits);
+        PdfStream stream = output.Complete(request.Compress, request.Level, limits);
         return new(true, stream, resources);
     }
 

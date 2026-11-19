@@ -509,8 +509,12 @@ repoints active page content using each page's effective resources. Shared
 arrays and streams remain available to private references. QDF normalization
 uses the shared stream identities. An edited direct page gains an indirect
 identity. Undecodable content keeps its original program and reports a
-warning. Other page, image and attachment edits remain unavailable during import
-and update.
+warning. Inline-image externalization and JPEG optimization run after binding
+and before stream encoding or splitting. Image transforms use each page's
+effective resources and preserve independent references to original image
+and Form streams. Optimization uses the host JPEG codec and honors inline
+policy, byte and dimension thresholds, and JPEG quality.
+[Image processing](#page-content-profile)
 
 ### Splitting and replacement
 

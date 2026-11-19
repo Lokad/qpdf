@@ -3454,6 +3454,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "BoundImageTransformTests.CreationExternalizesByPayloadLengthAndLeavesPrivateProgramsIntact",
           "InlineImagesTests.ExternalizeAboveThreshold",
           "InlineIndexedPublicationTests.ExternalAndQdfImagesKeepPaletteSamplesAndEscapedLifetimes",
           "InlineBindingTests.ConversionRequiresBindableResourcesAndPreservesSharedContext",
@@ -3509,6 +3510,7 @@
           "JsonContentTransformTests.PreparationRefusalsAndPendingWritesPreserveTheActualPriorReport"
         ],
         "oracle": [
+          "tools/ReferenceJsonImages.ps1: Invoke-ReferenceJsonImages",
           "diff:inline",
           "tools/compare-check-transformations.ps1",
           "tools/ReferenceInlineContexts.ps1",
@@ -3947,6 +3949,7 @@
       "remainingGaps": [],
       "evidence": {
         "positive": [
+          "BoundImageTransformTests.CreationExternalizesByPayloadLengthAndLeavesPrivateProgramsIntact",
           "InlineImagesTests.CustomThresholdKeepsLarge",
           "InlineImagesTests.ZeroThresholdExternalizesSingleByte",
           "InlineImagesTests.UniqueNamingSkipsTaken",
@@ -4127,6 +4130,7 @@
           "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
+          "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.JobMalformedFails",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
           "CheckTransformationTests.JobImageOptimizationListsTheAcceptedJpegAndPreservesTheSourcePair",
@@ -4944,6 +4948,7 @@
           "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
+          "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.InvalidValuesFail",
           "ImageOptimizeTests.ThresholdJobParityHolds",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
@@ -5348,7 +5353,7 @@
           "NormalizedLiteralTests.EitherCancellationRoutePrecedesNewStorage",
           "NormalizedContentIdentityTests.NormalizationChangesPageEdgesAndPreservesIndependentPayloads",
           "BoundNormalizationTests.CreationNormalizesTheSharedPageProgramAndPreservesTheAlias",
-          "InlineFramingContextTests.BoundNormalizationUsesInheritedResourceContexts",
+          "InlineFramingContextTests.BoundNormalizationUsesEffectiveResourceContexts",
           "NormalizedContentIdentityTests.SkippedPageProgramsKeepAllPartsAndShareOriginalStreams",
           "NormalizedContentIdentityTests.NormalizationFailuresPreserveTargetsAndRefundStorage",
           "LogicalContentPartitionTests.NormalizationPreservesPhysicalPartsAndInlineSamples",
@@ -5581,6 +5586,7 @@
           "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
+          "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.JobMalformedFails",
           "ImageOptimizeTests.ThresholdJobParityHolds",
           "JsonImageOptimizationTests.JobMinimalAndReturnedSidecarsCarryTheOptimizedPayload",
@@ -5650,6 +5656,7 @@
           "JsonImageOptimizationTests.MissingCodecRefusesBeforeReplacingTheActualReport"
         ],
         "interaction": [
+          "BoundImageTransformTests.JobUpdateAppliesInlineAndJpegSettingsToThePatchedPage",
           "ImageOptimizeTests.MergeOptimizesEveryPage",
           "ImageOptimizeTests.JobParityHolds",
           "ResourcePayloadIdentityTests.ResourceReplacementsKeepIndependentPayloadsAndSharedBindings",
@@ -5661,6 +5668,7 @@
           "JsonImageOptimizationTests.EmptyPrimaryAssemblyOptimizesTheCopiedSource"
         ],
         "resource": [
+          "BoundImageTransformTests.MissingCodecRefusesBeforeReplacingTheTarget",
           "ImageOptimizationGraphTests.EachImageIdentityIsAttemptedOnceIncludingSkippedCandidates",
           "ImageTraversalMemoryTests.CandidateDiscoveryScansSharedXObjectsOnceAndKeepsDistinctScopes",
           "ImageOptimizationGraphTests.FilterCeilingsPreserveOpaqueBytesBeforeSampleAndCodecAdmission",

@@ -6,6 +6,12 @@ function Get-JsonImageProjection {
   $pages = $table['obj:' + $catalog['/Pages']].value
   $page = $table['obj:' + $pages['/Kids'][0]].value
   $resources = $page['/Resources']
+  $owner = $page
+  for ($depth=0; $null -eq $resources -and $depth -lt 8 -and $owner.ContainsKey('/Parent'); $depth++) {
+    $owner = $table['obj:' + $owner['/Parent']].value
+    $resources = $owner['/Resources']
+  }
+  if ($null -eq $resources) { throw 'Expected an effective image resource dictionary.' }
   if ($resources -is [string]) { $resources = $table['obj:' + $resources].value }
   $objects = $resources['/XObject']
   if ($objects -is [string]) { $objects = $table['obj:' + $objects].value }
@@ -90,5 +96,64 @@ function Invoke-ReferenceJsonImages {
     Assert-Trio "json-image-optimization/$name" "$case/lib-$name.pdf" "$case/ora-$name.pdf" 1
     $control = if ($row.Count -gt 0) { 'altered image payloads reject' } else { 'no image payload to alter' }
     Write-Output "[json-image-optimization/$name] image effects, private payload and flags agree; recreation passes; $control."
+  }
+  Assert-BoundJsonImages $case $pixelHash $optimize
+}
+
+function Assert-BoundJsonImages {
+  param([string]$Case, [string]$PixelHash, [string[]]$Optimize)
+  foreach ($shape in 'inline','xobject') {
+    $model = Get-Content -LiteralPath "$Case/$shape.json" -Raw | ConvertFrom-Json -AsHashtable
+    $table = $model.qpdf[1]
+    $leaf = $table['obj:3 0 R'].value
+    $table['obj:2 0 R'].value['/Resources'] = $leaf['/Resources']
+    $null = $leaf.Remove('/Resources')
+    $model | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath "$Case/inputs/bound-$shape.json"
+  }
+  if ((Invoke-Oracle $Case @('inputs/bound-inline.json','--json-input','--stream-data=preserve','inputs/bound-source.pdf')) -ne 0 -or
+      (Invoke-Oracle $Case @('inputs/bound-source.pdf','--json=2','--json-key=pages',"$Case/bound-pages.json")) -ne 0) {
+    throw 'Cannot prepare the bound image patch source.'
+  }
+  $source = Get-Content -LiteralPath "$Case/bound-pages.json" -Raw | ConvertFrom-Json
+  $key = 'obj:' + $source.pages[0].contents[0]
+  $program = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String(
+    (Get-Content -LiteralPath "$Case/inputs/bound-inline.json" -Raw | ConvertFrom-Json -AsHashtable).qpdf[1]['obj:4 0 R'].stream.data))
+  $patch = "% patched inline image`n" + $program
+  $updated = @{ stream=@{ dict=@{}; data=[Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($patch)) } }
+  @{ qpdf=@(@{ jsonversion=2 },@{ $key=$updated }) } |
+    ConvertTo-Json -Depth 8 | Set-Content -LiteralPath "$Case/inputs/image-patch.json"
+  $inputs = @(Get-ChildItem -LiteralPath "$Case/inputs" -File | Get-FileHash)
+  foreach ($row in @(
+    @{ Name='externalize'; Args=@('inputs/bound-inline.json','--json-input','--externalize-inline-images','--ii-min-bytes=0','--stream-data=uncompress'); Encoded=$false },
+    @{ Name='inline-optimize'; Args=@('inputs/bound-inline.json','--json-input','--ii-min-bytes=0')+$Optimize; Encoded=$true },
+    @{ Name='xobject-optimize'; Args=@('inputs/bound-xobject.json','--json-input','--keep-inline-images')+$Optimize; Encoded=$true },
+    @{ Name='patched-optimize'; Args=@('inputs/bound-source.pdf','--update-from-json=inputs/image-patch.json','--ii-min-bytes=0')+$Optimize; Encoded=$true }
+  )) {
+    $tag = "json-bound-images/$($row.Name)"
+    $lib = "$Case/lib-bound-$($row.Name).pdf"; $ora = "$Case/ora-bound-$($row.Name).pdf"
+    if ((Invoke-Emit $Case (@('emit','--workdir',$Case,'--out',"output.pdf=$lib",'--')+$row.Args+@('output.pdf'))) -ne 0 -or
+        (Invoke-Oracle $Case ($row.Args+@($ora))) -ne 0) { throw "$tag failed to publish." }
+    Assert-Trio $tag $lib $ora 1
+    foreach ($pdf in @($lib,$ora)) {
+      $report = "$pdf.reference.json"
+      if ((Invoke-Oracle $Case @($pdf,'--json=2','--json-key=qpdf','--json-key=pages',
+          '--json-stream-data=inline','--decode-level=generalized',$report)) -ne 0) { throw "$tag graph is unavailable." }
+      $view = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json -AsHashtable
+      $projection = Get-JsonImageProjection $view
+      if (-not (Test-JsonImageProjection $projection 1 $row.Encoded $projection.Called $PixelHash)) {
+        throw "$tag/$pdf image filters, samples or private payload differ."
+      }
+      $pair = $view.pages[0].contents[0]
+      $body = [Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($view.qpdf[1]['obj:'+$pair].stream.data))
+      $operator = if ($row.Name -eq 'xobject-optimize') { '/Im Do' } else { '/IIm1 Do' }
+      if (!$body.Contains($operator, [StringComparison]::Ordinal) -or
+          ($row.Name -eq 'patched-optimize' -and !$body.Contains('% patched inline image', [StringComparison]::Ordinal))) {
+        throw "$tag changed the expected page program."
+      }
+    }
+    Write-Output "[$tag] page operator, image filter and private payload agree."
+  }
+  if (Compare-Object $inputs @(Get-ChildItem -LiteralPath "$Case/inputs" -File | Get-FileHash) -Property Path,Hash) {
+    throw 'Bound image processing changed an input.'
   }
 }

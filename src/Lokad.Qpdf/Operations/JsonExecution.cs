@@ -24,6 +24,9 @@ internal readonly record struct JsonImportWriterSettings(
     JsonDetachedObjects DetachedObjects)
 {
     internal string? RemoveUnreferencedResources { get; init; }
+    internal bool ExternalizeInlineImages { get; init; }
+    internal long InlineImageMinimumBytes { get; init; }
+    internal Content.ImageOptimizeRequest? Images { get; init; }
 
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
@@ -618,18 +621,26 @@ internal static class JsonExecution
         model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         Content.PoolResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
+        bool pruneSplitResources = splitMemory is not null
+            && new Content.ContentPrunePolicy(true, writer.RemoveUnreferencedResources)
+                .ShouldPrune(resolver, model.Trailer, limits, governor, token);
         bool normalizePages = writer.NormalizeContent && !writer.Qdf.Enabled;
-        if (writer.Rotations.Count > 0 || normalizePages)
+        Content.ImageOptimizeRequest images = writer.Images ?? Content.ImageOptimizeRequest.Disabled;
+        bool externalize = writer.ExternalizeInlineImages || images.Optimize && !images.KeepInline;
+        bool transformContent = normalizePages || externalize || images.Optimize;
+        if (writer.Rotations.Count > 0 || transformContent)
         {
-            using ParserMemoryScope? retirement = normalizePages && writer.DetachedObjects == JsonDetachedObjects.Preserve
+            using ParserMemoryScope? retirement = transformContent && writer.DetachedObjects == JsonDetachedObjects.Preserve
                 ? ParserMemoryScope.Create(governor) : null;
             HashSet<int>? before = retirement is null ? null : GraphReachability.Find(resolver, model.Trailer, retirement, governor);
-            (PdfDictionary trailer, List<PageLocation> locations) = PrepareBoundPages(model, resolver, null, normalizePages && writer.CoalesceContents,
+            (PdfDictionary trailer, List<PageLocation> locations) = PrepareBoundPages(model, resolver, null, transformContent && writer.CoalesceContents,
                 limits, memory, governor, diagnostics, token);
             ApplyBoundRotations(model.Objects, resolver, locations, writer.Rotations, limits, memory, governor, token);
-            if (normalizePages)
+            if (transformContent)
             {
-                ImportedPublication.NormalizePagePrograms(model, resolver, locations, limits, memory, governor, diagnostics, token);
+                Content.ContentTransformRequest request = new(false, normalizePages, false, null, externalize, writer.InlineImageMinimumBytes)
+                { BoundPageContent = true };
+                ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, limits, memory, governor, diagnostics, token);
                 if (retirement is not null && before is not null)
                 { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }
             }
@@ -643,7 +654,7 @@ internal static class JsonExecution
         RequireEncryptionVersion(security, ref version, ref extensionLevel, writer.ForceVersion, governor);
         using ParserMemoryScope? normalizationMemory = writer.NormalizeContent && writer.Qdf.Enabled ? ParserMemoryScope.Create(governor) : null;
         Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, memory,
-            splitMemory ?? normalizationMemory, writer.CoalesceContents && !normalizePages, out IReadOnlyList<PageLocation>? pages, token);
+            splitMemory ?? normalizationMemory, writer.CoalesceContents && !transformContent, out IReadOnlyList<PageLocation>? pages, token);
         string mode = ResolveObjectStreamMode(writer.ObjectStreams);
         if (writer.ForceVersion is not null && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0) { mode = "disable"; }
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory);
@@ -764,9 +775,6 @@ internal static class JsonExecution
             foreach (NumberedObject item in output.Model)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
         }
-        bool pruneSplitResources = splitMemory is not null
-            && new Content.ContentPrunePolicy(true, writer.RemoveUnreferencedResources)
-                .ShouldPrune(resolver, model.Trailer, limits, governor, token);
         return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots, pruneSplitResources);
     }
 

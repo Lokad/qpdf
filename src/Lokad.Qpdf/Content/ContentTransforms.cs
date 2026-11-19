@@ -138,7 +138,7 @@ internal static class ContentTransforms
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
-                InlineImages.ExternalizePage(copier, pageId, page, request.MinBytes, request.Compress, request.Level, limits, governor, diagnostics, cancellationToken, request.FilterOptions, externalized);
+                InlineImages.ExternalizePage(copier, pageId, page, request, limits, governor, diagnostics, cancellationToken, externalized);
             }
         }
         if (!request.Coalesce && !request.Normalize) { return; }
@@ -216,8 +216,8 @@ internal static class ContentTransforms
         {
             FormResourceWalk.Form form = forms.Get(index);
             if (form.Id is not int id || processedForms is not null && processedForms.Contains(id)) { continue; }
-            PdfStream? candidate = InlineImages.ExternalizeForm(copier, id, form.Stream, request.MinBytes, request.Compress,
-                request.Level, limits, governor, diagnostics, token, request.FilterOptions);
+            PdfStream? candidate = InlineImages.ExternalizeForm(copier, id, form.Stream, request,
+                limits, governor, diagnostics, token);
             if (candidate is not null) { replacements.TryAdd(phase, id, candidate); }
         }
         int allocator = copier.NextId;
@@ -303,10 +303,8 @@ internal static class ContentTransforms
         using AnalysisChunks chunks = AnalysisChunks.Create(governor, token);
         for (int index = 0; index < entries.Count; index++)
         {
-            PdfStream part = entries.Get(index).Stream;
-            using OwnedAllocationBatch? cryptHeader = normalizeIdentityCrypt && StreamCryptFilter.MayContain(part, governor)
-                ? OwnedAllocationBatch.Create(governor, token) : null;
-            if (cryptHeader is not null) { part = RemoveIdentityForContent(part, resolver, cryptHeader); }
+            using OwnedAllocationBatch? cryptHeader = StreamCryptFilter.PrepareIdentityForAnalysis(entries.Get(index).Stream,
+                resolver, normalizeIdentityCrypt, governor, token, out PdfStream part);
             if (!chunks.TryAdd(part, resolver, limits))
             { FilterChain.RequireEmbeddedData(part, resolver, governor, token); return null; }
         }
@@ -326,21 +324,12 @@ internal static class ContentTransforms
         PdfStream stream = CreateContentStream(graph, dictionary, data); graph.Retain(); return stream;
     }
 
-    private static PdfStream RemoveIdentityForContent(PdfStream stream, IIndirectResolver resolver, OwnedAllocationBatch graph)
-    {
-        PdfDictionary dictionary = StreamCryptFilter.RemoveIdentity(stream, resolver, graph);
-        if (ReferenceEquals(dictionary, stream.Dictionary)) { return stream; }
-        graph.Memory.Reserve(32L); graph.Add(32L);
-        return stream.WithDictionary(dictionary);
-    }
-
     private static bool TryDecodeForNormalization(PdfStream original, IIndirectResolver resolver, bool normalizeIdentityCrypt,
         QpdfLimits limits, ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token,
         out ReadOnlyMemory<byte> bytes, out bool decoded)
     {
-        using OwnedAllocationBatch? header = normalizeIdentityCrypt && StreamCryptFilter.MayContain(original, governor)
-            ? OwnedAllocationBatch.Create(governor, token) : null;
-        PdfStream input = header is null ? original : RemoveIdentityForContent(original, resolver, header);
+        using OwnedAllocationBatch? header = StreamCryptFilter.PrepareIdentityForAnalysis(original, resolver, normalizeIdentityCrypt,
+            governor, token, out PdfStream input);
         if (!AnalysisChunks.TryDecode(input, resolver, limits, governor, memory, token, out bytes, out decoded)) { return false; }
         decoded |= !ReferenceEquals(original, input);
         return true;
@@ -377,16 +366,15 @@ internal static class ContentTransforms
     {
         using ParserMemoryScope rewriteMemory = ParserMemoryScope.Create(governor);
         PoolResolver resolver = boundResolver ?? copier.CreateResolver(rewriteMemory);
-        QpdfObject? rawResources;
+        PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out QpdfObject? rawResources);
         if (boundResolver is not null)
         {
             rewriteMemory.Reserve(32L);
             PageLocation location = new(new PdfReference(pageId, 0), page);
             rawResources = inherited is null
                 ? PageInheritance.Find(resolver, location, ResourcesName, limits, governor, token)
-                : inherited.Find(location)[0];
+                : inherited.Find(location)[0] ?? rawResources;
         }
-        else { PdfDictionaryLookup.TryGet(page, "Resources"u8, governor, token, out rawResources); }
         PdfDictionary? resources = rawResources is null ? null : CatalogCopy.ResolveDictionary(rawResources, resolver, governor, token);
         if (!PdfDictionaryLookup.TryGet(page, "Contents"u8, governor, token, out QpdfObject contents)) { return; }
         QpdfObject? source = CatalogCopy.ResolveValue(contents, resolver, governor, token);

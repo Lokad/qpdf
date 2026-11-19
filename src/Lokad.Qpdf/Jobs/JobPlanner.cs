@@ -945,10 +945,11 @@ internal static partial class JobPlanner
             }
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
-                || (wantJsonOutput && normalizeContent) || externalizeInlineImages || iiMinBytes != 1024L
-                || (wantJsonOutput && removeUnreferencedResources is not (null or "no"))
-                || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
-                || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
+                || wantJsonOutput && (normalizeContent || externalizeInlineImages || iiMinBytes != 1024L
+                    || removeUnreferencedResources is not (null or "no")
+                    || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
+                    || keepInlineImages || jpegQuality is not null)
+                || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
             {
                 throw new QpdfParseException("These transformation settings cannot be combined with JSON import.", 0L, null);
@@ -1022,6 +1023,14 @@ internal static partial class JobPlanner
                     NoOriginalObjectIds = noOriginalObjectIds,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
                     RemoveUnreferencedResources = removeUnreferencedResources,
+                    ExternalizeInlineImages = externalizeInlineImages,
+                    IiMinBytes = iiMinBytes,
+                    OptimizeImages = optimizeImages,
+                    OiMinWidth = oiMinWidth,
+                    OiMinHeight = oiMinHeight,
+                    OiMinArea = oiMinArea,
+                    KeepInlineImages = keepInlineImages,
+                    JpegQuality = jpegQuality,
                 };
             }
 

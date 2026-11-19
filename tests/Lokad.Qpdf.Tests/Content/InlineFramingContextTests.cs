@@ -119,10 +119,12 @@ public sealed class InlineFramingContextTests
         Assert.Equal(original, Assert.IsType<PdfStream>(document.GetObject(Assert.IsType<PdfReference>(alias).ObjectNumber)).RawMemory.ToArray());
     }
 
-    [Fact]
-    public async Task BoundNormalizationUsesInheritedResourceContexts()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BoundNormalizationUsesEffectiveResourceContexts(bool inherited)
     {
-        (byte[] pdf, byte[] original) = Fixture("named", false, true);
+        (byte[] pdf, byte[] original) = Fixture("named", false, inherited);
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), pdf, QpdfInputOwnership.Transfer);
         QpdfExecutionResult exported = await Qpdf.ExecuteAsync(host, new(["input", "--json-output=2", "--json-stream-data=inline"]),
@@ -132,8 +134,10 @@ public sealed class InlineFramingContextTests
         using (JsonDocument graph = JsonDocument.Parse(model))
         {
             JsonElement objects = graph.RootElement.GetProperty("qpdf")[1];
-            Assert.False(objects.GetProperty("obj:3 0 R").GetProperty("value").TryGetProperty("/Resources", out _));
-            Assert.Equal("8 0 R", objects.GetProperty("obj:10 0 R").GetProperty("value").GetProperty("/Resources").GetString());
+            JsonElement page = objects.GetProperty("obj:3 0 R").GetProperty("value");
+            Assert.Equal(!inherited, page.TryGetProperty("/Resources", out _));
+            JsonElement owner = inherited ? objects.GetProperty("obj:10 0 R").GetProperty("value") : page;
+            Assert.Equal("8 0 R", owner.GetProperty("/Resources").GetString());
         }
         host.AddInput(QpdfPath.From("graph"), Encoding.UTF8.GetBytes(model), QpdfInputOwnership.Transfer);
         QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,

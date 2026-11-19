@@ -237,7 +237,15 @@ internal static class JobExecution
                 import.Compression(), new(import.Qdf, import.NoOriginalObjectIds), import.NormalizeContent,
                 import.CoalesceContents, import.SplitPages, import.Labels, import.Rotations,
                 import.PreserveUnreferenced ? JsonDetachedObjects.Preserve : JsonDetachedObjects.Prune)
-            { RemoveUnreferencedResources = import.RemoveUnreferencedResources };
+            {
+                RemoveUnreferencedResources = import.RemoveUnreferencedResources,
+                ExternalizeInlineImages = import.ExternalizeInlineImages,
+                InlineImageMinimumBytes = import.IiMinBytes,
+                Images = import.OptimizeImages
+                    ? new(true, import.OiMinWidth, import.OiMinHeight, import.OiMinArea, import.KeepInlineImages, import.JpegQuality)
+                        { PrepareIdentityCrypt = true }
+                    : null,
+            };
             await ImportCoreAsync(
                 host,
                 source,

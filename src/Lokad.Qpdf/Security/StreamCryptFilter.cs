@@ -40,6 +40,23 @@ internal static class StreamCryptFilter
         return Remove(stream.Dictionary, count, resolver, graph);
     }
 
+    internal static OwnedAllocationBatch? PrepareIdentityForAnalysis(PdfStream stream, IIndirectResolver resolver,
+        bool enabled, ResourceGovernor governor, CancellationToken token, out PdfStream input)
+    {
+        input = stream;
+        if (!enabled || !MayContain(stream, governor)) { return null; }
+        OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        try
+        {
+            PdfDictionary dictionary = RemoveIdentity(stream, resolver, graph);
+            if (ReferenceEquals(dictionary, stream.Dictionary)) { graph.Dispose(); return null; }
+            graph.Memory.Reserve(32L); graph.Add(32L);
+            input = stream.WithDictionary(dictionary);
+            return graph;
+        }
+        catch { graph.Dispose(); throw; }
+    }
+
     internal static PdfName? ReadName(PdfDictionary header, IIndirectResolver resolver,
         ResourceGovernor governor, CancellationToken token, out int count)
     {

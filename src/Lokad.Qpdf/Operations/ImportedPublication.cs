@@ -10,9 +10,17 @@ namespace Lokad.Qpdf.Operations;
 
 internal static class ImportedPublication
 {
-    internal static void NormalizePagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
+    private static readonly PdfName[] ImageResources = [PdfName.FromAscii("Resources")];
+
+    internal static void TransformPagePrograms(ImportedModel model, PoolResolver resolver, IReadOnlyList<PageLocation> pages,
+        ContentTransformRequest request, ImageOptimizeRequest images,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
+        if (pages.Count == 0) { return; }
+        if (request.Externalize || images.Optimize)
+        {
+            BindImageResources(model.Objects, resolver, pages, limits, governor, token);
+        }
         using ParserMemoryScope phase = ParserMemoryScope.Create(governor);
         List<int> ids = ParserContainers.CreateList<int>(phase, pages.Count, sizeof(int));
         foreach (PageLocation page in pages)
@@ -21,16 +29,47 @@ internal static class ImportedPublication
             PdfReference source = page.Source ?? throw new InvalidOperationException("Missing prepared page identity.");
             ids.Add(source.ObjectNumber);
         }
-        if (ids.Count == 0) { return; }
-
         int largest = 0;
         foreach (int number in model.Objects.Keys)
         { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
         if (largest == int.MaxValue)
         { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
         GraphCopier copier = GraphCopier.CreateBoundOwned(model.Objects, resolver, governor, limits, largest + 1, memory);
-        ContentTransformRequest request = new(false, true, false, null, false, 0L) { BoundPageContent = true };
         ContentTransforms.ApplyPageTransforms(copier, ids, request, limits, governor, diagnostics, token);
+        if (request.Externalize)
+        { ContentTransforms.ExternalizeForms(copier, ids, request, null, limits, governor, diagnostics, token); }
+        ImageOptimizer.Apply(copier, ids, images, limits, governor, diagnostics, token);
+    }
+
+    private static void BindImageResources(Dictionary<int, QpdfObject> objects, PoolResolver resolver,
+        IReadOnlyList<PageLocation> pages, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+    {
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        using ParserMemoryScope pending = ParserMemoryScope.Create(governor);
+        using PageInheritance.Batch? ancestry = PageInheritance.Batch.TryCreate(pages.Count > 1, resolver,
+            ImageResources, limits, governor, token);
+        List<(int Id, PdfDictionary Value)>? changes = null;
+        foreach (PageLocation location in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            PdfReference reference = location.Source ?? throw new InvalidOperationException("Missing prepared page identity.");
+            PdfDictionary page = (PdfDictionary)objects[reference.ObjectNumber];
+            PageLocation current = new(reference, page);
+            QpdfObject? inherited = (ancestry?.Find(current) ?? PageInheritance.FindAncestors(resolver, current,
+                ImageResources, limits, governor, token))[0];
+            if (inherited is null) { continue; }
+            changes ??= ParserContainers.CreateList<(int, PdfDictionary)>(pending);
+            PdfDictionary replacement = PdfDictionaryRebuild.ReplaceEntry(graph, page, "Resources"u8, inherited);
+            ParserContainers.AddItem(pending, changes, (reference.ObjectNumber, replacement), 2L * IntPtr.Size);
+        }
+        if (changes is null) { return; }
+        graph.Retain();
+        // Resolve the complete ancestry against the original headers.
+        foreach ((int id, PdfDictionary value) in changes)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            objects[id] = value;
+        }
     }
 
     internal static HashSet<int>? FindRetainedObjects(ImportedModel source, JsonImport.RenumberedModel graph,
