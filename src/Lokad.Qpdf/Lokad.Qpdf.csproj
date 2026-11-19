@@ -37,9 +37,35 @@
   <ItemGroup>
     <None Include="../../README.md;../../LICENSE.txt;../../CHANGELOG.md;../../icon.png"
           Pack="true" PackagePath="/" Visible="false" />
-    <None Include="../../docs/*.md" Pack="true" PackagePath="docs/" Visible="false" />
-    <None Include="../../tests/Compatibility/options.json" Pack="true" PackagePath="tests/Compatibility/" Visible="false" />
+    <None Include="../../docs/*.md" Exclude="../../docs/COMPATIBILITY.md;../../docs/SUPPORTED-PROFILE.md"
+          Pack="true" PackagePath="docs/" Visible="false" />
   </ItemGroup>
+
+  <Target Name="PreparePackagedCompatibilityGuides" BeforeTargets="_GetPackageFiles"
+          DependsOnTargets="_InitializeNuspecRepositoryInformationProperties">
+    <Exec Condition="'$(RepositoryCommit)' == ''" Command="git rev-parse HEAD" WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="RepositoryCommit" />
+    </Exec>
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryCommit)', '^[0-9a-f]{40}$'))"
+           Text="Packing the compatibility guides requires a repository commit." />
+    <PropertyGroup>
+      <_PackagedGuides>$(BaseIntermediateOutputPath)package-docs/</_PackagedGuides>
+      <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/Lokad/qpdf</RepositoryUrl>
+      <_InventoryLink>https://github.com/Lokad/qpdf/blob/$(RepositoryCommit)/tests/Compatibility/options.json</_InventoryLink>
+    </PropertyGroup>
+    <ItemGroup>
+      <_CompatibilityGuide Include="../../docs/COMPATIBILITY.md;../../docs/SUPPORTED-PROFILE.md" />
+    </ItemGroup>
+    <MakeDir Directories="$(_PackagedGuides)" />
+    <WriteLinesToFile File="$(_PackagedGuides)%(_CompatibilityGuide.Filename)%(_CompatibilityGuide.Extension)"
+                      Lines="$([MSBuild]::Escape($([System.IO.File]::ReadAllText('%(_CompatibilityGuide.FullPath)').Replace('../tests/Compatibility/options.json', '$(_InventoryLink)').TrimEnd())))"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <None Include="@(_CompatibilityGuide->'$(_PackagedGuides)%(Filename)%(Extension)')"
+            Pack="true" PackagePath="docs/" Visible="false" />
+    </ItemGroup>
+  </Target>
 </Project>
 
 

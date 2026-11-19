@@ -146,6 +146,15 @@ foreach ($framework in @('net10.0', 'net11.0')) {
 }
 
 $packageVerifier = Join-Path $PSScriptRoot 'verify-package.ps1'
+$inventory = Copy-PackageCase 'development-inventory-member'
+$archive = [IO.Compression.ZipFile]::Open($inventory, [IO.Compression.ZipArchiveMode]::Update)
+try {
+    $writer = [IO.StreamWriter]::new($archive.CreateEntry('tests/Compatibility/options.json').Open())
+    try { $writer.Write('{}') } finally { $writer.Dispose() }
+} finally { $archive.Dispose() }
+Assert-Rejection 'development-inventory-member' 'Unexpected package member: tests/Compatibility/options.json' `
+    (Join-Path $PSScriptRoot 'verify-package.ps1') $inventory
+
 foreach ($case in @(
     @{ Name='duplicate-library-member'; Member='lib/net10.0/Lokad.Qpdf.dll'; Symbols=$false },
     @{ Name='case-alias-library-member'; Member='readme.md'; Symbols=$false },
@@ -230,6 +239,8 @@ foreach ($case in @(
     @{ Name='missing-guide-link'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[guide](missing.md)'; Reject=$true },
     @{ Name='missing-guide-heading'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[section](MEMORY.md#missing-heading)'; Reject=$true; Heading=$true },
     @{ Name='path-outside-package'; Member='docs/SUPPORTED-PROFILE.md'; Readme='[license](../../LICENSE.txt)'; Reject=$true },
+    @{ Name='branch-evidence-link'; Member='docs/COMPATIBILITY.md'; ReplaceCommit='master'; Reject=$true },
+    @{ Name='wrong-evidence-revision'; Member='docs/SUPPORTED-PROFILE.md'; ReplaceCommit=('0' * 40); Reject=$true },
     @{ Name='missing-inline-link'; Readme='[docs](docs/missing.md)'; Reject=$true },
     @{ Name='missing-reference-link'; Readme="[docs][text]`n[text]: docs/missing.md"; Reject=$true }
 )) {
@@ -240,12 +251,19 @@ foreach ($case in @(
         $entry = $archive.GetEntry($member)
         $reader = [IO.StreamReader]::new($entry.Open())
         try { $original = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        if ($case.ReplaceCommit) {
+            $changed = $original -creplace '(?<=https://github.com/Lokad/qpdf/blob/)[0-9a-f]{40}(?=/tests/Compatibility/options\.json)', $case.ReplaceCommit
+            if ($changed -ceq $original) { throw "Could not modify the evidence link for $($case.Name)." }
+            $original = $changed
+        }
         $entry.Delete()
         $writer = [IO.StreamWriter]::new($archive.CreateEntry($member).Open())
         try { $writer.WriteLine($original); $writer.WriteLine($case.Readme) } finally { $writer.Dispose() }
     } finally { $archive.Dispose() }
     if ($case.Reject) {
-        $issue = if ($case.Heading) { 'Package Markdown heading is missing' } else { 'Package Markdown link target is missing' }
+        $issue = if ($case.ReplaceCommit) { 'must match the repository commit' }
+            elseif ($case.Heading) { 'Package Markdown heading is missing' }
+            else { 'Package Markdown link target is missing' }
         Assert-Rejection $case.Name $issue (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
     } else {
         $output = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $artifact 2>&1 | Out-String

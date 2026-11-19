@@ -73,5 +73,5 @@ First release published on NuGet.
   quarter-turn axis-fit state cannot be preserved.
 
 See the [supported profile](docs/SUPPORTED-PROFILE.md),
-[native differences and API migrations](docs/COMPATIBILITY.md), and
+[known differences from native qpdf](docs/COMPATIBILITY.md#known-differences-from-native-qpdf), and
 [memory/host contract](docs/MEMORY.md) for the current caller-facing contract.

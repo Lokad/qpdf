@@ -58,7 +58,8 @@ function Resolve-PackageMember([string] $source, [string] $path) {
     return [string]::Join('/', $parts)
 }
 
-function Assert-PackageMarkdownLinks($archive, [string[]] $names) {
+function Assert-PackageMarkdownLinks($archive, [string[]] $names, [string] $revision) {
+    $inventory = "https://github.com/Lokad/qpdf/blob/$revision/tests/Compatibility/options.json"
     $prose = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
     $headings = [Collections.Generic.Dictionary[string,Collections.Generic.HashSet[string]]]::new([StringComparer]::Ordinal)
     foreach ($name in $names) {
@@ -73,6 +74,10 @@ function Assert-PackageMarkdownLinks($archive, [string[]] $names) {
         $visible = $document.Value -replace '(?<ticks>\x60+)[^\r\n]*?\k<ticks>', ''
         $links = @([regex]::Matches($visible, '\]\(\s*(?:<(?<target>[^>\r\n]+)>|(?<target>[^\s)]+))')) +
             @([regex]::Matches($visible, '(?m)^ {0,3}\[[^\]]+\]:[ \t]*(?:<(?<target>[^>\r\n]+)>|(?<target>[^\s]+))'))
+        if ($document.Key -cin @('docs/COMPATIBILITY.md', 'docs/SUPPORTED-PROFILE.md') -and
+            !($links | Where-Object { $_.Groups['target'].Value -ceq $inventory })) {
+            throw "Package evidence link in $($document.Key) must match the repository commit."
+        }
         foreach ($link in $links) {
             $target = $link.Groups['target'].Value
             if ($target -match '^(?:[a-z][a-z0-9+.-]*:|//)') { continue }
@@ -202,18 +207,20 @@ $package = [System.IO.Compression.ZipFile]::OpenRead($resolvedPackage)
 try {
     Assert-UniquePackageMembers $package
     $names = @($package.Entries | ForEach-Object { $_.FullName })
-    $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|README\.md|LICENSE\.txt|CHANGELOG\.md|icon\.png|docs/(?:ARCHITECTURE|BENCHMARKS|COMPATIBILITY|MEMORY|SUPPORTED-PROFILE)\.md|tests/Compatibility/options\.json|lib/net(?:10|11)\.0/Lokad\.Qpdf\.(dll|xml))$'
+    $allowed = '^(\[Content_Types\]\.xml|_rels/\.rels|package/services/metadata/core-properties/[^/]+\.psmdcp|Lokad\.qpdf\.nuspec|README\.md|LICENSE\.txt|CHANGELOG\.md|icon\.png|docs/(?:ARCHITECTURE|BENCHMARKS|COMPATIBILITY|MEMORY|SUPPORTED-PROFILE)\.md|lib/net(?:10|11)\.0/Lokad\.Qpdf\.(dll|xml))$'
     foreach ($name in $names) {
         if ($name -cnotmatch $allowed) { throw "Unexpected package member: $name" }
     }
-    foreach ($required in @('README.md', 'LICENSE.txt', 'CHANGELOG.md', 'icon.png', 'docs/ARCHITECTURE.md', 'docs/BENCHMARKS.md', 'docs/COMPATIBILITY.md', 'docs/MEMORY.md', 'docs/SUPPORTED-PROFILE.md', 'tests/Compatibility/options.json', 'lib/net10.0/Lokad.Qpdf.dll', 'lib/net10.0/Lokad.Qpdf.xml', 'lib/net11.0/Lokad.Qpdf.dll', 'lib/net11.0/Lokad.Qpdf.xml')) {
+    foreach ($required in @('README.md', 'LICENSE.txt', 'CHANGELOG.md', 'icon.png', 'docs/ARCHITECTURE.md', 'docs/BENCHMARKS.md', 'docs/COMPATIBILITY.md', 'docs/MEMORY.md', 'docs/SUPPORTED-PROFILE.md', 'lib/net10.0/Lokad.Qpdf.dll', 'lib/net10.0/Lokad.Qpdf.xml', 'lib/net11.0/Lokad.Qpdf.dll', 'lib/net11.0/Lokad.Qpdf.xml')) {
         if ($required -cnotin $names) { throw "Missing package member: $required" }
     }
 
-    Assert-PackageMarkdownLinks $package $names
-
     $metadata = Read-PackageMetadata $package
     if ($metadata.id -cne 'Lokad.qpdf') { throw 'Incorrect package ID.' }
+    $repository = $metadata.SelectSingleNode("*[local-name()='repository']")
+    $revision = if ($repository) { $repository.GetAttribute('commit') } else { '' }
+    if ($revision -cnotmatch '^[a-f0-9]{40}$') { throw 'Package evidence links require a repository commit.' }
+    Assert-PackageMarkdownLinks $package $names $revision
     if ($metadata.description -notmatch 'R2.R6' -or $metadata.releaseNotes -notmatch 'AES-256 R6' -or
         ($metadata.description + ' ' + $metadata.releaseNotes) -match 'non-cryptographic|Password encryption remains unsupported') {
         throw 'Package metadata must describe supported password security.'
