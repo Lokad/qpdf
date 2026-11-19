@@ -518,28 +518,42 @@ public sealed partial class QpdfDocument : IAsyncDisposable
             }
         }
     }
-    private static VersionParts ParseHeader(ReadOnlyMemory<byte> data)
+    private static (VersionParts Version, int Offset) ParseHeader(ReadOnlyMemory<byte> data,
+        QpdfRecoveryMode recovery, ResourceGovernor governor, CancellationToken token)
     {
-        ReadOnlySpan<byte> prefix = [(byte)'%', (byte)'P', (byte)'D', (byte)'F', (byte)'-'];
-        if (data.Length < 8 || !data.Span.Slice(0, 5).SequenceEqual(prefix))
+        ReadOnlySpan<byte> marker = "%PDF-"u8;
+        ReadOnlySpan<byte> span = data.Span;
+        int offset = 0;
+        if (span.Length < 8 || !span.StartsWith(marker))
         {
-            throw new QpdfParseException("Input does not start with '%PDF-'.", 0L, null);
+            if (recovery == QpdfRecoveryMode.Strict)
+            { throw new QpdfParseException("Input does not start with '%PDF-'.", 0L, null); }
+            int last = Math.Min(1023, span.Length - 9);
+            for (offset = 1; offset <= last; offset++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                ReadOnlySpan<byte> candidate = span.Slice(offset, 9);
+                if (candidate.StartsWith(marker) && IsDigit(candidate[5]) && candidate[6] == (byte)'.'
+                    && IsDigit(candidate[7]) && candidate[8] is (byte)'\r' or (byte)'\n') { break; }
+            }
+            if (offset > last)
+            { throw new QpdfParseException("No PDF header starts in the first 1024 bytes.", 0L, null); }
         }
 
-        ReadOnlySpan<byte> span = data.Span;
+        span = span[offset..];
         if (!IsDigit(span[5]) || span[6] != (byte)'.' || !IsDigit(span[7]))
         {
-            throw new QpdfParseException("Malformed PDF header version.", 0L, null);
+            throw new QpdfParseException("Malformed PDF header version.", offset, null);
         }
 
         int major = span[5] - (byte)'0';
         int minor = span[7] - (byte)'0';
         if ((major == 1 && minor > 7) || (major == 2 && minor != 0) || (major != 1 && major != 2))
         {
-            throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", 0L, null);
+            throw new QpdfParseException($"Unsupported PDF version {major}.{minor}.", offset, null);
         }
 
-        return new(major, minor);
+        return (new(major, minor), offset);
     }
 
     private static bool IsDigit(byte b)

@@ -57,6 +57,18 @@ internal readonly struct XrefEntry
     }
 }
 
+// Keep authored offsets separate from physical positions in an acquired file.
+internal readonly record struct XrefCoordinates(int HeaderOffset, int Bias)
+{
+    internal bool TryGetPhysical(long offset, int inputLength, out long physical)
+    {
+        physical = 0L;
+        if (offset < 0L || offset >= inputLength - Bias) { return false; }
+        physical = offset + Bias;
+        return physical >= HeaderOffset;
+    }
+}
+
 /// <summary>
 /// Strict chained cross-reference with its effective trailer, from classic
 /// tables and streams. Parses the tail `startxref`, follows `/Prev` chains and
@@ -162,6 +174,10 @@ internal sealed class XRefTable : IDisposable
         DiagnosticBag diagnostics,
         QpdfRecoveryMode recovery,
         bool valuesEscape)
+        => Parse(data, limits, governor, diagnostics, recovery, valuesEscape, 0);
+
+    internal static XRefTable Parse(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, QpdfRecoveryMode recovery, bool valuesEscape, int headerOffset)
     {
         if (limits is null)
         {
@@ -184,9 +200,10 @@ internal sealed class XRefTable : IDisposable
             throw new QpdfParseException("Input is empty.", 0L, null);
         }
 
+        XrefCoordinates coordinates = new(headerOffset, headerOffset);
         try
         {
-            return ParseStrict(data, limits, governor, diagnostics, valuesEscape);
+            return ParseStrict(data, limits, governor, diagnostics, valuesEscape, ref coordinates);
         }
         catch (QpdfException ex) when (ex is not (QpdfLimitException or QpdfMemoryAdmissionException)
             && ex is not QpdfFilterException { Reason: QpdfFilterFailureReason.ExternalData })
@@ -196,7 +213,7 @@ internal sealed class XRefTable : IDisposable
                 throw;
             }
 
-            return XRefRecovery.Recover(data, limits, governor, diagnostics, ex.Message, valuesEscape);
+            return XRefRecovery.Recover(data, limits, governor, diagnostics, ex.Message, valuesEscape, coordinates);
         }
     }
 
@@ -205,7 +222,7 @@ internal sealed class XRefTable : IDisposable
         QpdfLimits limits,
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
-        bool valuesEscape)
+        bool valuesEscape, ref XrefCoordinates coordinates)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using ParserMemoryScope values = ParserMemoryScope.Create(governor);
@@ -224,27 +241,54 @@ internal sealed class XRefTable : IDisposable
 
         long xrefOffset = ParseOffset(offsetToken, governor);
         ExpectEndOfFile(data, offsetToken);
-        if (xrefOffset < 0L || xrefOffset >= data.Length)
+        if (coordinates.HeaderOffset > 0 && !HasExactSectionHeader(data, xrefOffset, coordinates, governor))
+        {
+            XrefCoordinates fileRelative = coordinates with { Bias = 0 };
+            if (HasExactSectionHeader(data, xrefOffset, fileRelative, governor)) { coordinates = fileRelative; }
+        }
+        if (!coordinates.TryGetPhysical(xrefOffset, data.Length, out long physical))
         {
             throw new QpdfParseException($"startxref offset {xrefOffset} is outside the input.", offsetToken.Offset, null);
         }
 
-        return ParseSections(data, xrefOffset, limits, governor, diagnostics, memory, values, valuesEscape);
+        XRefTable table = ParseSections(data, physical, limits, governor, diagnostics,
+            memory, values, valuesEscape, coordinates);
+        try
+        {
+            if (coordinates.HeaderOffset > 0 && coordinates.Bias == 0)
+            { diagnostics.Add(QpdfDiagnosticCode.RecoveryEngaged, QpdfDiagnosticSeverity.Warning,
+                "Bounded repair used file-relative cross-reference offsets after a leading PDF prefix."); }
+            return table;
+        }
+        catch { table.Dispose(); throw; }
+    }
+
+    private static bool HasExactSectionHeader(ReadOnlyMemory<byte> data, long offset, XrefCoordinates coordinates, ResourceGovernor governor)
+    {
+        if (!coordinates.TryGetPhysical(offset, data.Length, out long absolute)) { return false; }
+        byte marker = data.Span[(int)absolute];
+        if (marker != (byte)'x' && (marker is < (byte)'0' or > (byte)'9')) { return false; }
+        PdfTokenizer tokenizer = new(data);
+        tokenizer.SetPosition(absolute);
+        if (!tokenizer.TryReadToken(out PdfToken first, false, governor) || first.Offset != absolute) { return false; }
+        return first.Kind == PdfTokenKind.XRef || (first.Kind == PdfTokenKind.Integer
+            && tokenizer.TryReadToken(out PdfToken generation, false, governor) && generation.Kind == PdfTokenKind.Integer
+            && tokenizer.TryReadToken(out PdfToken start, false, governor) && start.Kind == PdfTokenKind.Object);
     }
 
     // Recovery supplies a scanned physical offset; section parsing, revision
     // precedence and coverage validation remain identical to strict reading.
     internal static XRefTable ParseAtOffset(ReadOnlyMemory<byte> data, long offset, QpdfLimits limits,
-        ResourceGovernor governor, DiagnosticBag diagnostics, bool valuesEscape)
+        ResourceGovernor governor, DiagnosticBag diagnostics, bool valuesEscape, XrefCoordinates coordinates)
     {
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
         using ParserMemoryScope values = ParserMemoryScope.Create(governor);
-        return ParseSections(data, offset, limits, governor, diagnostics, memory, values, valuesEscape);
+        return ParseSections(data, offset, limits, governor, diagnostics, memory, values, valuesEscape, coordinates);
     }
 
     private static XRefTable ParseSections(ReadOnlyMemory<byte> data, long xrefOffset, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory,
-        ParserMemoryScope values, bool valuesEscape)
+        ParserMemoryScope values, bool valuesEscape, XrefCoordinates coordinates)
     {
         Dictionary<int, XrefEntry> merged = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(memory);
@@ -268,7 +312,8 @@ internal sealed class XRefTable : IDisposable
             }
 
             governor.NoteOperation();
-            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize, current.Value, memory, values, ref streamOffsets);
+            current = ProcessSection(data, limits, governor, diagnostics, merged, trailers, ref effectiveSize,
+                current.Value, memory, values, ref streamOffsets, coordinates);
         }
 
         if (effectiveSize is null || trailers.Count == 0)
@@ -312,7 +357,7 @@ internal sealed class XRefTable : IDisposable
         { throw new CompleteInputRequiredException(); }
         int size = ReadSize(trailer, governor);
         Dictionary<int, XrefEntry> merged = ParserContainers.CreateDictionary<int, XrefEntry>(memory);
-        MergeSection(merged, entries, size, inputLength, physicalOffset, governor, memory);
+        MergeSection(merged, entries, size, inputLength, physicalOffset, governor, memory, default);
         ValidateUnionCoverage(merged, size, governor);
         List<PdfDictionary> trailers = ParserContainers.CreateList<PdfDictionary>(memory);
         ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
@@ -330,7 +375,8 @@ internal sealed class XRefTable : IDisposable
         long current,
         ParserMemoryScope memory,
         ParserMemoryScope values,
-        ref HashSet<long>? streamOffsets)
+        ref HashSet<long>? streamOffsets,
+        XrefCoordinates coordinates)
     {
         using ParserMemoryScope section = ParserMemoryScope.Create(governor);
         PdfTokenizer tokenizer = new(data);
@@ -349,27 +395,27 @@ internal sealed class XRefTable : IDisposable
                 effectiveSize = ReadSize(trailer, governor);
             }
 
-            MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory);
+            MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory, coordinates);
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
-            long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm"u8, "XRefStm", data, current, governor);
+            long? hybrid = limits.IgnoreXrefStreams ? null : ReadLinkOffset(trailer, "XRefStm"u8, "XRefStm", data, current, governor, coordinates);
             if (limits.IgnoreXrefStreams
                 && PdfDictionaryLookup.TryGet(trailer, "XRefStm"u8, governor, governor.CancellationToken, out QpdfObject ignored)
-                && ignored is PdfInteger ignoredOffset && ignoredOffset.Value >= 0 && ignoredOffset.Value < data.Length)
+                && ignored is PdfInteger ignoredOffset && coordinates.TryGetPhysical(ignoredOffset.Value, data.Length, out long ignoredPhysical))
             {
                 // Ignoring its entries does not turn a declared physical xref
                 // stream into encrypted document content. Invalid ignored links
                 // keep their existing non-interpreted behavior.
-                RecordStreamOffset(ref streamOffsets, ignoredOffset.Value, memory);
+                RecordStreamOffset(ref streamOffsets, ignoredPhysical, memory);
             }
             if (hybrid.HasValue)
             {
                 (Dictionary<int, XrefEntry> extra, PdfDictionary _) = ParseStreamSection(data, limits, governor, diagnostics, hybrid.Value, values, section, false);
-                MergeSection(merged, extra, effectiveSize.Value, data.Length, hybrid.Value, governor, memory);
+                MergeSection(merged, extra, effectiveSize.Value, data.Length, hybrid.Value, governor, memory, coordinates);
                 RecordStreamOffset(ref streamOffsets, hybrid.Value, memory);
             }
 
-            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
+            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor, coordinates);
         }
 
         if (head.Kind == PdfTokenKind.Integer)
@@ -390,11 +436,11 @@ internal sealed class XRefTable : IDisposable
                 effectiveSize = ReadSize(trailer, governor);
             }
 
-            MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory);
+            MergeSection(merged, entries, effectiveSize.Value, data.Length, current, governor, memory, coordinates);
             RecordStreamOffset(ref streamOffsets, current, memory);
             section.Discard();
             ParserContainers.AddItem(memory, trailers, trailer, IntPtr.Size);
-            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor);
+            return ReadLinkOffset(trailer, "Prev"u8, "Prev", data, current, governor, coordinates);
         }
 
         throw new QpdfParseException("Cross-reference section is neither an xref table nor a stream.", current, null);
@@ -408,7 +454,7 @@ internal sealed class XRefTable : IDisposable
 
     private static void MergeSection(
         Dictionary<int, XrefEntry> merged, Dictionary<int, XrefEntry> entries, int effectiveSize, int dataLength, long offset,
-        ResourceGovernor governor, ParserMemoryScope memory)
+        ResourceGovernor governor, ParserMemoryScope memory, XrefCoordinates coordinates)
     {
         // Every section key is already merged or will be added. Its parsed
         // count bounds the union below even after a newer section populated it.
@@ -433,34 +479,36 @@ internal sealed class XRefTable : IDisposable
                 throw new QpdfParseException($"Xref entry for object {entry.Key} is outside /Size {effectiveSize}.", offset, entry.Key);
             }
 
-            if (entry.Value.Kind == XrefEntryKind.Uncompressed
-                && (entry.Value.First < 0L || entry.Value.First >= dataLength))
+            XrefEntry value = entry.Value;
+            if (value.Kind == XrefEntryKind.Uncompressed)
             {
-                throw new QpdfParseException($"Xref entry for object {entry.Key} points outside the input.", offset, entry.Key);
+                if (!coordinates.TryGetPhysical(value.First, dataLength, out long physical))
+                { throw new QpdfParseException($"Xref entry for object {entry.Key} points outside the input.", offset, entry.Key); }
+                if (coordinates.Bias != 0) { value = XrefEntry.Uncompressed(physical, value.Second); }
             }
 
             if (!merged.ContainsKey(entry.Key))
             {
                 ParserContainers.EnsureEntryCapacity(memory, merged, 24L, maximumCount);
-                merged[entry.Key] = entry.Value;
+                merged[entry.Key] = value;
             }
         }
     }
 
     private static long? ReadLinkOffset(PdfDictionary trailer, ReadOnlySpan<byte> key, string name,
-        ReadOnlyMemory<byte> data, long offset, ResourceGovernor governor)
+        ReadOnlyMemory<byte> data, long offset, ResourceGovernor governor, XrefCoordinates coordinates)
     {
         if (!PdfDictionaryLookup.TryGet(trailer, key, governor, governor.CancellationToken, out QpdfObject raw) || raw is PdfNull)
         {
             return null;
         }
 
-        if (raw is not PdfInteger link || link.Value < 0L || link.Value >= data.Length)
+        if (raw is not PdfInteger link || !coordinates.TryGetPhysical(link.Value, data.Length, out long physical))
         {
             throw new QpdfParseException($"Trailer /{name} must be an offset inside the input.", offset, null);
         }
 
-        return link.Value;
+        return physical;
     }
 
     private static void ValidateUnionCoverage(Dictionary<int, XrefEntry> entries, int size, ResourceGovernor governor)

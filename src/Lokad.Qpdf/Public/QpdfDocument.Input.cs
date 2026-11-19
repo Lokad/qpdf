@@ -55,11 +55,12 @@ public sealed partial class QpdfDocument
                 }
             }
             cancellationToken.ThrowIfCancellationRequested();
-            VersionParts headerParts = ParseHeader(data);
+            (VersionParts headerParts, int headerOffset) = ParseHeader(data,
+                engine is null ? recovery : QpdfRecoveryMode.Strict, governor, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (engine is null)
             {
-                table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape);
+                table = XRefTable.Parse(data, limits, governor, diagnostics, recovery, valuesEscape, headerOffset);
                 engine = DocumentEngine.CreateOwned(data, table, limits, governor, diagnostics, recovery,
                     reservedInput, valuesEscape, hostInput, snapshotBorrow);
                 snapshotBorrow = null;

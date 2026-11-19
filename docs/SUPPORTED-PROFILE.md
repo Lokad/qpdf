@@ -47,11 +47,18 @@ limits and reports warnings on the document/result (check diagnostics).
 
 | Area | Support |
 | --- | --- |
-| Versions | PDF 1.0–1.7 and 2.0, header at offset zero; effective header/catalog version negotiation. |
+| Versions | PDF 1.0–1.7 and 2.0, with effective header/catalog version negotiation. Strict input requires the header at offset zero. |
 | Xrefs | Classic, streamed, hybrid and incremental chains; compressed objects, generations and extents validate. |
 | Values | Byte-preserving names, strings and numbers; signed 64-bit integers; bounded malformed-input recovery. |
 | Streams | Declared binary extents; bounded repair where enabled. External-file descriptors stay opaque and are never opened. |
 | Filters | Flate/LZW with predictors, ASCIIHex/ASCII85 and RunLength. DCT decoding uses a [host JPEG codec](#jpeg-codec-capabilities). Zopfli is unavailable. |
+
+Bounded repair accepts a version line starting at offsets 0–1023. For a
+prefixed file, it interprets cross-reference positions relative to the header
+when the tail points to a section in those coordinates. A file-relative
+section is accepted with a warning. Selective readers fall back to complete
+acquisition on the same lease to handle a prefix. Object and trailer recovery
+begins at the header.
 
 Bounded xref repair can rebuild a table with a zero-entry subsection. After
 damaged footer offsets, it can reanchor an intact terminal xref stream using

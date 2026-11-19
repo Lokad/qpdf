@@ -28,6 +28,10 @@ internal static class XRefRecovery
         DiagnosticBag diagnostics,
         string strictReason,
         bool valuesEscape)
+        => Recover(data, limits, governor, diagnostics, strictReason, valuesEscape, default);
+
+    internal static XRefTable Recover(ReadOnlyMemory<byte> data, QpdfLimits limits, ResourceGovernor governor,
+        DiagnosticBag diagnostics, string strictReason, bool valuesEscape, XrefCoordinates coordinates)
     {
         if (limits is null)
         {
@@ -51,17 +55,18 @@ internal static class XRefRecovery
         long maxId = data.Length / 3L;
         Dictionary<int, XrefEntry> entries = ParserContainers.CreateDictionary<int, XrefEntry>(scan);
         QpdfLimits damaged = limits with { MaxContainerSize = Math.Min(limits.MaxContainerSize, limits.MaxContainerSizeDamaged) };
-        (int Number, int Generation)? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, scan,
+        (int Number, int Generation)? lastCatalog = ScanObjects(data, damaged, governor, diagnostics, maxId, entries, scan, coordinates.HeaderOffset,
             out (int Offset, int End)? terminalXref);
         if (entries.Count == 0)
         {
             throw new QpdfParseException($"Bounded repair found no objects after strict parsing failed: {strictReason}", null, null);
         }
 
-        if (terminalXref is { } xref && HasOnlyFooter(data, xref.End, governor) && FooterNeedsReanchoring(data, xref.Offset, governor))
+        if (terminalXref is { } xref && HasOnlyFooter(data, xref.End, governor)
+            && FooterNeedsReanchoring(data, xref.Offset, governor, coordinates))
         {
             XRefTable? anchored = null;
-            try { anchored = XRefTable.ParseAtOffset(data, xref.Offset, limits, governor, diagnostics, valuesEscape); }
+            try { anchored = XRefTable.ParseAtOffset(data, xref.Offset, limits, governor, diagnostics, valuesEscape, coordinates); }
             catch (QpdfException exception) when (exception is not (QpdfLimitException or QpdfMemoryAdmissionException)
                 && exception is not QpdfFilterException { Reason: QpdfFilterFailureReason.ExternalData }) { }
             if (anchored is not null)
@@ -92,7 +97,7 @@ internal static class XRefRecovery
         PdfDictionary? tailDictionary = null;
         using ParserMemoryScope tailMemory = ParserMemoryScope.Create(governor);
         IReadOnlyDictionary<PdfName, ParsedValue>? tailMembers;
-        if (TryReadTailTrailer(data, damaged, governor, diagnostics, tailMemory,
+        if (TryReadTailTrailer(data, damaged, governor, diagnostics, tailMemory, coordinates.HeaderOffset,
             out int tailSize, out QpdfObject? tailRoot, out tailDictionary, out tailMembers) && tailSize >= 1)
         {
             if (tailRoot is PdfReference tailReference
@@ -221,6 +226,7 @@ internal static class XRefRecovery
         long maxId,
         Dictionary<int, XrefEntry> entries,
         ParserMemoryScope scan,
+        int headerOffset,
         out (int Offset, int End)? terminalXref)
     {
         terminalXref = null;
@@ -232,8 +238,8 @@ internal static class XRefRecovery
         parser.TolerateObjectErrors = true;
         parser.SanityChecks = true;
         parser.SuppressRepairDiagnostics = true;
-        long chargedThrough = 0L;
-        int position = 0;
+        long chargedThrough = headerOffset;
+        int position = headerOffset;
         while (position < span.Length)
         {
             if (position - chargedThrough >= ScanWindowBytes)
@@ -373,10 +379,15 @@ internal static class XRefRecovery
             && !tokenizer.TryReadToken(out _, false, governor);
     }
 
-    private static bool FooterNeedsReanchoring(ReadOnlyMemory<byte> data, int scannedOffset, ResourceGovernor governor)
+    private static bool FooterNeedsReanchoring(ReadOnlyMemory<byte> data, int scannedOffset, ResourceGovernor governor,
+        XrefCoordinates coordinates)
     {
         // An intact footer pointing here already tried this same section chain.
-        try { return XRefTable.ReadTailOffset(data, governor) != scannedOffset; }
+        try
+        {
+            return !coordinates.TryGetPhysical(XRefTable.ReadTailOffset(data, governor), data.Length, out long physical)
+                || physical != scannedOffset;
+        }
         catch (QpdfParseException) { return true; }
         catch (CompleteInputRequiredException) { return true; }
     }
@@ -416,6 +427,7 @@ internal static class XRefRecovery
         ResourceGovernor governor,
         DiagnosticBag diagnostics,
         ParserMemoryScope memory,
+        int headerOffset,
         out int size,
         out QpdfObject? root,
         out PdfDictionary? tailDictionary,
@@ -426,7 +438,7 @@ internal static class XRefRecovery
         tailDictionary = null;
         members = null;
         ReadOnlySpan<byte> span = data.Span;
-        int scanStart = span.Length > TailScanBytes ? span.Length - TailScanBytes : 0;
+        int scanStart = Math.Max(headerOffset, span.Length - TailScanBytes);
         int last = -1;
         for (int i = scanStart; i + 7 <= span.Length; i++)
         {
