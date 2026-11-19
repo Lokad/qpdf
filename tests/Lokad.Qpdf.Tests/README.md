@@ -25,6 +25,7 @@ layout and publication. The option inventory links behavior to evidence.
 | Lifetime | Establish weak-reference collectability separately from admission refunds. Use `Foundation/PreparationAdmissionChecks` for limits and cleanup, and `Writing/InspectionFailureTests` for JSON exception translation and lease lifetime. |
 | Work and cancellation | Observe actual loops using deterministic work or host boundaries. `NumericCopyCancellationTests`, `JsonSchemaMemoryTests` and `SubtreeReuseTests` cover distinct cases. Reflect only on project-owned fields. |
 | Graphs and writer layout | Assert active and private references independently. Read actual xref membership and require valid linearization. Retain frozen invalid layouts. |
+| Filters and attachments | Check codec eligibility, recovered bytes and decoded quotas at the filter chain. Use distinct integration cases for named publication, fileless results and typed attachment lifetimes. |
 | Native comparisons | Check ordered listings and exact payloads. For bound image transforms, verify the painted stream with PdfPig and decoded samples with pinned qpdf. |
 
 CI retains TRX files and verification logs. Failed or canceled runs can add

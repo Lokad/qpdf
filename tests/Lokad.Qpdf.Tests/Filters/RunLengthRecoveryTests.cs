@@ -10,6 +10,13 @@ namespace Lokad.Qpdf.Tests.Filters;
 
 public sealed class RunLengthRecoveryTests
 {
+    private static readonly (byte[] Encoded, byte[] Expected)[] RecoveryCases =
+    [
+        ([2, 65], [65]), ([0, 65, 2, 66], [65, 66]),
+        ([3, 113, 32, 81, 10, 4, 65, 66], [113, 32, 81, 10, 65, 66]),
+        ([0], []), ([254], []), ([1, 65, 66], [65, 66]), ([128, 2, 65], [])
+    ];
+
     public static IEnumerable<object[]> LiteralCases()
     {
         foreach (int declared in new[] { 1, 2, 3, 16, 128 })
@@ -102,10 +109,38 @@ public sealed class RunLengthRecoveryTests
         Assert.Equal(0L, root.ReservedBytes);
     }
 
+    public static IEnumerable<object[]> RecoveredChains()
+    {
+        foreach ((byte[] encoded, byte[] expected) in RecoveryCases)
+        foreach (bool chained in new[] { false, true }) { yield return [encoded, expected, chained]; }
+    }
+
+    [Theory]
+    [MemberData(nameof(RecoveredChains))]
+    public void FilterChainReturnsNativeRecoveryBytes(byte[] encoded, byte[] expected, bool chained)
+    {
+        long total = expected.LongLength + (chained ? encoded.LongLength : 0L);
+        QpdfLimits limits = QpdfLimits.Default with { MaxDecodedBytes = Math.Max(1L, total) };
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        PdfName runLength = PdfName.FromAscii("RunLengthDecode");
+        QpdfObject filter = chained ? new PdfArray([PdfName.FromAscii("ASCIIHexDecode"), runLength]) : runLength;
+        PdfDictionary header = new(new Dictionary<PdfName, QpdfObject> { [PdfName.FromAscii("Filter")] = filter });
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        using (FilterPlan plan = FilterChain.Resolve(header, null, governor, CancellationToken.None))
+        {
+            Assert.Equal(expected, FilterChain.Decode(Encode(encoded, chained), plan, limits, governor, memory, CancellationToken.None));
+            Assert.Equal(total, governor.Snapshot().TotalDecodedBytes);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private static byte[] Encode(byte[] encoded, bool chained)
+        => chained ? System.Text.Encoding.ASCII.GetBytes(Convert.ToHexString(encoded) + ">") : encoded;
+
     private static byte[] Fixture(byte[] encoded, bool chained)
     {
         string filter = chained ? "[/ASCIIHexDecode /RunLengthDecode]" : "/RunLengthDecode";
-        byte[] data = chained ? System.Text.Encoding.ASCII.GetBytes(Convert.ToHexString(encoded) + ">") : encoded;
+        byte[] data = Encode(encoded, chained);
         return PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles 6 0 R >> >>", null),
             (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", null),
@@ -117,16 +152,24 @@ public sealed class RunLengthRecoveryTests
 
     public static IEnumerable<object[]> PublicCases()
     {
-        foreach ((byte[] encoded, byte[] expected) in new (byte[], byte[])[]
-        { ([2, 65], [65]), ([0, 65, 2, 66], [65, 66]), ([3, 113, 32, 81, 10, 4, 65, 66], [113, 32, 81, 10, 65, 66]), ([0], []), ([254], []), ([1, 65, 66], [65, 66]), ([128, 2, 65], []) })
-        foreach (bool chained in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job", "argv-fileless", "job-fileless" })
+        (byte[] Encoded, byte[] Expected, bool Chained, string Route)[] samples =
+        [
+            ([0, 65, 2, 66], [65, 66], true, "typed"),
+            ([2, 65], [65], false, "argv"),
+            ([128, 2, 65], [], true, "job"),
+            ([0], [], false, "argv-fileless"),
+            ([1, 65, 66], [65, 66], false, "job-fileless"),
+            ([2, 65], [65], true, "mixed")
+        ];
+        foreach ((byte[] encoded, byte[] expected, bool chained, string route) in samples)
         { yield return [encoded, expected, chained, route]; }
     }
 
     private static ValueTask<QpdfExecutionResult> Execute(IQpdfHost host, string route, CancellationToken token)
     {
         bool fileless = route.EndsWith("fileless", StringComparison.Ordinal);
+        if (route == "mixed")
+        { return Qpdf.ExecuteAsync(host, new(["input", "--job-json-file=job.json", "--filtered-stream-data", "output"]), token); }
         if (route.StartsWith("argv", StringComparison.Ordinal))
         {
             List<string> argv = ["input", "--show-object=4", "--filtered-stream-data"];
@@ -144,6 +187,8 @@ public sealed class RunLengthRecoveryTests
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(QpdfPath.From("input"), Fixture(encoded, chained), QpdfInputOwnership.Transfer);
+        if (route == "mixed")
+        { host.AddInput(QpdfPath.From("job.json"), """{"showObject":"4"}"""u8.ToArray(), QpdfInputOwnership.Transfer); }
         ReadOnlyMemory<byte> payload;
         if (route == "typed")
         {
@@ -156,7 +201,7 @@ public sealed class RunLengthRecoveryTests
         else
         {
             QpdfExecutionResult result = await Execute(host, route, CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.True(result.ExitCode == QpdfExitCode.Success, string.Join("\n", result.Diagnostics.Select(diagnostic => diagnostic.Message)));
             Assert.Equal(expected.Length, result.Counters.TotalOutputBytes);
             if (route.EndsWith("fileless", StringComparison.Ordinal)) { payload = Assert.IsType<ReadOnlyMemory<byte>>(result.OutputBytes); }
             else { Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] bytes)); payload = bytes; }

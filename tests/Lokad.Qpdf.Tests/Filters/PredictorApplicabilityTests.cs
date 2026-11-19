@@ -2,8 +2,10 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Filters;
@@ -49,16 +51,39 @@ public sealed class PredictorApplicabilityTests
 
     private static async Task VerifyFiltered(byte[] input)
     {
-        foreach (bool job in new[] { false, true })
+        QpdfPath path = QpdfPath.From("input");
+        using InMemoryQpdfHost host = new();
+        host.AddInput(path, input, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, path, CancellationToken.None);
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(5));
+        QpdfLimits limits = QpdfLimits.Default;
+        ResourceGovernor governor = new(limits, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        using (FilterPlan plan = FilterChain.ResolveScoped(stream.Dictionary, document.Engine, governor, CancellationToken.None))
         {
-            using InMemoryQpdfHost host = new(); host.AddInput(QpdfPath.From("input"), input, QpdfInputOwnership.Copy);
-            QpdfExecutionResult result = job
-                ? await Qpdf.ExecuteJobAsync(host, "{\"inputFile\":\"input\",\"outputFile\":\"output\",\"showObject\":\"5\",\"filteredStreamData\":true}", CancellationToken.None)
-                : await Qpdf.ExecuteAsync(host, new(["input", "--show-object=5", "--filtered-stream-data", "--", "output"]), CancellationToken.None);
-            Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
-            Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output)); Assert.Equal(Payload, output);
-            Assert.Equal(Payload.Length, result.Counters.TotalDecodedBytes); Assert.Equal(0L, host.OpenLeaseCount);
+            byte[] encoded = stream.ArrayData(memory, governor, CancellationToken.None);
+            Assert.Equal(Payload, FilterChain.Decode(encoded, plan, limits, governor, memory, CancellationToken.None));
+            Assert.Equal(Payload.Length, governor.Snapshot().TotalDecodedBytes);
         }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Theory]
+    [InlineData(false, "FlateDecode", "/Predictor 1 /Columns 7 0 R", true)]
+    [InlineData(true, "LZWDecode", "/EarlyChange 0 /Colors 0", false)]
+    public async Task FilteredInspectionUsesDormantGeometryRules(bool job, string codec, string fields, bool earlyChange)
+    {
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(codec, fields, true, earlyChange), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = job
+            ? await Qpdf.ExecuteJobAsync(host, """{"inputFile":"input","outputFile":"output","showObject":"5","filteredStreamData":true}""", CancellationToken.None)
+            : await Qpdf.ExecuteAsync(host, new(["input", "--show-object=5", "--filtered-stream-data", "--", "output"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
+        Assert.Equal(Payload, output);
+        Assert.Equal(Payload.Length, result.Counters.TotalDecodedBytes);
+        Assert.Equal(0L, host.OpenLeaseCount);
     }
 
     [Theory]

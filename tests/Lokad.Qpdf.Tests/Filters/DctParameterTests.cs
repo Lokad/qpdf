@@ -1,8 +1,10 @@
 using System.Text;
 using System.Text.Json;
+using Lokad.Qpdf.Filters;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Filters;
@@ -13,11 +15,62 @@ public sealed class DctParameterTests
     private static readonly QpdfPath Input = QpdfPath.From("input");
     private static readonly QpdfPath Output = QpdfPath.From("output");
 
+    [Theory]
+    [InlineData("absent", true)]
+    [InlineData("null", true)]
+    [InlineData("array-null", true)]
+    [InlineData("empty", false)]
+    [InlineData("ct0", false)]
+    [InlineData("ct1", false)]
+    [InlineData("ct99", false)]
+    [InlineData("unknown", false)]
+    [InlineData("indirect", false)]
+    [InlineData("array-dict", false)]
+    [InlineData("chain", false)]
+    public async Task PlanAndDecoderAgreeOnDctParameterEligibility(string form, bool supported)
+    {
+        (byte[] pdf, byte[] encoded) = Fixture(form);
+        QpdfLimits limits = QpdfLimits.Default;
+        RecordingCodec codec = new();
+        using InMemoryQpdfHost host = new(limits, codec);
+        host.AddInput(Input, pdf, QpdfInputOwnership.Transfer);
+        await using QpdfDocument document = await QpdfDocument.OpenAsync(host, Input, CancellationToken.None);
+        PdfStream stream = Assert.IsType<PdfStream>(document.GetObject(5));
+        ResourceGovernor governor = new(limits, CancellationToken.None, host);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        using (FilterPlan plan = FilterChain.ResolveScoped(stream.Dictionary, document.Engine, governor, CancellationToken.None))
+        {
+            Assert.Equal(supported, FilterChain.SupportsParameters(plan, CancellationToken.None));
+            if (supported)
+            {
+                Assert.Equal(3072, FilterChain.Decode(encoded, plan, limits, governor, memory, CancellationToken.None).Length);
+            }
+            else
+            {
+                QpdfFilterException rejected = Assert.Throws<QpdfFilterException>(() => FilterChain.Decode(encoded, plan,
+                    limits, governor, memory, CancellationToken.None));
+                Assert.Equal(QpdfFilterFailureReason.UnsupportedFilter, rejected.Reason);
+                Assert.Contains("DecodeParms", rejected.Message, StringComparison.Ordinal);
+            }
+        }
+        Assert.Equal(supported ? 1 : 0, codec.Decodes);
+        Assert.Equal(0, codec.Encodes);
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
     public static IEnumerable<object[]> Cases()
     {
-        foreach (string form in new[] { "absent", "null", "empty", "ct0", "ct1", "ct99", "unknown", "indirect", "array-null", "array-dict", "chain" })
-        foreach (string operation in new[] { "extract", "rewrite", "optimize" })
-        foreach (bool job in new[] { false, true }) { yield return [form, operation, job]; }
+        foreach (string operation in new[] { "rewrite", "optimize" })
+        {
+            foreach (string form in new[] { "absent", "empty", "ct99", "unknown", "indirect", "array-dict" })
+            { yield return [form, operation, false]; }
+            yield return ["array-null", operation, true];
+            yield return ["chain", operation, true];
+        }
+        yield return ["null", "extract", false];
+        yield return ["ct1", "extract", false];
+        yield return ["array-null", "extract", true];
+        yield return ["array-dict", "extract", true];
     }
 
     [Theory]
