@@ -408,7 +408,7 @@ internal static class MultiPageSelection
                 forms.Add(copiers[index], multiForms[index]);
             }
             if (duplicateSourcePages && !settings.RemoveAcroform)
-            { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, selectionMemory, cancellationToken, ref multiFlattenAllocator); }
+            { duplicateFields = Content.AnnotationCopies.IsolateWidgets(occurrences, forms, governor, selectionMemory, cancellationToken, ref multiFlattenAllocator); }
             if (settings.FlattenRotation)
             {
                 (nextId, rotationFields, rotationFrames) = Content.FlattenRotation.Apply(occurrences, forms, multiCompress, multiLevel,

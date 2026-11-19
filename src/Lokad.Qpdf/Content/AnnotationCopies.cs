@@ -20,22 +20,33 @@ internal static class AnnotationCopies
 
     // Keep one original occurrence, preferring an untouched page for rotation.
     // Other occurrences copy headers, never appearance or resource payloads.
-    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> Isolate(
+    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> IsolateWidgets(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
-        bool duplicateWidgets,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
-        => Isolate(occurrences, forms, duplicateWidgets, null, governor, ownership, token, ref allocator);
+        => IsolateWidgets(occurrences, forms, null, governor, ownership, token, ref allocator);
 
-    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> Isolate(
+    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> IsolateWidgets(
+        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyDictionary<GraphCopier, CopiedForm?> forms, IReadOnlyDictionary<int, int>? pageGenerations,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
+        => Isolate(occurrences, forms, null, pageGenerations, governor, ownership, token, ref allocator);
+
+    internal static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> IsolateForRotation(
+        IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
+        IReadOnlyDictionary<GraphCopier, CopiedForm?> forms, FlattenRotation.Preparation preparation,
+        ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
+        => Isolate(occurrences, forms, preparation, null, governor, ownership, token, ref allocator);
+
+    private static IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> Isolate(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         IReadOnlyDictionary<GraphCopier, CopiedForm?> forms,
-        bool duplicateWidgets, IReadOnlyDictionary<int, int>? pageGenerations,
+        FlattenRotation.Preparation? rotations, IReadOnlyDictionary<int, int>? pageGenerations,
         ResourceGovernor governor, ParserMemoryScope ownership, CancellationToken token, ref int allocator)
     {
         if (occurrences.Count < 2) { return Array.Empty<(GraphCopier, CopiedForm, int)>(); }
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
-        traversal.Reserve(512L); // Temporary box and content-resolution state.
+        traversal.Reserve(512L); // Resolver and annotation traversal state.
         Dictionary<(GraphCopier, int), AnnotationUse> uses = ParserContainers.CreateDictionary<(GraphCopier, int), AnnotationUse>(traversal);
         bool sharedChange = false;
         for (int index = 0; index < occurrences.Count; index++)
@@ -45,7 +56,7 @@ internal static class AnnotationCopies
             if (!copier.CopiedObjects.TryGetValue(id, out QpdfObject? raw) || raw is not PdfDictionary page) { continue; }
             PoolResolver resolver = new(copier.CopiedObjects);
             if (!page.TryGet(AnnotsKey, out QpdfObject annotsRaw) || ResolveValue(annotsRaw, resolver) is not PdfArray annots) { continue; }
-            bool changes = duplicateWidgets || FlattenRotation.CanFlatten(page, resolver, governor, token);
+            bool changes = rotations is null || rotations.PrepareAnnotated(id, page, resolver);
             for (int item = 0; item < annots.Count; item++)
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -63,7 +74,7 @@ internal static class AnnotationCopies
                 uses[key] = use;
                 // Widget copies need their page-local popup/reply bundle too.
                 // Retain ordinary annotation sharing when no widget is shared.
-                sharedChange |= use.Changed && (!duplicateWidgets
+                sharedChange |= use.Changed && (rotations is not null
                     || PdfDictionaryLookup.HasName(annotation, "Subtype"u8, "Widget"u8, resolver, governor, token)
                     || copier.IsDisabledSignatureWidget(annotation));
             }

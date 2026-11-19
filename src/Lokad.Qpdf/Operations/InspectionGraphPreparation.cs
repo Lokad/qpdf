@@ -302,7 +302,7 @@ internal static partial class InspectionGraphPreparation
                     ParserContainers.EnsureEntryCapacity(memory, generations, sizeof(int));
                     generations.Add(page.Number, page.Generation);
                 }
-                duplicatedFields = Content.AnnotationCopies.Isolate(occurrences, catalogAssembly.Forms, true,
+                duplicatedFields = Content.AnnotationCopies.IsolateWidgets(occurrences, catalogAssembly.Forms,
                     generations, governor, memory, cancellationToken, ref allocator);
                 pool.AdvanceNextId(allocator);
                 foreach (GraphCopier copier in catalogAssembly.Sources)

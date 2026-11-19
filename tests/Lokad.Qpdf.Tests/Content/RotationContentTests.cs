@@ -74,6 +74,66 @@ public sealed class RotationContentTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnnotationEligibilityAndWrappingShareOneFragmentScan(bool malformed)
+    {
+        const int fragments = 16384;
+        PdfReference fragment = new(4, 0);
+        QpdfObject[] items = Enumerable.Repeat<QpdfObject>(fragment, fragments).ToArray();
+        if (malformed) { items[^1] = new PdfReference(5, 0); }
+        PdfArray program = new(items);
+        PdfArray media = new([new PdfInteger("0", 0), new PdfInteger("0", 0),
+            new PdfInteger("10", 10), new PdfInteger("20", 20)]);
+        PdfDictionary page = new(new Dictionary<PdfName, QpdfObject>
+        {
+            [PdfName.FromAscii("Rotate")] = new PdfReference(1, 0),
+            [PdfName.FromAscii("MediaBox")] = new PdfReference(2, 0),
+            [PdfName.FromAscii("Contents")] = new PdfReference(3, 0),
+        });
+        ProgramResolver resolver = new(new Dictionary<int, QpdfObject>
+        {
+            [1] = new PdfInteger("90", 90),
+            [2] = media,
+            [3] = program,
+            [4] = new PdfStream(new PdfDictionary(new Dictionary<PdfName, QpdfObject>()), "q Q"u8.ToArray()),
+            [5] = PdfNull.Instance,
+        });
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = 4096 }, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            FlattenRotation.Preparation preparation = new(memory, governor, CancellationToken.None);
+            Assert.Equal(!malformed, preparation.PrepareAnnotated(6, page, resolver));
+            int lookups = resolver.Reads;
+            Assert.Equal(fragments + 3, lookups);
+            FlattenRotation.PreparedPage prepared = preparation.Read(6, page, resolver);
+            Assert.Equal(90, prepared.Angle);
+            Assert.Equal((0d, 0d, 10d, 20d), prepared.Media);
+            if (malformed) { Assert.Null(prepared.Contents); }
+            else
+            {
+                ContentEntries.Program borrowed = Assert.IsType<ContentEntries.Program>(prepared.Contents);
+                Assert.Equal(fragments, borrowed.Count);
+                Assert.Same(fragment, borrowed.Get(fragments - 1));
+            }
+            Assert.Equal(lookups, resolver.Reads);
+            Assert.InRange(governor.Snapshot().PeakMemoryBytes, 1L, 4096L);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    private sealed class ProgramResolver(IReadOnlyDictionary<int, QpdfObject> objects) : IIndirectResolver
+    {
+        internal int Reads { get; private set; }
+
+        public bool TryResolve(PdfReference reference, out QpdfObject? value)
+        {
+            Reads++;
+            return objects.TryGetValue(reference.ObjectNumber, out value);
+        }
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]

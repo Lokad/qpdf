@@ -185,7 +185,7 @@ internal static class SinglePageSelection
                         Dictionary<GraphCopier, Content.CopiedForm?> forms = ParserContainers.CreateDictionary<GraphCopier, Content.CopiedForm?>(rotationMemory);
                         ParserContainers.EnsureEntryCapacity(rotationMemory, forms, IntPtr.Size); forms.Add(copier, settings.RemoveAcroform ? null : singleForm);
                         if (duplicatePages && !settings.RemoveAcroform)
-                        { duplicateFields = Content.AnnotationCopies.Isolate(occurrences, forms, true, governor, copyMemory, cancellationToken, ref flattenAllocator); }
+                        { duplicateFields = Content.AnnotationCopies.IsolateWidgets(occurrences, forms, governor, copyMemory, cancellationToken, ref flattenAllocator); }
                         if (settings.FlattenRotation)
                         {
                             (flattenAllocator, rotationFields, rotationFrames) = Content.FlattenRotation.Apply(occurrences, forms, singleCompress, singleLevel,

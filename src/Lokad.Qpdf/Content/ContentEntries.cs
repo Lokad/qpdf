@@ -11,6 +11,15 @@ internal sealed class ContentEntries : IDisposable
     {
         internal QpdfObject Value => Reference is null ? Stream : Reference;
     }
+
+    // A wrapper needs the validated original values in order. The copied
+    // graph already owns the array and the original indirect references.
+    internal readonly record struct Program(PdfArray? Array, QpdfObject? Single)
+    {
+        internal int Count => Array?.Count ?? (Single is null ? 0 : 1);
+        internal QpdfObject Get(int index) => Array is not null ? Array[index]
+            : index == 0 && Single is not null ? Single : throw new ArgumentOutOfRangeException(nameof(index));
+    }
     private ParserMemoryScope? _memory;
     private ResourceGovernor? _governor;
     private List<Entry>? _items;
@@ -42,14 +51,8 @@ internal sealed class ContentEntries : IDisposable
     {
         token.ThrowIfCancellationRequested(); governor.CheckCancellation();
         array = null;
-        QpdfObject target = contents;
-        if (contents is PdfReference root)
-        {
-            if (!resolver.TryResolve(root, out QpdfObject? resolved) || resolved is null) { return null; }
-            target = resolved;
-        }
+        if (!TryResolveProgram(contents, resolver, out QpdfObject? target) || target is null) { return null; }
         if (target is PdfNull) { return Create(governor, token); }
-        if (target is not (PdfArray or PdfStream)) { return null; }
         ContentEntries entries = Create(governor, token);
         try
         {
@@ -67,15 +70,45 @@ internal sealed class ContentEntries : IDisposable
             {
                 token.ThrowIfCancellationRequested(); governor.CheckCancellation();
                 QpdfObject item = array is null ? contents : array[index];
-                QpdfObject? stream = array is null ? target : item;
-                if (array is not null && item is PdfReference link)
-                { resolver.TryResolve(link, out stream); }
+                QpdfObject? stream = array is null ? target : ResolveMember(item, resolver);
                 if (stream is not PdfStream value) { entries.Dispose(); return null; }
                 entries.Add(new(item as PdfReference, index, value));
             }
             return entries;
         }
         catch { entries.Dispose(); throw; }
+    }
+
+    internal static Program? BorrowProgram(QpdfObject? contents, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (!TryResolveProgram(contents, resolver, out QpdfObject? target)) { return null; }
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        if (target is not PdfArray array)
+        { return new Program(null, target is PdfStream ? contents : null); }
+        foreach (QpdfObject item in array.BorrowedItems)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (ResolveMember(item, resolver) is not PdfStream) { return null; }
+        }
+        token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+        return new Program(array, null);
+    }
+
+    private static bool TryResolveProgram(QpdfObject? contents, IIndirectResolver resolver, out QpdfObject? target)
+    {
+        target = contents;
+        if (contents is PdfReference root && (!resolver.TryResolve(root, out target) || target is null))
+        { return false; }
+        return target is null or PdfNull or PdfArray or PdfStream;
+    }
+
+    private static QpdfObject? ResolveMember(QpdfObject raw, IIndirectResolver resolver)
+    {
+        if (raw is not PdfReference link) { return raw; }
+        resolver.TryResolve(link, out QpdfObject? value);
+        return value;
     }
 
     private void Visit()

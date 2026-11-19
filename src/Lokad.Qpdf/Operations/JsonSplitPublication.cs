@@ -180,7 +180,7 @@ internal static class JsonSplitPublication
             forms.Add(copier, form);
         }
         IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> isolated =
-            AnnotationCopies.Isolate(occurrences, forms, true, governor, memory, token, ref next);
+            AnnotationCopies.IsolateWidgets(occurrences, forms, governor, memory, token, ref next);
         if (isolated.Count == 0) { return form; }
 
         int count = checked(1 + isolated.Count);

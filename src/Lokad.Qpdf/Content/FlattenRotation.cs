@@ -14,6 +14,35 @@ internal static class FlattenRotation
         PdfName.FromAscii("BleedBox"), PdfName.FromAscii("TrimBox"), PdfName.FromAscii("ArtBox"),
     ];
     private static readonly PdfName Rect = PdfName.FromAscii("Rect");
+    private static readonly PdfName Rotate = PdfName.FromAscii("Rotate");
+    private static readonly PdfName Contents = PdfName.FromAscii("Contents");
+
+    internal readonly record struct PreparedPage(int Angle,
+        (double Left, double Bottom, double Right, double Top)? Media, ContentEntries.Program? Contents);
+
+    internal sealed class Preparation(ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        private Dictionary<int, PreparedPage>? _annotated;
+
+        internal bool PrepareAnnotated(int id, PdfDictionary page, IIndirectResolver resolver)
+        {
+            int angle = ReadAngle(page, resolver, governor, token);
+            if (angle == 0) { return false; }
+            PreparedPage prepared = ReadPage(page, angle, resolver, governor, token);
+            _annotated ??= ParserContainers.CreateDictionary<int, PreparedPage>(memory);
+            ParserContainers.EnsureEntryCapacity(memory, _annotated, 72L);
+            _annotated.Add(id, prepared);
+            return prepared.Contents.HasValue;
+        }
+
+        internal PreparedPage Read(int id, PdfDictionary page, IIndirectResolver resolver)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            if (_annotated?.Remove(id, out PreparedPage prepared) == true) { return prepared; }
+            int angle = ReadAngle(page, resolver, governor, token);
+            return angle == 0 ? default : ReadPage(page, angle, resolver, governor, token);
+        }
+    }
 
     internal static (int NextId, IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> FieldCopies, IReadOnlyDictionary<int, double[]>? Frames) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
@@ -49,61 +78,49 @@ internal static class FlattenRotation
 
         limits.Validate();
         ownership.CheckOwner(governor);
-        IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> fieldCopies = AnnotationCopies.Isolate(
-            occurrences, forms, false, governor, ownership, cancellationToken, ref allocator);
+        using ParserMemoryScope preparationMemory = ParserMemoryScope.Create(governor);
+        preparationMemory.Reserve(48L);
+        Preparation preparation = new(preparationMemory, governor, cancellationToken);
+        IReadOnlyList<(GraphCopier Copier, CopiedForm Part, int Occurrence)> fieldCopies = AnnotationCopies.IsolateForRotation(
+            occurrences, forms, preparation, governor, ownership, cancellationToken, ref allocator);
         Dictionary<int, double[]>? frames = null;
+        Span<double> media = stackalloc double[4];
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
             cancellationToken.ThrowIfCancellationRequested();
             governor.NoteOperation();
-            if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page)
+            if (!copier.CopiedObjects.TryGetValue(pageId, out QpdfObject? raw) || raw is not PdfDictionary page
+                || !page.TryGet(Rotate, out _))
             {
                 continue;
             }
 
-            page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw);
-            if (rotateRaw is PdfReference rotateReference)
-            { PdfObjectLookup.TryResolve(rotateReference, copier.CopiedObjects, governor, cancellationToken, out rotateRaw); }
-            if (rotateRaw is not PdfInteger rotateInteger)
-            {
-                continue;
-            }
-
-            long angle = rotateInteger.Value % 360L;
-            if (angle < 0L)
-            {
-                angle += 360L;
-            }
-
-            if (angle != 90L && angle != 180L && angle != 270L)
-            {
-                continue;
-            }
-
-            using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-            scratch.Reserve(2048L); // Fixed matrices, boxes, resolver and formatting state.
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
             PoolResolver resolver = new(copier.CopiedObjects);
-            double[]? media = ReadBox(page, Boxes[0], resolver);
-            if (media is null)
+            PreparedPage prepared = preparation.Read(pageId, page, resolver);
+            int angle = prepared.Angle;
+            if (angle == 0) { continue; }
+            if (prepared.Media is not { } bounds)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten rotation without a media box; keeping the page as is.");
                 continue;
             }
-            double[]?[] rotated = new double[Boxes.Length][];
-            for (int box = 0; box < Boxes.Length; box++)
-            {
-                double[]? rect = ReadBox(page, Boxes[box], resolver);
-                if (rect is not null) { rotated[box] = RotateBox(rect, media, (int)angle); }
-            }
-            double[] matrix = RotationMatrix((int)angle, media);
-            using ContentEntries? wrapped = page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents) && contents is not PdfNull
-                ? ContentEntries.TryRead(contents, resolver, governor, cancellationToken) : ContentEntries.Create(governor, cancellationToken);
-            if (wrapped is null)
+            if (prepared.Contents is not ContentEntries.Program wrapped)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten rotation with unreadable content; keeping the page as is.");
                 continue;
             }
+            using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+            scratch.Reserve(2048L); // Fixed matrices, boxes, resolver and formatting state.
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            (media[0], media[1], media[2], media[3]) = bounds;
+            double[]?[] rotated = new double[Boxes.Length][];
+            rotated[0] = RotateBox(media, media, angle);
+            for (int box = 1; box < Boxes.Length; box++)
+            {
+                double[]? rect = ReadBox(page, Boxes[box], resolver);
+                if (rect is not null) { rotated[box] = RotateBox(rect, media, angle); }
+            }
+            double[] matrix = RotationMatrix(angle, media);
             int count = checked(wrapped.Count + 2);
             long arrayBytes = checked(32L + IntPtr.Size * (long)count);
             graph.Memory.Reserve(arrayBytes);
@@ -126,7 +143,11 @@ internal static class FlattenRotation
             graph.Memory.Reserve(35L); byte[] suffix = "\nQ\n"u8.ToArray(); graph.Add(35L);
             PdfStream after = ContentTransforms.EncodeContent(suffix, compress, level, limits, graph);
             items[^1] = copier.AddIndirectObjectWithId(after, allocator); allocator = checked(allocator + 1);
-            for (int i = 0; i < wrapped.Count; i++) { items[i + 1] = wrapped.Get(i).Value; }
+            for (int i = 0; i < wrapped.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                items[i + 1] = wrapped.Get(i);
+            }
             graph.Memory.Reserve(24L); PdfArray stacked = PdfArray.FromOwnedItems(items); graph.Add(24L);
             PdfNameTable<QpdfObject> rebuilt = PdfDictionaryRebuild.CreateEntries(graph, out long allocation);
             using (PdfDictionary.EntryEnumerator source = page.GetEntryEnumerator())
@@ -162,18 +183,28 @@ internal static class FlattenRotation
         return (allocator, fieldCopies, frames);
     }
 
-    internal static bool CanFlatten(PdfDictionary page, PoolResolver resolver, ResourceGovernor governor, CancellationToken token)
+    private static int ReadAngle(PdfDictionary page, IIndirectResolver resolver, ResourceGovernor governor, CancellationToken token)
     {
-        if (!page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject raw)
-            || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfInteger rotate
-            || rotate.Value % 360L is not (90L or -270L or 180L or -180L or 270L or -90L)
-            || ReadBox(page, Boxes[0], resolver) is null) { return false; }
-        if (!page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents) || contents is PdfNull) { return true; }
-        using ContentEntries? entries = ContentEntries.TryRead(contents, resolver, governor, token);
-        return entries is not null;
+        if (!page.TryGet(Rotate, out QpdfObject raw)
+            || CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfInteger rotate) { return 0; }
+        int angle = (int)(rotate.Value % 360L);
+        if (angle < 0) { angle += 360; }
+        return angle is 90 or 180 or 270 ? angle : 0;
     }
 
-    private static double[] RotationMatrix(int angle, double[] media)
+    private static PreparedPage ReadPage(PdfDictionary page, int angle, IIndirectResolver resolver,
+        ResourceGovernor governor, CancellationToken token)
+    {
+        Span<double> bounds = stackalloc double[4];
+        if (!page.TryGet(Boxes[0], out QpdfObject raw)
+            || !PdfGeometry.TryReadFiniteNumbers(CatalogCopy.ResolveValue(raw, resolver, governor, token), resolver, bounds))
+        { return new(angle, null, null); }
+        page.TryGet(Contents, out QpdfObject? contents);
+        return new(angle, (bounds[0], bounds[1], bounds[2], bounds[3]),
+            ContentEntries.BorrowProgram(contents, resolver, governor, token));
+    }
+
+    private static double[] RotationMatrix(int angle, ReadOnlySpan<double> media)
     {
         if (angle == 90)
         {
@@ -188,7 +219,7 @@ internal static class FlattenRotation
         return [0.0, 1.0, -1.0, 0.0, media[3] + media[1], 0.0];
     }
 
-    private static double[] RotateBox(double[] rect, double[] media, int angle)
+    private static double[] RotateBox(ReadOnlySpan<double> rect, ReadOnlySpan<double> media, int angle)
     {
         double left = rect[0] - media[0];
         double right = media[2] - rect[2];

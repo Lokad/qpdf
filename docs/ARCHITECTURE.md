@@ -56,6 +56,8 @@ The page graph supplies inherited attributes, labels and page identity across
 selection, transforms and inspection. Page content, Forms and appearances share
 decoding, geometry and resource owners. Placement and clipping share appearance
 traversal and own their stream transforms and caches.
+Rotation baking shares validated page content between annotation isolation
+and wrapping, borrowing the original stream sequence from the copied graph.
 
 JSON reports preserve declared or source pairs from the effective graph. Imports
 bind complete pairs, and physical source edges resolve against live xrefs.
