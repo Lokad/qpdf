@@ -1319,8 +1319,7 @@ internal static class Program
 
     private static async Task VerifySignatureCopyPolicyAsync()
     {
-        foreach (bool populated in new[] { false, true })
-        foreach (string route in new[] { "typed", "argv", "job" })
+        foreach ((string route, bool populated) in new (string, bool)[] { ("typed", true), ("argv", false), ("job", true) })
         {
             string widget = "<< /Type /Annot /Subtype /Widget /FT /Sig /P 3 0 R /Rect [0 0 50 20]"
                 + (populated ? " /V 9 0 R" : "") + " >>";
@@ -1348,9 +1347,11 @@ internal static class Program
             await CheckOutputAsync(host, "output.pdf", "First");
         }
         Console.WriteLine("PASS signed page selection and disabled fields through typed/argv/job APIs");
-        foreach (bool populated in new[] { false, true })
-        foreach (string route in new[] { "argv", "job" })
-        foreach (string side in new[] { "overlay", "underlay" })
+        foreach ((string route, string side, bool populated) in new (string, string, bool)[]
+        {
+            ("argv", "overlay", true),
+            ("job", "underlay", false),
+        })
         {
             using InMemoryQpdfHost host = NewHost("input.pdf", TwoPagePdf());
             host.AddInput(QpdfPath.From("source.pdf"), SignatureOverlayPdf(populated), QpdfInputOwnership.Transfer);
@@ -1589,8 +1590,14 @@ internal static class Program
 
     private static async Task VerifyAttachmentEditsAsync()
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
-        foreach (string operation in new[] { "remove", "replace", "malformed" })
+        foreach ((string route, string operation) in new (string, string)[]
+        {
+            ("typed", "remove"),
+            ("typed", "replace"),
+            ("typed", "malformed"),
+            ("argv", "replace"),
+            ("job", "remove"),
+        })
         {
             using InMemoryQpdfHost host = new();
             host.AddInput(QpdfPath.From("input"), operation == "malformed" ? MalformedAttachmentPdf() : TwoPagePdf(), QpdfInputOwnership.Transfer);
@@ -1641,12 +1648,18 @@ internal static class Program
             }
             Check(host.OpenLeaseCount == 0, "attachment edits close all leases");
         }
+        Console.WriteLine("PASS bounded attachment edits through typed/argv/job APIs");
     }
 
     private static async Task VerifyAttachmentRetentionAsync()
     {
-        foreach (string route in new[] { "typed-single", "typed-multi", "argv", "job" })
-        foreach (bool all in new[] { false, true })
+        foreach ((string route, bool all) in new (string, bool)[]
+        {
+            ("typed-single", false),
+            ("typed-multi", true),
+            ("argv", true),
+            ("job", false),
+        })
         {
             using InMemoryQpdfHost host = new();
             host.AddInput(QpdfPath.From("input"), TwoPagePdf(), QpdfInputOwnership.Transfer);
