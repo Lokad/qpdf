@@ -695,8 +695,11 @@ error. Suppressed warnings retain their effect on exit status.
 Recoverable malformed optional graphs can drop; profile,
 resource, cancellation and host failures remain fatal.
 
-Named PDF outputs, capture files, JSON reports and sidecars, and extracted
-payloads must differ from acquired inputs and other targets. Early argument
+PDF publication uses a named host transaction for whole files, selected pages,
+split parts and linearization captures. A JSON destination of `-` returns text
+through the execution result. Binary inspection can return a payload there too.
+
+Named outputs must differ from acquired inputs and other targets. Early argument
 checks use known logical paths. Split targets are expanded and checked after
 the output page count is known. Before staging, the engine probes existing
 readable target identities without requesting payload bytes. JSON reports
