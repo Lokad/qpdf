@@ -946,7 +946,7 @@ internal static partial class JobPlanner
 
             if (importJson && ((!wantJsonOutput && testJsonSchema)
                 || (wantJsonOutput && normalizeContent) || externalizeInlineImages || iiMinBytes != 1024L
-                || removeUnreferencedResources is not (null or "no")
+                || (wantJsonOutput && removeUnreferencedResources is not (null or "no"))
                 || optimizeImages || oiMinWidth != 128L || oiMinHeight != 128L || oiMinArea != 16384L
                 || keepInlineImages || jpegQuality is not null || rawStreamData || filteredStreamData
                 || showObject is not null || showNpages || showPages || checkLinearization || showLinearization))
@@ -1021,6 +1021,7 @@ internal static partial class JobPlanner
                     Qdf = qdf,
                     NoOriginalObjectIds = noOriginalObjectIds,
                     NormalizeContent = normalizeContent || (qdf && !seenNormalizeContent),
+                    RemoveUnreferencedResources = removeUnreferencedResources,
                 };
             }
 

@@ -23,6 +23,8 @@ internal readonly record struct JsonImportWriterSettings(
     bool CoalesceContents, int? SplitPages, IReadOnlyList<PageLabelSpec> Labels, IReadOnlyList<OutputRotation> Rotations,
     JsonDetachedObjects DetachedObjects)
 {
+    internal string? RemoveUnreferencedResources { get; init; }
+
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
             null, QdfOptions.Disabled, false, false, null, [], [], JsonDetachedObjects.RetainAll);
@@ -588,10 +590,10 @@ internal static class JsonExecution
             if (prepared.Pages is null)
             { throw new InvalidOperationException("Missing bound JSON split preparation."); }
             await JsonSplitPublication.PublishAsync(host, outputPath, groupSize, writer, prepared.Version, prepared.Graph,
-                prepared.Pages, prepared.Labels, prepared.DetachedRoots, prepared.PreservedPacking,
+                prepared.Pages, prepared.Labels, prepared.DetachedRoots, prepared.PreservedPacking, prepared.PruneSplitResources,
                 preparedSecurity.Identifier, originalIds, security,
                 PublicationInputAliases.Active(governor),
-                limits, governor, cancellationToken).ConfigureAwait(false);
+                limits, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -605,7 +607,7 @@ internal static class JsonExecution
 
     private readonly record struct PreparedImportedOutput(PdfVersion Version, Json.JsonImport.RenumberedModel Graph,
         PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking,
-        List<(int Index, PdfDictionary Label)>? Labels, List<QpdfObject>? DetachedRoots);
+        List<(int Index, PdfDictionary Label)>? Labels, List<QpdfObject>? DetachedRoots, bool PruneSplitResources);
 
     private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, JsonImportWriterSettings writer,
         OutputSecurity? security, QpdfLimits limits,
@@ -762,7 +764,10 @@ internal static class JsonExecution
             foreach (NumberedObject item in output.Model)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); renumbered.Objects[item.Number] = item.Value; }
         }
-        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots);
+        bool pruneSplitResources = splitMemory is not null
+            && new Content.ContentPrunePolicy(true, writer.RemoveUnreferencedResources)
+                .ShouldPrune(resolver, model.Trailer, limits, governor, token);
+        return new(version, renumbered, output, splitMemory is null ? null : pages, compressed, splitLabels, detachedRoots, pruneSplitResources);
     }
 
 }

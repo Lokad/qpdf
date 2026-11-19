@@ -236,7 +236,8 @@ internal static class JobExecution
                 new(import.RemoveInfo, import.RemoveMetadata, import.RemoveAcroform, import.RemoveStructure, import.RemoveLabels),
                 import.Compression(), new(import.Qdf, import.NoOriginalObjectIds), import.NormalizeContent,
                 import.CoalesceContents, import.SplitPages, import.Labels, import.Rotations,
-                import.PreserveUnreferenced ? JsonDetachedObjects.Preserve : JsonDetachedObjects.Prune);
+                import.PreserveUnreferenced ? JsonDetachedObjects.Preserve : JsonDetachedObjects.Prune)
+            { RemoveUnreferencedResources = import.RemoveUnreferencedResources };
             await ImportCoreAsync(
                 host,
                 source,

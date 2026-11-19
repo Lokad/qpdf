@@ -20,9 +20,9 @@ internal static class JsonSplitPublication
         JsonImportWriterSettings writer, PdfVersion version, JsonImport.RenumberedModel graph,
         IReadOnlyList<PageLocation> pages, List<(int Index, PdfDictionary Label)>? authoredLabels,
         List<QpdfObject>? detachedRoots,
-        HashSet<int>? originalPacking, byte[]? originalId,
+        HashSet<int>? originalPacking, bool pruneResources, byte[]? originalId,
         IReadOnlyDictionary<int, (int Number, int Generation)>? originalIds, OutputSecurity? security,
-        PublicationInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        PublicationInputAliases inputs, QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         using ParserMemoryScope split = ParserMemoryScope.Create(governor);
         List<string> names = GenerateSplitNames(outputPath.Value, pages.Count, groupSize, split, governor);
@@ -44,6 +44,10 @@ internal static class JsonSplitPublication
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             List<PdfReference> kids = PreparePages(pages, pool, resolver, pagesNumber, ref maximum, pageNumbers,
                 limits, split, governor, token);
+            if (pruneResources)
+            {
+                maximum = PrunePageResources(kids, pool, resolver, maximum, limits, split, governor, diagnostics, token);
+            }
             form = IsolateWidgets(kids, form, pool, resolver, graph.DisabledSignatureWidgets, maximum,
                 limits, split, governor, token);
             if (pool.Count > limits.MaxContainerSize)
@@ -80,6 +84,24 @@ internal static class JsonSplitPublication
 
         using PublicationReservation admission = preparation.ReservePublication(governor);
         await preparation.PublishAsync(host, admission, governor, token).ConfigureAwait(false);
+    }
+
+    private static int PrunePageResources(List<PdfReference> pages, Dictionary<int, QpdfObject> pool,
+        IIndirectResolver resolver, int maximum, QpdfLimits limits, ParserMemoryScope memory,
+        ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
+        List<int> pageIds = ParserContainers.CreateList<int>(scratch, pages.Count, sizeof(int));
+        foreach (PdfReference page in pages)
+        {
+            token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+            pageIds.Add(page.ObjectNumber);
+        }
+        if (maximum == int.MaxValue)
+        { throw new QpdfParseException("No object identity is available for resource pruning.", null, null); }
+        GraphCopier copier = GraphCopier.CreateBoundOwned(pool, resolver, governor, limits, maximum + 1, memory);
+        ContentTransforms.ApplyResourcePruning(copier, pageIds, limits, governor, diagnostics, token);
+        return copier.NextId - 1;
     }
 
     private static List<PdfReference> PreparePages(IReadOnlyList<PageLocation> pages, Dictionary<int, QpdfObject> pool,

@@ -20,8 +20,12 @@ internal sealed record ContentTransformRequest(bool Coalesce, bool Normalize, bo
 internal sealed record ContentPrunePolicy(bool Enabled, string? Mode)
 {
     internal bool ShouldPrune(DocumentEngine engine, QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
+        => ShouldPrune(engine, engine.Trailer, limits, governor, token);
+
+    internal bool ShouldPrune(IIndirectResolver resolver, PdfDictionary trailer,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken token)
         => Enabled && (Mode == "yes" || Mode is null or "auto"
-            && ContentTransforms.SharedResourcesHeuristic(engine, limits, governor, token));
+            && ContentTransforms.SharedResourcesHeuristic(resolver, trailer, limits, governor, token));
 }
 
 /// <summary>An indirect-object resolver backed by a copied pool.</summary>
@@ -1334,16 +1338,9 @@ internal static class ContentTransforms
         return true;
     }
     internal static bool SharedResourcesHeuristic(
-        DocumentEngine engine,
-        QpdfLimits limits,
-        ResourceGovernor governor,
-        CancellationToken cancellationToken)
+        IIndirectResolver resolver, PdfDictionary trailer,
+        QpdfLimits limits, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (engine is null)
-        {
-            throw new ArgumentNullException(nameof(engine));
-        }
-
         if (limits is null)
         {
             throw new ArgumentNullException(nameof(limits));
@@ -1355,13 +1352,13 @@ internal static class ContentTransforms
         }
 
         limits.Validate();
-        if (!PdfDictionaryLookup.TryGet(engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject rootRaw) || rootRaw is null || rootRaw is PdfNull)
+        if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, cancellationToken, out QpdfObject rootRaw) || rootRaw is null || rootRaw is PdfNull)
         {
             return false;
         }
 
         QpdfObject root = rootRaw is PdfReference rootReference
-            ? ResolveEngine(engine, rootReference, governor, cancellationToken) ?? rootRaw
+            ? ResolveResource(resolver, rootReference, governor, cancellationToken) ?? rootRaw
             : rootRaw;
         if (root is not PdfDictionary catalog)
         {
@@ -1374,7 +1371,7 @@ internal static class ContentTransforms
         }
 
         QpdfObject pages = pagesRaw is PdfReference pagesReference
-            ? ResolveEngine(engine, pagesReference, governor, cancellationToken) ?? pagesRaw
+            ? ResolveResource(resolver, pagesReference, governor, cancellationToken) ?? pagesRaw
             : pagesRaw;
         using SharedResourceWalk walk = SharedResourceWalk.Create(governor, cancellationToken);
         walk.Push(pages, cancellationToken);
@@ -1388,7 +1385,7 @@ internal static class ContentTransforms
                     continue;
                 }
 
-                QpdfObject? resolved = ResolveEngine(engine, nodeReference, governor, cancellationToken);
+                QpdfObject? resolved = ResolveResource(resolver, nodeReference, governor, cancellationToken);
                 if (resolved is PdfStream resolvedStream)
                 {
                     dictionary = resolvedStream.Dictionary;
@@ -1413,7 +1410,7 @@ internal static class ContentTransforms
             }
 
             if (PdfDictionaryLookup.TryGet(dictionary, "Kids"u8, governor, cancellationToken, out QpdfObject kidsRaw)
-                && (kidsRaw is PdfReference kidsReference ? ResolveEngine(engine, kidsReference, governor, cancellationToken) : kidsRaw) is PdfArray kids)
+                && (kidsRaw is PdfReference kidsReference ? ResolveResource(resolver, kidsReference, governor, cancellationToken) : kidsRaw) is PdfArray kids)
             {
                 bool hasResources = PdfDictionaryLookup.TryGet(dictionary, "Resources"u8, governor, cancellationToken, out QpdfObject branchResources)
                     && branchResources is not null
@@ -1445,7 +1442,7 @@ internal static class ContentTransforms
             }
 
             QpdfObject resourcesTarget = leafResources is PdfReference leafLink
-                ? ResolveEngine(engine, leafLink, governor, cancellationToken) ?? leafResources
+                ? ResolveResource(resolver, leafLink, governor, cancellationToken) ?? leafResources
                 : leafResources;
             if (resourcesTarget is not PdfDictionary resourcesDict)
             {
@@ -1466,7 +1463,7 @@ internal static class ContentTransforms
             }
 
             QpdfObject xobjectsTarget = xobjectsRaw is PdfReference xobjectsLink
-                ? ResolveEngine(engine, xobjectsLink, governor, cancellationToken) ?? xobjectsRaw
+                ? ResolveResource(resolver, xobjectsLink, governor, cancellationToken) ?? xobjectsRaw
                 : xobjectsRaw;
             if (xobjectsTarget is not PdfDictionary xobjects)
             {
@@ -1483,9 +1480,9 @@ internal static class ContentTransforms
                 }
 
                 QpdfObject target = entry is PdfReference entryReference
-                    ? ResolveEngine(engine, entryReference, governor, cancellationToken) ?? entry
+                    ? ResolveResource(resolver, entryReference, governor, cancellationToken) ?? entry
                     : entry;
-                if (target is PdfStream stream && IsFormXObject(stream, engine, governor, cancellationToken))
+                if (target is PdfStream stream && IsFormXObject(stream, resolver, governor, cancellationToken))
                 {
                     walk.Push(entry, cancellationToken);
                 }
@@ -1495,9 +1492,9 @@ internal static class ContentTransforms
         return false;
     }
 
-    private static QpdfObject? ResolveEngine(DocumentEngine engine, PdfReference reference, ResourceGovernor governor, CancellationToken cancellationToken)
+    private static QpdfObject? ResolveResource(IIndirectResolver resolver, PdfReference reference, ResourceGovernor governor, CancellationToken cancellationToken)
     {
-        if (PdfObjectLookup.TryResolve(reference, (IIndirectResolver)engine, governor, cancellationToken, out QpdfObject? found) && found is not null && found is not PdfNull)
+        if (PdfObjectLookup.TryResolve(reference, resolver, governor, cancellationToken, out QpdfObject? found) && found is not null && found is not PdfNull)
         {
             return found;
         }

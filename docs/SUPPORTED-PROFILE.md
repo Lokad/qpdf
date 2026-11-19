@@ -509,12 +509,15 @@ repoints active page content using each page's effective resources. Shared
 arrays and streams remain available to private references. QDF normalization
 uses the shared stream identities. An edited direct page gains an indirect
 identity. Undecodable content keeps its original program and reports a
-warning. Other page, content, image and attachment edits remain unavailable
-during import and update.
+warning. Other page, image and attachment edits remain unavailable during import
+and update.
 
 ### Splitting and replacement
 
-`--split-pages` / `splitPages` partitions the bound page order. Parts
+`--split-pages` / `splitPages` partitions the bound page order. Resource pruning
+defaults to `auto` for splits, using the bound graph's shared resources to decide
+whether to prune. Explicit `yes` prunes and `no` keeps the bindings. Whole-file
+creation and update keep the bindings. Private resource aliases survive. Parts
 inherit page attributes, continue labels and replace references to foreign
 pages with null. Repeated pages get separate widget registrations. Explicit
 unreferenced preservation includes eligible detached roots in every part.

@@ -19,7 +19,7 @@ public sealed class SharedResourceHeuristicTests
         engine.SetInspectionObjects(objects); return engine;
     }
     private static bool Decide(DocumentEngine engine, ResourceGovernor governor, CancellationToken token)
-        => ContentTransforms.SharedResourcesHeuristic(engine, QpdfLimits.Default, governor, token);
+        => ContentTransforms.SharedResourcesHeuristic(engine, engine.Trailer, QpdfLimits.Default, governor, token);
 
     [Theory]
     [InlineData("missing-root", false)]
