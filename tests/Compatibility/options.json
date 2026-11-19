@@ -8568,19 +8568,27 @@
       "evidence": {
         "positive": [
           "InvocationTests.HelpAndVersionAreIdentityRequests",
+          "ScopedHelpTests.OptionTopicAndAllDescribeDistinctScopes",
+          "ScopedHelpTests.EveryImplementedInventoryFlagHasOptionHelp",
           "InvocationTests.HelpDescribesRemovePageLabelsAsPrune"
         ],
         "negative": [
+          "ScopedHelpTests.UnknownSubjectsFailWithoutAccessingTheHost",
           "InvocationTests.ValuedIdentityFormsFail"
         ],
         "interaction": [
           "InvocationTests.HelpAndVersionAreIdentityRequests"
         ],
         "resource": [
+          "ScopedHelpTests.ScopedHelpUsesResponseExpansionAndDiagnosticAdmission",
           "InvocationTests.IdentityRequestsIgnoreExhaustedOutputBudget"
         ],
         "oracle": [
-          "diff:help"
+          "diff:help",
+          "diff:help-option",
+          "diff:help-topic",
+          "diff:help-all",
+          "diff:help-unknown"
         ]
       }
     },

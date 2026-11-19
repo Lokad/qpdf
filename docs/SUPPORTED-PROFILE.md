@@ -14,6 +14,9 @@ Response arguments use one argument per UTF-8 line. `@-` reads the stable host i
 keyed `-`; an unmapped descriptor fails through the host. Missing ordinary `@file`
 inputs remain literal, and nested response tokens are not expanded again.
 
+Standalone `--help=--option`, `--help=topic` and `--help=all` return the
+managed help through diagnostics. Use bare `--help` for the command overview.
+
 Typed selection preserves encoded streams. Commands default to bounded repair,
 generalized stream decoding and compression. Use `--suppress-recovery` for
 strict command reading. Execution reports exit 0/2/3 and diagnostics. Unsupported

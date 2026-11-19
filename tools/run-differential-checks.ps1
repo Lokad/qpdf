@@ -1777,7 +1777,18 @@ function Invoke-OracleIdentity {
   $p = Start-ReferenceProcess -FilePath $QpdfExe -ArgumentList @($Flag) -NoNewWindow -Wait -PassThru -WorkingDirectory $Workdir -RedirectStandardOutput "$Workdir/oracle-$Tag.txt" -RedirectStandardError "$Workdir/oracle-$Tag-err.txt"
   return $p.ExitCode
 }
-foreach ($sub in @(@('--version', $referenceVersion, 'version'), @('--copyright', 'Copyright', 'copyright'), @('--help', 'qpdf', 'help'), @('--job-json-help', 'inputFile', 'job-json-help'), @('--json-help', 'acroform', 'json-help'), @('--completion-bash', 'completion', 'completion-bash'), @('--completion-zsh', 'compdef', 'completion-zsh'))) {
+foreach ($sub in @(
+  @('--version', $referenceVersion, 'version'),
+  @('--copyright', 'Copyright', 'copyright'),
+  @('--help', 'qpdf', 'help'),
+  @('--help=--split-pages', '--split-pages', 'help-option'),
+  @('--help=transformation', '--linearize', 'help-topic'),
+  @('--help=all', '--split-pages', 'help-all'),
+  @('--job-json-help', 'inputFile', 'job-json-help'),
+  @('--json-help', 'acroform', 'json-help'),
+  @('--completion-bash', 'completion', 'completion-bash'),
+  @('--completion-zsh', 'compdef', 'completion-zsh')
+)) {
   $m = Invoke-ManagedIdentity $case $sub[0] "id-$($sub[2])"
   $o = Invoke-OracleIdentity $case $sub[0] "id-$($sub[2])"
   if ($m -ne 0 -or $o -ne 0) { Write-Output "[identity/$($sub[2])] FAIL: exits managed=$m oracle=$o, expected 0/0"; $script:failures++; continue }
@@ -1786,6 +1797,11 @@ foreach ($sub in @(@('--version', $referenceVersion, 'version'), @('--copyright'
   if (-not $mText.Contains($sub[1]) -or -not $oText.Contains($sub[1])) { Write-Output "[identity/$($sub[2])] FAIL: marker [$($sub[1])] missing on a side"; $script:failures++ }
   else { Write-Output "[identity/$($sub[2])] exits 0/0 with shared marker" }
 }
+$unknownHelp = '--help=lokad-unknown-topic'
+$managedHelp = Invoke-ManagedIdentity $case $unknownHelp 'help-unknown'
+$oracleHelp = Invoke-OracleIdentity $case $unknownHelp 'help-unknown'
+if ($managedHelp -ne 2 -or $oracleHelp -ne 2) { throw "Unknown help topic returned $managedHelp/$oracleHelp." }
+Write-Output '[identity/help-unknown] exits 2/2 for an unknown topic'
 
 # --- case: hints (managed vs oracle file-handle hints) ---
 $case = New-Case 'hints'

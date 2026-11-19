@@ -115,7 +115,7 @@ internal static class HelpText
           --show-xref                   show cross-reference entries
           --show-linearization          display linearization hint tables
           --remove-page-labels      drop merged page labels
-          --help                show this help
+          --help[=--option|topic]  show help for a flag, topic, or all topics
           --version             show version and compatibility target
           --copyright           show copyright and license notice
           --job-json-help       show job JSON format
@@ -179,6 +179,11 @@ internal static class HelpText
 
     internal static bool TryMatchHelp(IReadOnlyList<string> argv, out string text)
     {
+        if (argv.Count == 1 && argv[0].StartsWith("--help=", StringComparison.Ordinal))
+        {
+            if (ScopedHelp.TryGet(argv[0].AsSpan(7), out text)) { return true; }
+            throw new QpdfParseException("Unknown help topic or option.", 0L, null);
+        }
         foreach (string token in IdentityArguments(argv))
         {
             if (token == "--help")
