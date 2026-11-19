@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Writing;
 using Lokad.Qpdf.TestSupport;
 
 namespace Lokad.Qpdf.Tests.Content;
@@ -47,6 +48,13 @@ public sealed class OverlayClippingGenerationTests
                     PdfDictionary objects = Assert.IsType<PdfDictionary>(Value(document, resources, "XObject"));
                     PdfName name = Assert.Single(objects.Keys, key => key.DisplayText.StartsWith("Fxo", StringComparison.Ordinal));
                     wrapper = Assert.IsType<PdfStream>(Value(document, objects, name.DisplayText));
+                    QpdfObject contents = Value(document, page, "Contents");
+                    IEnumerable<QpdfObject> parts = contents is PdfArray array
+                        ? Enumerable.Range(0, array.Count).Select(index => Resolve(document, array[index]))
+                        : [contents];
+                    string invocation = "/" + name.DisplayText + " Do";
+                    Assert.Single(parts.Select(part => Encoding.ASCII.GetString(StreamObservation.Decode(Assert.IsType<PdfStream>(part)))),
+                        chunk => chunk.Contains(invocation, StringComparison.Ordinal));
                 }
                 else
                 {
@@ -59,7 +67,9 @@ public sealed class OverlayClippingGenerationTests
                     Assert.Contains("(OLD)", Encoding.ASCII.GetString(original.CopyData(owner, CancellationToken.None)), StringComparison.Ordinal);
                 }
                 string program = Encoding.ASCII.GetString(wrapper.CopyData(owner, CancellationToken.None));
-                Assert.Contains("re W n", program, StringComparison.Ordinal); Assert.Contains("/Original Do", program, StringComparison.Ordinal);
+                int clip = program.IndexOf("re W n", StringComparison.Ordinal);
+                int paint = program.IndexOf("/Original Do", StringComparison.Ordinal);
+                Assert.True(clip >= 0 && paint > clip, program);
                 PdfDictionary wrapperResources = Assert.IsType<PdfDictionary>(Value(document, wrapper.Dictionary, "Resources"));
                 PdfDictionary xobjects = Assert.IsType<PdfDictionary>(Value(document, wrapperResources, "XObject"));
                 PdfStream generated = Assert.IsType<PdfStream>(Value(document, xobjects, "Original"));

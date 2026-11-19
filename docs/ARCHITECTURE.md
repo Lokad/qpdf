@@ -56,7 +56,9 @@ The page graph supplies inherited attributes, labels and visible page identity t
 selection, transforms and inspection. Single- and multi-source selection share
 appearance processing once source bindings are established. Page content and
 Form operations share decoding, geometry and resource owners. Each operation
-retains its policy for malformed or unsupported values.
+retains its policy for malformed or unsupported values. Placement and clipping
+rebuild appearance dictionaries through the same traversal and own their
+stream transforms and caches.
 
 JSON export can assemble the selected page graph before projecting it. Page and
 object reports share the assembled graph and preserve source pair provenance.

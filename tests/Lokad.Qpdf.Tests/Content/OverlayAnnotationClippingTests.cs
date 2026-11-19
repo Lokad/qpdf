@@ -80,8 +80,16 @@ public sealed class OverlayAnnotationClippingTests
                     Assert.Equal(Raw(normalStates, states ? "On" : "N"), Raw(rollover, states ? "On" : "R"));
                     if (states)
                     {
+                        PdfReference normalDictionary = Assert.IsType<PdfReference>(Raw(appearance, "N"));
+                        Assert.Equal(normalDictionary, Assert.IsType<PdfReference>(Raw(appearance, "R")));
+                        PdfReference privateDictionary = Assert.IsType<PdfReference>(Raw(privateAppearance, "N"));
+                        Assert.Equal(privateDictionary, Assert.IsType<PdfReference>(Raw(privateAppearance, "R")));
+                        PdfReference insideDictionary = Assert.IsType<PdfReference>(Raw(insideAp, "N"));
+                        if (position == "inside") { Assert.Equal(insideDictionary, normalDictionary); }
+                        else { Assert.NotEqual(insideDictionary, normalDictionary); }
                         Assert.Equal(Raw(normalStates, "Off"), Raw(rollover, "Off"));
-                        Assert.Equal(Raw(normalStates, "On"), Raw(appearance, "D"));
+                        PdfDictionary down = Assert.IsType<PdfDictionary>(Raw(appearance, "D"));
+                        Assert.Equal(Raw(normalStates, "On"), Raw(down, "On"));
                     }
                     else { Assert.NotEqual(Raw(appearance, "N"), Raw(appearance, "D")); }
                     Assert.Same(original, Value(document, appearance, "Private"));
@@ -110,9 +118,9 @@ public sealed class OverlayAnnotationClippingTests
             (4, "<< /Type /Annot /Subtype /Stamp /F 4 /Rect " + rect + " /AP 10 0 R /AS /On /Private << /AP 10 0 R >> >>", null),
             (5, "<< /Type /XObject /Subtype /Form /BBox [0 0 40 40] /Resources << >> /Length " + Original.Length + " >>", Original),
             (6, "<< /Type /XObject /Subtype /Form /BBox [0 0 40 40] /Resources << >> /Length " + Other.Length + " >>", Other),
-            (7, "null", null), (8, "null", null),
+            (7, "null", null), (8, states ? "<< /On 5 0 R /Off 6 0 R >>" : "null", null),
             (9, "<< /Type /Annot /Subtype /Stamp /F 4 /Rect [20 20 60 60] /AP 10 0 R /AS /On >>", null),
-            (10, states ? "<< /N << /On 5 0 R /Off 6 0 R >> /R << /On 5 0 R /Off 6 0 R >> /D 5 0 R /Private 5 0 R >>"
+            (10, states ? "<< /N 8 0 R /R 8 0 R /D << /On 5 0 R >> /Private 5 0 R >>"
                 : "<< /N 5 0 R /R 5 0 R /D 6 0 R /Private 5 0 R >>", null)], 1);
     }
 

@@ -56,9 +56,10 @@ internal static class AppearanceClipping
         clip[2] = Math.Min(rect[2], clip[2]); clip[3] = Math.Min(rect[3], clip[3]);
         if (clip[0] >= clip[2] || clip[1] >= clip[3]) { clip.Clear(); }
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        Dictionary<(int Number, bool States), PdfReference> memo = ParserContainers.CreateDictionary<(int, bool), PdfReference>(scratch);
-        QpdfObject replacement = CopyDictionary(copier, annotation, rectangle, clip, appearance, false,
-            resolver, limits, graph, scratch, memo, ref allocator);
+        var memo = ParserContainers.CreateDictionary<(int, AnnotationCopyKind, bool), PdfReference>(scratch);
+        ClippedStreams transform = new(copier, annotation, rectangle, clip, resolver, limits, graph);
+        QpdfObject replacement = AppearanceDictionaryTransform.Apply(copier, resolver, appearance, false,
+            memo, scratch, graph, transform, ref allocator);
         if (Equals(appearance, replacement)) { return; }
         PdfDictionary result = PdfDictionaryRebuild.ReplaceEntry(graph, annotation, "AP"u8, replacement);
         copier.ValidateReplacement(annotationId); copier.ReplaceCopiedObject(annotationId, result);
@@ -88,63 +89,20 @@ internal static class AppearanceClipping
         return CatalogCopy.ResolveValue(width, resolver, governor, token) is PdfInteger { Value: 0 } or PdfReal { Value: 0 };
     }
 
-    private static QpdfObject CopyDictionary(GraphCopier copier, PdfDictionary annotation, QpdfObject rectangle,
-        ReadOnlySpan<double> clip, QpdfObject raw, bool states, PoolResolver resolver, QpdfLimits limits,
-        OwnedAllocationBatch graph, ParserMemoryScope scratch,
-        Dictionary<(int Number, bool States), PdfReference> memo, ref int allocator)
+    private readonly ref struct ClippedStreams(GraphCopier copier, PdfDictionary annotation, QpdfObject rectangle,
+        ReadOnlySpan<double> clip, PoolResolver resolver, QpdfLimits limits, OwnedAllocationBatch graph)
+        : AppearanceDictionaryTransform.IStreamTransform
     {
-        ResourceGovernor governor = graph.Governor; CancellationToken token = graph.Token;
-        if (CatalogCopy.ResolveValue(raw, resolver, governor, token) is not PdfDictionary dictionary) { return raw; }
-        PdfReference? reference = raw as PdfReference;
-        if (reference is not null && memo.TryGetValue((reference.ObjectNumber, states), out PdfReference? prior)) { return prior; }
-        PdfNameTable<QpdfObject>? entries = null; long allocation = 0;
-        using PdfDictionary.EntryEnumerator source = dictionary.GetEntryEnumerator();
-        while (source.MoveNext(governor, token))
+        private readonly ReadOnlySpan<double> _clip = clip;
+
+        public PdfReference? Transform(PdfStream stream, PdfReference? source, ref int allocator)
+            => Wrap(copier, annotation, rectangle, _clip, stream, source, resolver, limits, graph, ref allocator);
+
+        public void ValidateNonStream(QpdfObject? value)
         {
-            PdfName key = source.Current.Key; QpdfObject value = source.Current.Value;
-            ReadOnlySpan<byte> slot = key.RawSpan;
-            if (!states && !slot.SequenceEqual("N"u8) && !slot.SequenceEqual("R"u8) && !slot.SequenceEqual("D"u8)) { continue; }
-            QpdfObject? target = CatalogCopy.ResolveValue(value, resolver, governor, token);
-            QpdfObject changed = value;
-            if (target is PdfStream stream)
-            {
-                if (value is PdfReference streamReference && memo.TryGetValue((streamReference.ObjectNumber, false), out PdfReference? cached)) { changed = cached; }
-                else
-                {
-                    changed = Wrap(copier, annotation, rectangle, clip, stream, value as PdfReference, resolver, limits, graph, ref allocator);
-                    if (value is PdfReference original)
-                    {
-                        ParserContainers.EnsureEntryCapacity(scratch, memo, sizeof(int) * 2L + IntPtr.Size);
-                        memo.Add((original.ObjectNumber, false), (PdfReference)changed);
-                    }
-                }
-            }
-            else if (!states && target is PdfDictionary)
-            { changed = CopyDictionary(copier, annotation, rectangle, clip, value, true, resolver, limits, graph, scratch, memo, ref allocator); }
-            else if (target is not (null or PdfNull))
+            if (value is not (null or PdfNull))
             { throw new QpdfUnsupportedFeatureException("Source clipping requires stream-backed annotation appearance states."); }
-            if (Equals(value, changed)) { continue; }
-            if (entries is null)
-            {
-                entries = PdfDictionaryRebuild.CreateEntries(graph, out allocation);
-                using PdfDictionary.EntryEnumerator original = dictionary.GetEntryEnumerator();
-                while (original.MoveNext(governor, token)) { entries.Assign(graph.Memory, governor, original.Current.Key, original.Current.Value, token); }
-            }
-            entries.Assign(graph.Memory, governor, key, changed, token);
         }
-        QpdfObject result = raw;
-        if (entries is not null)
-        {
-            PdfDictionary rebuilt = PdfDictionaryRebuild.Complete(graph, entries, allocation);
-            if (reference is null) { return rebuilt; }
-            result = copier.AddIndirectObjectWithId(rebuilt, allocator); allocator = checked(allocator + 1);
-        }
-        if (reference is not null)
-        {
-            ParserContainers.EnsureEntryCapacity(scratch, memo, sizeof(int) * 2L + IntPtr.Size);
-            memo.Add((reference.ObjectNumber, states), (PdfReference)result);
-        }
-        return result;
     }
 
     private static PdfReference Wrap(GraphCopier copier, PdfDictionary annotation, QpdfObject rectangle,
