@@ -201,14 +201,14 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
         return (int)value;
     }
 
-    internal static (bool Trailer, int Number, int Generation) ParseInspectionSelector(string value, int previousGeneration)
+    internal static InspectionObjectSelector ParseInspectionSelector(string value, int previousGeneration)
     {
         if (value.Length > 32) { throw new QpdfParseException("Object selector exceeds its supported length.", 0L, null); }
-        if (value == "trailer") { return (true, 0, previousGeneration); }
+        if (value == "trailer") { return new(true, 0, previousGeneration); }
         int comma = value.IndexOf(',');
         int generation = comma >= 0 && comma + 1 < value.Length
             ? ReadIntegerPrefix(value.AsSpan(comma + 1)) : previousGeneration;
-        return (false, ReadIntegerPrefix(value.AsSpan()), generation);
+        return new(false, ReadIntegerPrefix(value.AsSpan()), generation);
     }
 
     private static int ReadIntegerPrefix(ReadOnlySpan<char> text)
@@ -245,13 +245,11 @@ internal sealed record SelectionPlan(QpdfPath Input, QpdfPath Output, int Page, 
     }
 }
 
+internal readonly record struct InspectionObjectSelector(bool Trailer, int Number, int Generation);
+
 /// <summary>Validated object inspection.</summary>
-internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, string Selector) : JobPlan(Input)
+internal sealed record ShowObjectPlan(QpdfPath Input, QpdfRecoveryMode Recovery, InspectionObjectSelector Selector) : JobPlan(Input)
 {
-    internal Objects.PdfReference? ReplacedCatalog { get; init; }
-
-    public bool RejectStreamAfterInfo { get; init; }
-
     public QpdfPath? Output { get; init; }
 }
 
@@ -287,7 +285,7 @@ internal sealed record CheckPlan(QpdfPath Input, QpdfRecoveryMode Recovery) : Jo
 
     public bool ShowXref { get; init; }
 
-    public string? ObjectSelector { get; init; }
+    public InspectionObjectSelector? ObjectSelector { get; init; }
 
     public bool ListAttachments { get; init; }
 

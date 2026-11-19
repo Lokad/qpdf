@@ -21,8 +21,9 @@ flowchart LR
 Argv and job JSON feed the same semantic planner. Typed methods adapt requests
 to the same operation cores. The typed multi-page overloads share preparation,
 result admission and cleanup. Configuration loading owns include
-order, duplicate keys, encoding and retained text. Writer options are projected
-after source roles are known.
+order, duplicate keys, encoding and retained text. Plans carry the parsed object
+selector to the inspection resolver. Writer options are projected after source
+roles are known.
 
 Input admission and xref parsing precede authentication and page traversal.
 The reader resolves classic, streamed, hybrid and incremental xrefs into

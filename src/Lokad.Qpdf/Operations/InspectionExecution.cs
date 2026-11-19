@@ -330,13 +330,20 @@ internal static class InspectionExecution
         DiagnosticBag diagnostics,
         ParserMemoryScope memory,
         CancellationToken cancellationToken)
+        => ShowObject(document, showObject, showObject.Selector, showObject.Output, null, false,
+            limits, governor, diagnostics, memory, cancellationToken);
+
+    private static ReadOnlyMemory<byte>? ShowObject(QpdfDocument document, JobPlan plan, InspectionObjectSelector selector,
+        QpdfPath? output, PdfReference? replacedCatalog, bool rejectStreamAfterInfo,
+        QpdfLimits limits, ResourceGovernor governor, DiagnosticBag diagnostics,
+        ParserMemoryScope memory, CancellationToken cancellationToken)
     {
         memory.CheckOwner(governor);
         cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
-        (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(showObject.Selector, 0);
+        (bool trailer, int number, int generation) = selector;
         if (!trailer && number <= 0)
         {
-            if (showObject.Output is not null) { throw new QpdfParseException("The output file is only used for stream data.", 0L, null); }
+            if (output is not null) { throw new QpdfParseException("The output file is only used for stream data.", 0L, null); }
             return null;
         }
         QpdfObject? target = null;
@@ -347,7 +354,7 @@ internal static class InspectionExecution
         else if (generation >= 0)
         {
             PdfReference reference = new(number, generation);
-            if (showObject.ReplacedCatalog is PdfReference former && former.ObjectNumber == number && former.Generation == generation
+            if (replacedCatalog is PdfReference former && former.ObjectNumber == number && former.Generation == generation
                 && PdfDictionaryLookup.TryGet(document.Engine.Trailer, "Root"u8, governor, cancellationToken, out QpdfObject root)
                 && root is PdfReference active)
             {
@@ -358,21 +365,20 @@ internal static class InspectionExecution
             if (((IIndirectResolver)document.Engine).TryResolve(reference, out QpdfObject? resolved)) { target = resolved; }
         }
 
-        bool wantsStreamData = showObject.RawStreamData || showObject.FilteredStreamData;
+        bool wantsStreamData = plan.RawStreamData || plan.FilteredStreamData;
         if (target is PdfStream dataStream && wantsStreamData)
         {
-            if (showObject.RejectStreamAfterInfo)
+            if (rejectStreamAfterInfo)
             {
                 throw new QpdfException("Binary stream output cannot follow informational output in this inspection.");
             }
-            QpdfPath? output = showObject.Output;
-            if (output.HasValue && string.Equals(showObject.Input.Value, output.Value.Value, StringComparison.Ordinal))
+            if (output == plan.Input)
             {
                 throw new QpdfParseException("The output file must differ from the input file.", 0L, null);
             }
 
-            ReadOnlyMemory<byte> payload = ReadObjectPayload(dataStream, document.Engine, showObject.FilteredStreamData,
-                showObject.NormalizeContent, limits, governor, diagnostics, memory, cancellationToken);
+            ReadOnlyMemory<byte> payload = ReadObjectPayload(dataStream, document.Engine, plan.FilteredStreamData,
+                plan.NormalizeContent, limits, governor, diagnostics, memory, cancellationToken);
 
             if (payload.Length > limits.MaxOutputBytes)
             {
@@ -382,7 +388,7 @@ internal static class InspectionExecution
             return payload;
         }
 
-        if (showObject.Output is not null)
+        if (output is not null)
         {
             throw new QpdfParseException("The output file is only used for stream data.", 0L, null);
         }
@@ -581,18 +587,12 @@ internal static class InspectionExecution
                     if (CheckAndReportLinearization(document, plan, security, limits, governor, diagnostics, cancellationToken))
                     {
                         if (plan.ShowXref) { ShowXref(document, governor, diagnostics, cancellationToken); }
-                        if (plan.ObjectSelector is not null)
+                        if (plan.ObjectSelector is InspectionObjectSelector selector)
                         {
                             bool priorInfo = plan.RunCheck || plan.ShowNpages || plan.ShowEncryption || plan.CheckLinearization || plan.ShowLinearization || plan.ShowXref;
                             using ParserMemoryScope objectMemory = ParserMemoryScope.Create(governor);
-                            ReadOnlyMemory<byte>? payload = ShowObject(document, new ShowObjectPlan(plan.Input, plan.Recovery, plan.ObjectSelector)
-                            {
-                                ReplacedCatalog = inspection?.ReplacedCatalog,
-                                RawStreamData = plan.RawStreamData,
-                                FilteredStreamData = plan.FilteredStreamData,
-                                NormalizeContent = plan.NormalizeContent,
-                                RejectStreamAfterInfo = priorInfo && plan.AttachmentKey is null,
-                            },
+                            ReadOnlyMemory<byte>? payload = ShowObject(document, plan, selector, null,
+                                inspection?.ReplacedCatalog, priorInfo && plan.AttachmentKey is null,
                                 limits, governor, diagnostics, objectMemory, cancellationToken);
                             if (payload is not null)
                             {
@@ -722,9 +722,9 @@ internal static class InspectionExecution
         }
         if (plan.ShowEncryption) { ShowEncryption(source.Security, diagnostics); }
         bool hasPayload = false;
-        if (plan.ObjectSelector is string selector)
+        if (plan.ObjectSelector is InspectionObjectSelector selector)
         {
-            (bool trailer, int number, int generation) = SelectionPlan.ParseInspectionSelector(selector, 0);
+            (bool trailer, int number, int generation) = selector;
             if (trailer || number > 0)
             {
                 QpdfObject? target = trailer ? model.Trailer : null;

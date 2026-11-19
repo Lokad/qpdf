@@ -27,7 +27,7 @@ public sealed class StreamInspectionStorageTests
         QpdfLimits limits = QpdfLimits.Default with { MaxMemoryBytes = 1024L, MaxOutputBytes = refuse ? 1L : 16777216L };
         ResourceGovernor governor = new(limits, CancellationToken.None);
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
-        ShowObjectPlan plan = new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, "4") { RawStreamData = true };
+        ShowObjectPlan plan = new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, new(false, 4, 0)) { RawStreamData = true };
         long before = GC.GetAllocatedBytesForCurrentThread();
         if (refuse)
         {
@@ -56,7 +56,7 @@ public sealed class StreamInspectionStorageTests
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             ReadOnlyMemory<byte>? bytes = InspectionExecution.ShowObject(document,
-                new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, "4") { FilteredStreamData = true, NormalizeContent = normalize },
+                new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, new(false, 4, 0)) { FilteredStreamData = true, NormalizeContent = normalize },
                 QpdfLimits.Default, governor, new(governor), memory, CancellationToken.None);
             Assert.NotNull(bytes); Assert.True(memory.ReservedBytes >= bytes.Value.Length + 32L);
             Assert.Contains((byte)'q', bytes.Value.ToArray()); Assert.Contains((byte)'Q', bytes.Value.ToArray());
@@ -75,7 +75,7 @@ public sealed class StreamInspectionStorageTests
         using ParserMemoryScope memory = ParserMemoryScope.Create(governor); memory.Reserve(71L);
         long baseline = governor.Snapshot().LiveMemoryBytes;
         Assert.Throws<QpdfLimitException>(() => InspectionExecution.ShowObject(document,
-            new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, "4") { FilteredStreamData = true },
+            new(QpdfPath.From("input"), QpdfRecoveryMode.Strict, new(false, 4, 0)) { FilteredStreamData = true },
             limits, governor, new(governor), memory, CancellationToken.None));
         Assert.Equal(baseline, governor.Snapshot().LiveMemoryBytes);
     }

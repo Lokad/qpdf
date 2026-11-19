@@ -349,7 +349,7 @@ public sealed class CheckInspectionTests
     [InlineData("1,-1", 1, -1)]
     [InlineData("1,", 1, 0)]
     public void ObjectSelectorUsesNativeIntegerPrefixes(string selector, int number, int generation)
-        => Assert.Equal((false, number, generation), SelectionPlan.ParseInspectionSelector(selector, 0));
+        => Assert.Equal(new InspectionObjectSelector(false, number, generation), SelectionPlan.ParseInspectionSelector(selector, 0));
 
     [Theory]
     [InlineData("argv", "2junk", "<< /Count 1 /Kids [ 3 0 R ] /Type /Pages >>")]

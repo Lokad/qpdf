@@ -163,8 +163,7 @@ internal static partial class JobPlanner
             bool seenShowPages = false;
             bool withImages = false;
             bool seenWithImages = false;
-            string? showObject = null;
-            int showObjectGeneration = 0;
+            InspectionObjectSelector? showObject = null;
             bool showXref = false;
             bool seenShowXref = false;
             bool noOriginalObjectIds = false;
@@ -535,12 +534,8 @@ internal static partial class JobPlanner
                         withImages = RequireBareFlag(property.Value, "withImages", textStorage);
                         break;
                     case "showObject":
-                        showObject = RequireString(property.Value, "showObject", textStorage);
-                        var selector = SelectionPlan.ParseInspectionSelector(showObject, showObjectGeneration);
-                        showObjectGeneration = selector.Generation;
-                        showObject = selector.Trailer ? "trailer"
-                            : selector.Number.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
-                                + selector.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        showObject = SelectionPlan.ParseInspectionSelector(RequireString(property.Value, "showObject", textStorage),
+                            showObject?.Generation ?? 0);
                         break;
                     case "showXref":
                         seenShowXref = true;
@@ -698,13 +693,9 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job withImages requires showPages.", 0L, null);
             }
 
-            if (showObject is not null && output is not null)
+            if (showObject is { Trailer: false, Number: <= 0 } && output is not null)
             {
-                var selector = SelectionPlan.ParseInspectionSelector(showObject, showObjectGeneration);
-                if (!selector.Trailer && selector.Number <= 0)
-                {
-                    throw new QpdfParseException("An output file cannot accompany a disabled object inspection.", 0L, null);
-                }
+                throw new QpdfParseException("An output file cannot accompany a disabled object inspection.", 0L, null);
             }
 
             if (input == "-")
@@ -917,7 +908,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job showPages cannot be combined with page, output, transformation or other inspection keys.", 0L, null);
             }
 
-            if (showObject is not null)
+            if (showObject is InspectionObjectSelector selector)
             {
                 if (hasPages || (output is not null && !seenRawStreamData && !seenFilteredStreamData)
                     || wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0
@@ -939,7 +930,7 @@ internal static partial class JobPlanner
                 }
 
                 (QpdfPath inspectionInput, bool emptyDocument) = ResolveInspectionInput(input, empty, "showObject");
-                return new ShowObjectPlan(inspectionInput, recovery, showObject)
+                return new ShowObjectPlan(inspectionInput, recovery, selector)
                 {
                     TransformationPassword = password,
                     PasswordFiles = passwordFiles,
