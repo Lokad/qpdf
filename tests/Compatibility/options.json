@@ -2523,6 +2523,7 @@
         ],
         "interaction": [
           "AttachmentEditInspectionTests.AdditionRetainsAnExistingDirectFilespec",
+          "BoundAttachmentEditTests.BoundPdfCreationPublishesEditedPayloadWithOutputEncryption",
           "AttachmentEditTests.AddPreservesExisting",
           "ZeroPageRewriteTests.TypedAttachmentEditsAcceptRealZeroPageInput",
           "ZeroPageRewriteTests.WholeFileRewritePreservesZeroPageCatalogAndPayloads",
@@ -3017,6 +3018,7 @@
         ],
         "interaction": [
           "AttachmentEditInspectionTests.InspectionProjectsEditsAndKeepsTheOriginalNameTree",
+          "BoundAttachmentEditTests.BoundMinimalReportUsesThePatchedAttachmentTreeAndAnAuthenticatedCopy",
           "AttachmentCopyTests.JobCopyRoundTrip",
           "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
@@ -4371,11 +4373,13 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Attachment edits remain unavailable during JSON creation and update."
+        "Page selection and overlay or underlay placement are unavailable on bound input.",
+        "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {
         "positive": [
           "JsonImportTests.CreateFromMinimalJson",
+          "BoundAttachmentEditTests.BoundFullReportEditsTheActiveTreeAndKeepsDeclaredPrivatePairs",
           "JsonSplitTests.CreationSplitsInheritedPagesAndContinuesLabels",
           "JsonImportTests.CreateRoundTrip",
           "JsonImportTests.CreateReadsDatafiles",
@@ -4712,6 +4716,9 @@
         ],
         "resource": [
           "AttachmentEditInspectionTests.EditedReportKeepsThePriorTargetOnRefusal",
+          "BoundAttachmentEditTests.BoundAttachmentConflictKeepsThePriorReport",
+          "BoundAttachmentEditTests.BoundReportCannotPublishOverAnAttachmentInput",
+          "BoundAttachmentEditTests.BoundAttachmentPreparationRefundsAdmissionAndKeepsThePriorReport",
           "JsonPublicationTransformTests.PreparationAndPublicationFailuresKeepTheActualTargetAndRefundAdmission",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonStringIdentityTests.EveryObservedMemoryRefusalPreservesTheTargetAndRefunds",
@@ -6596,6 +6603,7 @@
         ],
         "interaction": [
           "AttachmentEditInspectionTests.TextInspectionCanRemoveAndExtractFromTheEditedCollection",
+          "BoundAttachmentEditTests.BoundFullReportEditsTheActiveTreeAndKeepsDeclaredPrivatePairs",
           "AttachmentEditTests.RemoveThenReaddWins",
           "AttachmentEditReachabilityTests.PruningKeepsCompressedQdfAndLinearizedModelsCoherent",
           "AttachmentEditTests.JobAddRemoveRoundTrip"
@@ -8141,11 +8149,13 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Attachment edits remain unavailable during JSON creation and update."
+        "Page selection and overlay or underlay placement are unavailable on bound input.",
+        "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {
         "positive": [
           "JsonImportTests.UpdateChangesValues",
+          "BoundAttachmentEditTests.BoundMinimalReportUsesThePatchedAttachmentTreeAndAnAuthenticatedCopy",
           "JsonImportTests.UpdateKeepsStreamData",
           "JsonGenerationTests.UpdatesMatchPairsAndBindNewEdgesWithoutRevivingStaleSourceAliases",
           "JsonPairRoundTripTests.ExportedPairsRoundTripThroughCreationAndUpdates",

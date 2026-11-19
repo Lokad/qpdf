@@ -239,6 +239,7 @@ internal static class JobExecution
                 import.PreserveUnreferenced ? JsonDetachedObjects.Preserve : JsonDetachedObjects.Prune)
             {
                 RemoveUnreferencedResources = import.RemoveUnreferencedResources,
+                Edits = import.HasAttachmentEdits ? import.Edits() : AttachmentEdits.Empty,
                 ExternalizeInlineImages = import.ExternalizeInlineImages,
                 InlineImageMinimumBytes = import.IiMinBytes,
                 Images = import.OptimizeImages

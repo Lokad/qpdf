@@ -10,6 +10,7 @@ using static Lokad.Qpdf.Operations.PageAssembly;
 using static Lokad.Qpdf.Runtime.ExecutionFailures;
 using static Lokad.Qpdf.Writing.ObjectStreamPreparation;
 using static Lokad.Qpdf.Writing.OutputCatalogPreparation;
+using static Lokad.Qpdf.Writing.OutputVersionPolicy;
 
 namespace Lokad.Qpdf.Operations;
 
@@ -17,6 +18,76 @@ internal static class AttachmentAssembler
 {
     internal sealed record AttachmentAssembly(PdfReference? NamesRef, bool Inserted, int FinalCount, bool Replaced,
         QpdfDocument.VersionParts? Version, int ExtensionLevel);
+
+    internal static async ValueTask<(PdfDictionary Catalog, PdfVersion Version, bool UpdatedVersion)> EditCatalogAsync(
+        IQpdfHost host, IIndirectResolver resolver, PdfDictionary trailer, PdfDictionary catalog, GraphCopier pool,
+        PdfVersion version, AttachmentEdits edits, QpdfRecoveryMode recovery, QpdfLimits limits,
+        ResourceGovernor governor, DiagnosticBag diagnostics, ParserMemoryScope memory, CancellationToken token)
+    {
+        memory.Reserve(128L);
+        SortedDictionary<string, AttachmentReference> existing = new(StringComparer.Ordinal);
+        using (ParserMemoryScope entriesMemory = ParserMemoryScope.Create(governor))
+        {
+            foreach (EmbeddedFileEntry entry in EmbeddedFiles.ReadEntries(resolver, trailer, edits.Removes,
+                limits, governor, memory, entriesMemory, token))
+            {
+                token.ThrowIfCancellationRequested(); governor.NoteOperation();
+                memory.Reserve(64L);
+                existing.Add(entry.Key, new(entry.Name, entry.Spec));
+            }
+        }
+        Dictionary<int, QpdfObject> additions = ParserContainers.CreateDictionary<int, QpdfObject>(memory);
+        AttachmentAssembly attached = await AssembleAttachmentsAsync(host, existing, additions, pool.NextId, edits,
+            false, null, false, ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory),
+            recovery, limits, governor, diagnostics, null, memory, token).ConfigureAwait(false);
+        foreach ((int number, QpdfObject value) in additions)
+        {
+            token.ThrowIfCancellationRequested(); governor.NoteOperation();
+            _ = pool.AddIndirectObjectWithId(value, number);
+        }
+
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfDictionaryLookup.TryGet(catalog, "Names"u8, governor, token, out QpdfObject names);
+        PdfDictionary? oldNames = Content.CatalogCopy.ResolveDictionary(names, resolver, governor, token);
+        QpdfObject? newNames = attached.NamesRef;
+        if (oldNames is not null)
+        {
+            if (attached.NamesRef is PdfReference attachedNames)
+            {
+                PdfDictionary wrapper = (PdfDictionary)additions[attachedNames.ObjectNumber];
+                if (!PdfDictionaryLookup.TryGet(wrapper, "EmbeddedFiles"u8, governor, token, out QpdfObject tree))
+                { throw new InvalidOperationException("An assembled attachment dictionary has no tree."); }
+                pool.ReplaceCopiedObject(attachedNames.ObjectNumber, PdfDictionaryRebuild.ReplaceEntry(graph, oldNames, "EmbeddedFiles"u8, tree));
+            }
+            else
+            {
+                PdfDictionary remaining = PdfDictionaryRebuild.RemoveEntry(graph, oldNames, "EmbeddedFiles"u8);
+                newNames = remaining.Count == 0 ? null : remaining;
+            }
+        }
+        PdfDictionary updated = newNames is null ? PdfDictionaryRebuild.RemoveEntry(graph, catalog, "Names"u8)
+            : PdfDictionaryRebuild.ReplaceEntry(graph, catalog, "Names"u8, newNames);
+        if (attached.Inserted && Content.CatalogCopy.ReadPageMode(updated, resolver, governor, token, out _) is null)
+        { updated = PdfDictionaryRebuild.ReplaceEntry(graph, updated, "PageMode"u8, UseAttachmentsPageMode); }
+        PdfVersion baseline = version;
+        int extension = Content.CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);
+        IncludeVersionRequirement(ref version, ref extension, attached.Version, attached.ExtensionLevel, governor);
+        IncludeVersionRequirement(ref version, ref extension,
+            AuthoredVersionFloor(edits.Adds.Count > 0, attached.NamesRef is not null, false), 0, governor);
+        bool updatedVersion = version.Major != baseline.Major || version.Minor != baseline.Minor || attached.ExtensionLevel > 0;
+        if (updatedVersion)
+        {
+            PdfDictionaryLookup.TryGet(updated, "Extensions"u8, governor, token, out QpdfObject original);
+            QpdfObject? extensions = PrepareExtensions(original, resolver, version, extension, graph);
+            if (!ReferenceEquals(extensions, original))
+            {
+                updated = extensions is null ? PdfDictionaryRebuild.RemoveEntry(graph, updated, "Extensions"u8)
+                    : PdfDictionaryRebuild.ReplaceEntry(graph, updated, "Extensions"u8, extensions);
+            }
+        }
+        graph.Memory.TransferTo(memory, graph.Bytes);
+        return (updated, version, updatedVersion);
+    }
 
     internal static SortedDictionary<string, AttachmentReference> PreserveExistingAttachments(
         GraphCopier copier,

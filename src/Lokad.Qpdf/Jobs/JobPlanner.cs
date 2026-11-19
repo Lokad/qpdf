@@ -910,7 +910,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
 
-            if ((seenJson || seenJsonOutput) && (wantAttachments || importJson && (attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)))
+            if ((seenJson || seenJsonOutput) && wantAttachments)
             {
                 throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
             }
@@ -948,7 +948,7 @@ internal static partial class JobPlanner
             if (importJson && !wantJsonOutput)
             {
                 string operation = jsonInput ? "jsonInput" : "updateFromJson";
-                if (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)
+                if (wantAttachments)
                 {
                     throw new QpdfParseException($"Job \"{operation}\" cannot be combined with attachment keys.", 0L, null);
                 }
@@ -975,6 +975,9 @@ internal static partial class JobPlanner
                     CoalesceContents = coalesceContents,
                     Rotations = rotations,
                     Labels = labels,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
                     RecompressFlate = recompressFlate,
                     CompressionLevel = compressionLevel,
                     MaxStreamFilters = maxStreamFilters,

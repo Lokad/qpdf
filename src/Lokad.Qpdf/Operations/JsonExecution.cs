@@ -27,6 +27,7 @@ internal readonly record struct JsonImportWriterSettings(
     internal bool ExternalizeInlineImages { get; init; }
     internal long InlineImageMinimumBytes { get; init; }
     internal Content.ImageOptimizeRequest? Images { get; init; }
+    internal AttachmentEdits Edits { get; init; } = AttachmentEdits.Empty;
 
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
@@ -322,16 +323,23 @@ internal static class JsonExecution
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
             Json.ImportedModel model = await BindInspectionModelAsync(host, imported, engine, source.Header,
                 limits, governor, memory, token).ConfigureAwait(false);
+            int firstAttachment = 0, endAttachment = 0;
             if (inspection.GraphPlan is JsonPlan settings)
             {
                 model = ImportedPublication.Apply(model,
                     new(settings.RemoveInfo, settings.RemoveMetadata, settings.RemoveAcroform, settings.RemoveStructure, settings.RemoveLabels),
                     limits, memory, governor, token, out _);
+                if (settings.HasAttachmentEdits)
+                {
+                    (model, firstAttachment, endAttachment) = await ImportedPublication.EditAttachmentsAsync(host, model,
+                        settings.Edits(), recovery, true, limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+                }
             }
             Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
             _ = ReadBoundCatalog(model, resolver, governor, token);
             Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
                 model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
+            RegisterTransformedBoundPairs(model, ids, firstAttachment, endAttachment, memory, governor, token);
             (model, IReadOnlyList<PageLocation>? pages) = PrepareBoundInspectionPages(model, resolver, ids,
                 inspection.GraphPlan, Json.DocumentJson.RequestUsesPageTree(request), limits, memory, governor, diagnostics, token);
             Json.JsonDocumentView view = new(model, resolver, pages ?? [], ids, engine?.Security);
@@ -624,6 +632,11 @@ internal static class JsonExecution
         var preparedSecurity = await PrepareOutputSecurityAsync(host, writer.Encryption, document, originalId, importMemory,
             governor, limits, diagnostics, recovery, cancellationToken).ConfigureAwait(false);
         using OutputSecurity? security = preparedSecurity.Security;
+        if (writer.Edits.HasEdits)
+        {
+            (model, _, _) = await ImportedPublication.EditAttachmentsAsync(host, model, writer.Edits, recovery,
+                writer.DetachedObjects == JsonDetachedObjects.Preserve, limits, importMemory, governor, diagnostics, cancellationToken).ConfigureAwait(false);
+        }
         PreparedImportedOutput prepared = PrepareImportedOutput(model, writer, security, limits, importMemory, splitMemory, governor,
             diagnostics, cancellationToken);
         PreparedOutputModel output = prepared.Output;

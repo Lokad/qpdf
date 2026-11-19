@@ -1,4 +1,5 @@
 using Lokad.Qpdf.Content;
+using Lokad.Qpdf.Commands;
 using Lokad.Qpdf.Json;
 using Lokad.Qpdf.Objects;
 using Lokad.Qpdf.Reading;
@@ -53,6 +54,45 @@ internal static class ImportedPublication
         if (largest == int.MaxValue)
         { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
         return largest + 1;
+    }
+
+    internal static async ValueTask<(ImportedModel Model, int First, int Next)> EditAttachmentsAsync(
+        IQpdfHost host, ImportedModel model, AttachmentEdits edits, QpdfRecoveryMode recovery, bool preserveDetached,
+        QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
+    {
+        JsonImport.CheckObjectCount(model, limits);
+        using ParserMemoryScope walk = ParserMemoryScope.Create(governor);
+        PoolResolver resolver = PoolResolver.Create(walk, model.Objects);
+        PdfDictionary catalog = JsonExecution.ReadBoundCatalog(model, resolver, governor, token);
+        HashSet<int>? before = preserveDetached ? GraphReachability.Find(resolver, model.Trailer, walk, governor) : null;
+        int first = NextObjectNumber(model, governor, token);
+        GraphCopier pool = GraphCopier.CreateBoundOwned(model.Objects, resolver, governor, limits, first, memory);
+        (PdfDictionary updated, PdfVersion version, _) = await AttachmentAssembler.EditCatalogAsync(host, resolver, model.Trailer,
+            catalog, pool, model.HeaderVersion, edits, recovery, limits, governor, diagnostics, memory, token).ConfigureAwait(false);
+        JsonImport.CheckObjectCount(model, limits);
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PdfDictionary trailer = model.Trailer;
+        if (!ReferenceEquals(updated, catalog))
+        {
+            if (before is not null)
+            {
+                // New assembly objects are eligible for retirement if an edit
+                // superseded them before the catalog was linked.
+                for (int id = first; id < pool.NextId; id++)
+                {
+                    token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                    if (model.Objects.ContainsKey(id)) { ParserContainers.AddSetItem(walk, before, id, sizeof(int)); }
+                }
+            }
+            PdfReference replacement = pool.AddIndirectObjectWithId(updated, pool.NextId);
+            trailer = PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, replacement);
+            if (before is not null)
+            { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, walk, governor, token); }
+        }
+        JsonImport.CheckObjectCount(model, limits);
+        graph.Memory.TransferTo(memory, graph.Bytes);
+        memory.Reserve(ImportedModel.AllocationBytes);
+        return (model with { Trailer = trailer, HeaderVersion = version }, first, pool.NextId);
     }
 
     private static void BindImageResources(Dictionary<int, QpdfObject> objects, PoolResolver resolver,

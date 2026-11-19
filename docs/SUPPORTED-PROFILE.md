@@ -484,7 +484,7 @@ annotations. When both are requested, flattening paints the generated programs.
 The active form retains surviving fields and clears NeedAppearances after
 successful generation. Baking rotation before projection updates page boxes,
 page programs, annotation geometry, viewports and active navigation together.
-Export from a PDF can apply attachment edits before either report shape.
+Export can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)
 
@@ -623,7 +623,8 @@ reporting. Text extraction uses the resulting collection. Insertion defaults
 an absent or null PageMode to `/UseAttachments` in reports and published
 PDFs. An independent reference to the old name tree continues to resolve
 against the source graph.
-Editing attachments while binding JSON input remains unavailable.
+JSON creation and update apply the same edits to their bound graph before PDF
+publication or JSON export.
 
 - Match decoded ordinal keys; sort output by encoded bytes. Full-collection
   operations reject duplicate logical keys; selective extraction uses the first match.
