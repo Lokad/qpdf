@@ -13,7 +13,8 @@ namespace Lokad.Qpdf.Operations;
 internal static class BoundInspectionTransforms
 {
     internal static (PdfDictionary Trailer, int First, int Next) Apply(ImportedModel model, PoolResolver resolver,
-        PdfDictionary trailer, IReadOnlyList<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases, JsonPlan plan, QpdfLimits limits,
+        PdfDictionary trailer, IReadOnlyList<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases, JsonPlan plan,
+        OverlayApplication? placements, QpdfLimits limits,
         ParserMemoryScope memory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, token, out QpdfObject root)
@@ -56,9 +57,9 @@ internal static class BoundInspectionTransforms
             HashSet<int>? reached = PageAssembly.CollectGenerateReached([(model.Objects, part)], survivors,
                 false, limits, governor, scratch, token);
             (int next, bool complete) = GenerateAppearances.Apply(occurrences, forms, limits, governor, diagnostics,
-                token, reached, true, null, copier.NextId);
+                token, reached, true, placements?.GeneratedWidgets, copier.NextId);
             copier.AdvanceNextId(next);
-            needAppearances = !complete;
+            needAppearances = !complete || placements is { GenerationComplete: false };
         }
         if (plan.FlattenAnnotations is string mode)
         {

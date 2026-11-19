@@ -240,6 +240,8 @@ internal static class JobExecution
             {
                 RemoveUnreferencedResources = import.RemoveUnreferencedResources,
                 Edits = import.HasAttachmentEdits ? import.Edits() : AttachmentEdits.Empty,
+                Underlays = import.Underlays,
+                Overlays = import.Overlays,
                 ExternalizeInlineImages = import.ExternalizeInlineImages,
                 InlineImageMinimumBytes = import.IiMinBytes,
                 Images = import.OptimizeImages

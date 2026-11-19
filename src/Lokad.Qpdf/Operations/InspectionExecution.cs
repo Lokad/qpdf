@@ -705,8 +705,8 @@ internal static class InspectionExecution
         Content.PoolResolver resolver = Content.PoolResolver.Create(inspection, model.Objects);
         Dictionary<int, (int Number, int Generation)> originalIds = OriginalObjectIds.PrepareImportedIds(
             model.OriginalPairs, null, inspection, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
-        (model, IReadOnlyList<PageLocation>? prepared) = JsonExecution.PrepareBoundInspectionPages(model, resolver, originalIds,
-            plan, false, limits, graph, governor, diagnostics, token);
+        (model, IReadOnlyList<PageLocation>? prepared) = await JsonExecution.PrepareBoundInspectionPagesAsync(host, plan.Input,
+            model, resolver, originalIds, plan, false, limits, graph, governor, diagnostics, token).ConfigureAwait(false);
         PdfDictionary catalog = JsonExecution.ReadBoundCatalog(model, resolver, governor, token);
         IReadOnlyList<PageLocation> pages = prepared ?? (plan.RunCheck || plan.ShowPages || plan.ShowNpages
             ? PageTree.Read(resolver, catalog, diagnostics, governor, limits, inspection, token) : []);

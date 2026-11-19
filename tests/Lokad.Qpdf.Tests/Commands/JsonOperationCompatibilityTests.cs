@@ -34,8 +34,6 @@ public sealed class JsonOperationCompatibilityTests
             ("removeUnreferencedResources", "yes", ["--remove-unreferenced-resources=yes"]),
             ("flattenRotation", true, ["--flatten-rotation"]), ("flattenAnnotations", "all", ["--flatten-annotations=all"]),
             ("generateAppearances", true, ["--generate-appearances"]),
-            ("overlay", new { file = "stamp" }, ["--overlay", "stamp", "--"]),
-            ("underlay", new { file = "stamp" }, ["--underlay", "stamp", "--"]),
         ];
 
     public static IEnumerable<object[]> RejectedRequests()
@@ -52,9 +50,7 @@ public sealed class JsonOperationCompatibilityTests
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
-            ("overlay", "create", "job"),
             ("flattenAnnotations", "update", "mixed"),
-            ("underlay", "bound-inspect", "job"),
         ];
         foreach ((string key, string mode, string route) in adapters)
         {

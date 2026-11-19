@@ -4373,7 +4373,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Page selection and overlay or underlay placement are unavailable on bound input.",
+        "Page selection is unavailable on bound input.",
         "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {
@@ -5745,11 +5745,9 @@
           "source": "manual/cli.rst:1558"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Placement remains unavailable on bound JSON creation, update and export."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ReportPlacementTests.JsonOverlayFollowsSelectionAndUsesTheAuthorizedPlacementInput",
@@ -5812,6 +5810,7 @@
           "PageInheritanceTests.DifferentAncestorDepthsNullsAndLeafOverridesKeepTheNearestRawValue"
         ],
         "negative": [
+          "ReportPlacementTests.BoundPlacementInputRemainsProtectedFromNamedJsonPublication",
           "ReportPlacementTests.PlacementInputRemainsProtectedFromNamedJsonPublication",
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
@@ -5825,6 +5824,8 @@
           "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
+          "ReportPlacementTests.AuthoredReportPlacesAnAuthenticatedSourceOnTheBoundPage",
+          "ReportPlacementTests.BoundPlacementGenerationPaintsTheImportedWidgetBeforeFormRemoval",
           "OverlayTests.ContentArraysPreserveTheDestinationAndStampOrder",
           "OverlayTests.JobOverlayObjectAppliesAfterBase",
           "OverlayTests.JobFromRangeAppliesInOrder",
@@ -8040,11 +8041,9 @@
           "source": "manual/cli.rst:1569"
         }
       ],
-      "status": "partial",
+      "status": "complete",
       "defaultReview": "reviewed",
-      "remainingGaps": [
-        "Placement remains unavailable on bound JSON creation, update and export."
-      ],
+      "remainingGaps": [],
       "evidence": {
         "positive": [
           "ReportPlacementTests.JsonJobUnderlayPaintsBeforeThePrimaryContent",
@@ -8099,6 +8098,7 @@
           "OptionalContentStateTests.MalformedOnArraysRefuseBeforeReplacingOutput"
         ],
         "interaction": [
+          "ReportPlacementTests.PatchedPdfPlacesBeforeSplittingTheNewPageOrder",
           "OverlayTests.WholeFileJobOverlay",
           "OverlayRectangleTests.OpposingCornersPreserveIndependentPlacementAndOriginalBoxValues",
           "OverlayOptionalSourceTests.OptionalSourceNullsUseFallbacksWhileMalformedValuesKeepTheirSkipPolicy",
@@ -8157,7 +8157,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "Page selection and overlay or underlay placement are unavailable on bound input.",
+        "Page selection is unavailable on bound input.",
         "Appearance generation and flattening are unavailable for direct PDF publication from bound input."
       ],
       "evidence": {

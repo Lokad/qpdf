@@ -459,14 +459,7 @@ internal static partial class InspectionGraphPreparation
                     limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null,
                     plan is JsonPlan, plan.GenerateAppearances, primaryNeedsAppearances).ConfigureAwait(false);
                 placementEdits = applied;
-                foreach (GraphCopier source in applied.Copiers)
-                {
-                    foreach (KeyValuePair<int, QpdfObject> entry in source.CopiedObjects)
-                    {
-                        governor.NoteOperation();
-                        StoreInspectionObject(pool, entry.Key, entry.Value);
-                    }
-                }
+                PlacementCatalog.MergeObjects(pool, applied, governor, cancellationToken);
                 if (applied.FieldImports.Count > 0)
                 {
                     UpdateInspectionForm(document, pool, overlayPages, applied.FieldImports,

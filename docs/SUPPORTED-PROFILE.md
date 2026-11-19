@@ -484,8 +484,9 @@ annotations. When both are requested, flattening paints the generated programs.
 The active form retains surviving fields and clears NeedAppearances after
 successful generation. Baking rotation before projection updates page boxes,
 page programs, annotation geometry, viewports and active navigation together.
-PDF-to-JSON export applies overlays and underlays to the effective page order
-before projecting page programs, annotations and forms.
+Overlays and underlays apply to the effective page order in PDF and JSON
+output, including after JSON creation or patch binding. Bound PDF output
+applies placements before splitting.
 Export can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)

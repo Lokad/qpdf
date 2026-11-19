@@ -28,6 +28,8 @@ internal readonly record struct JsonImportWriterSettings(
     internal long InlineImageMinimumBytes { get; init; }
     internal Content.ImageOptimizeRequest? Images { get; init; }
     internal AttachmentEdits Edits { get; init; } = AttachmentEdits.Empty;
+    internal IReadOnlyList<OverlaySpec> Underlays { get; init; } = [];
+    internal IReadOnlyList<OverlaySpec> Overlays { get; init; } = [];
 
     internal static JsonImportWriterSettings ForTyped(QpdfJsonImportOptions options, QpdfOutputEncryption encryption)
         => new(null, null, false, false, options.ObjectStreams, options.Linearize, null, encryption, new(false, false),
@@ -323,7 +325,12 @@ internal static class JsonExecution
             using ParserMemoryScope memory = ParserMemoryScope.Create(governor);
             Json.ImportedModel model = await BindInspectionModelAsync(host, imported, engine, source.Header,
                 limits, governor, memory, token).ConfigureAwait(false);
-            int firstAttachment = 0, endAttachment = 0;
+            Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
+            _ = ReadBoundCatalog(model, resolver, governor, token);
+            Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
+                model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
+            (model, IReadOnlyList<PageLocation>? pages) = await PrepareBoundInspectionPagesAsync(host, path, model, resolver, ids,
+                inspection.GraphPlan, Json.DocumentJson.RequestUsesPageTree(request), limits, memory, governor, diagnostics, token).ConfigureAwait(false);
             if (inspection.GraphPlan is JsonPlan settings)
             {
                 model = ImportedPublication.Apply(model,
@@ -331,17 +338,11 @@ internal static class JsonExecution
                     limits, memory, governor, token, out _);
                 if (settings.HasAttachmentEdits)
                 {
-                    (model, firstAttachment, endAttachment) = await ImportedPublication.EditAttachmentsAsync(host, model,
+                    (model, int first, int next) = await ImportedPublication.EditAttachmentsAsync(host, model,
                         settings.Edits(), recovery, true, limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+                    RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
                 }
             }
-            Content.PoolResolver resolver = Content.PoolResolver.Create(memory, model.Objects);
-            _ = ReadBoundCatalog(model, resolver, governor, token);
-            Dictionary<int, (int Number, int Generation)> ids = OriginalObjectIds.PrepareImportedIds(
-                model.OriginalPairs, null, memory, governor, token) ?? throw new InvalidOperationException("Missing bound object identities.");
-            RegisterTransformedBoundPairs(model, ids, firstAttachment, endAttachment, memory, governor, token);
-            (model, IReadOnlyList<PageLocation>? pages) = PrepareBoundInspectionPages(model, resolver, ids,
-                inspection.GraphPlan, Json.DocumentJson.RequestUsesPageTree(request), limits, memory, governor, diagnostics, token);
             Json.JsonDocumentView view = new(model, resolver, pages ?? [], ids, engine?.Security);
             rendered = Json.DocumentJson.WriteDocument(view, request, output, limits, governor, diagnostics, token);
         }
@@ -349,8 +350,8 @@ internal static class JsonExecution
         return rendered;
     }
 
-    internal static (Json.ImportedModel Model, IReadOnlyList<PageLocation>? Pages) PrepareBoundInspectionPages(
-        Json.ImportedModel model, Content.PoolResolver resolver, Dictionary<int, (int Number, int Generation)> ids,
+    internal static async ValueTask<(Json.ImportedModel Model, IReadOnlyList<PageLocation>? Pages)> PrepareBoundInspectionPagesAsync(
+        IQpdfHost host, QpdfPath input, Json.ImportedModel model, Content.PoolResolver resolver, Dictionary<int, (int Number, int Generation)> ids,
         IInspectionGraphPlan? plan, bool needsPages, QpdfLimits limits, ParserMemoryScope memory,
         ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
@@ -360,9 +361,11 @@ internal static class JsonExecution
         JsonPlan? editing = plan is JsonPlan json && (json.FlattenRotation || json.GenerateAppearances || json.FlattenAnnotations is not null)
             ? json : null;
         bool bake = editing?.FlattenRotation == true;
+        JsonPlan? placing = plan is JsonPlan placement && (placement.Underlays.Count != 0 || placement.Overlays.Count != 0) ? placement : null;
+        bool push = bake || placing is not null;
         IReadOnlyList<OutputRotation> rotations = plan?.Rotations ?? [];
-        if (!transformImages && !normalize && !coalesce && editing is null && rotations.Count == 0 && !needsPages) { return (model, null); }
-        (PdfDictionary trailer, List<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases) = PrepareBoundPages(model, resolver, ids, coalesce, bake,
+        if (!transformImages && !normalize && !coalesce && editing is null && placing is null && rotations.Count == 0 && !needsPages) { return (model, null); }
+        (PdfDictionary trailer, List<PageLocation> pages, Dictionary<int, PdfReference>? articleAliases) = PrepareBoundPages(model, resolver, ids, coalesce, push,
             limits, memory, governor, diagnostics, token);
         ApplyBoundRotations(model.Objects, resolver, pages, rotations, limits, memory, governor, token);
         if (plan is not null && (transformImages || normalize))
@@ -379,14 +382,24 @@ internal static class JsonExecution
             Json.JsonImport.CheckObjectCount(model, limits);
             RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
         }
+        PdfVersion version = model.HeaderVersion;
+        Content.OverlayApplication? placements = null;
+        if (placing is not null)
+        {
+            (trailer, version, placements, int first, int next) = await PlacementCatalog.ApplyBoundAsync(host, input, model,
+                trailer, resolver, pages, placing.Underlays, placing.Overlays, placing.GenerateAppearances, placing.Recovery,
+                limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+            Json.JsonImport.CheckObjectCount(model, limits);
+            RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
+        }
         if (editing is not null && pages.Count != 0)
         {
-            (trailer, int first, int next) = BoundInspectionTransforms.Apply(model, resolver, trailer, pages, articleAliases, editing,
+            (trailer, int first, int next) = BoundInspectionTransforms.Apply(model, resolver, trailer, pages, articleAliases, editing, placements,
                 limits, memory, governor, diagnostics, token);
             Json.JsonImport.CheckObjectCount(model, limits);
             RegisterTransformedBoundPairs(model, ids, first, next, memory, governor, token);
         }
-        if (transformImages || normalize || editing is not null)
+        if (transformImages || normalize || editing is not null || placing is not null)
         {
             for (int i = 0; i < pages.Count; i++)
             {
@@ -396,8 +409,8 @@ internal static class JsonExecution
             }
         }
         memory.Reserve(Json.ImportedModel.AllocationBytes);
-        return (model with { Trailer = trailer, CalledAllPages = true,
-            PushedInheritedResources = model.PushedInheritedResources || bake }, pages);
+        return (model with { Trailer = trailer, HeaderVersion = version, CalledAllPages = true,
+            PushedInheritedResources = model.PushedInheritedResources || push }, pages);
     }
 
     private static void RegisterTransformedBoundPairs(Json.ImportedModel model, Dictionary<int, (int Number, int Generation)> ids,
@@ -637,8 +650,8 @@ internal static class JsonExecution
             (model, _, _) = await ImportedPublication.EditAttachmentsAsync(host, model, writer.Edits, recovery,
                 writer.DetachedObjects == JsonDetachedObjects.Preserve, limits, importMemory, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         }
-        PreparedImportedOutput prepared = PrepareImportedOutput(model, writer, security, limits, importMemory, splitMemory, governor,
-            diagnostics, cancellationToken);
+        PreparedImportedOutput prepared = await PrepareImportedOutputAsync(host, sourcePdf ?? jsonPath, model, writer, security, recovery,
+            limits, importMemory, splitMemory, governor, diagnostics, cancellationToken).ConfigureAwait(false);
         PreparedOutputModel output = prepared.Output;
         int? info = prepared.Graph.InfoNumber;
         int metadata = prepared.Graph.MetadataNumber;
@@ -687,13 +700,14 @@ internal static class JsonExecution
         PreparedOutputModel Output, IReadOnlyList<PageLocation>? Pages, HashSet<int>? PreservedPacking,
         List<(int Index, PdfDictionary Label)>? Labels, List<QpdfObject>? DetachedRoots, bool PruneSplitResources);
 
-    private static PreparedImportedOutput PrepareImportedOutput(Json.ImportedModel model, JsonImportWriterSettings writer,
-        OutputSecurity? security, QpdfLimits limits,
+    private static async ValueTask<PreparedImportedOutput> PrepareImportedOutputAsync(IQpdfHost host, QpdfPath input,
+        Json.ImportedModel model, JsonImportWriterSettings writer, OutputSecurity? security, QpdfRecoveryMode recovery, QpdfLimits limits,
         ParserMemoryScope memory, ParserMemoryScope? splitMemory, ResourceGovernor governor, DiagnosticBag diagnostics, CancellationToken token)
     {
         DocumentPublicationPolicy policy = writer.Labels.Count == 0 ? writer.Publication
             : writer.Publication with { RemoveLabels = true };
-        model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _);
+        bool placing = writer.Underlays.Count != 0 || writer.Overlays.Count != 0;
+        if (!placing) { model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _); }
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         Content.PoolResolver resolver = Content.PoolResolver.Create(graph.Memory, model.Objects);
         bool pruneSplitResources = splitMemory is not null
@@ -704,12 +718,12 @@ internal static class JsonExecution
         bool pruneBeforeOptimization = pruneSplitResources && images.Optimize;
         bool externalize = writer.ExternalizeInlineImages || images.Optimize && !images.KeepInline;
         bool transformContent = normalizePages || externalize || images.Optimize;
-        if (writer.Rotations.Count > 0 || transformContent)
+        if (writer.Rotations.Count > 0 || transformContent || placing)
         {
-            using ParserMemoryScope? retirement = transformContent && writer.DetachedObjects == JsonDetachedObjects.Preserve
+            using ParserMemoryScope? retirement = (transformContent || placing) && writer.DetachedObjects == JsonDetachedObjects.Preserve
                 ? ParserMemoryScope.Create(governor) : null;
             HashSet<int>? before = retirement is null ? null : GraphReachability.Find(resolver, model.Trailer, retirement, governor);
-            (PdfDictionary trailer, List<PageLocation> locations, _) = PrepareBoundPages(model, resolver, null, transformContent && writer.CoalesceContents, false,
+            (PdfDictionary trailer, List<PageLocation> locations, _) = PrepareBoundPages(model, resolver, null, (transformContent || placing) && writer.CoalesceContents, placing,
                 limits, memory, governor, diagnostics, token);
             ApplyBoundRotations(model.Objects, resolver, locations, writer.Rotations, limits, memory, governor, token);
             if (transformContent)
@@ -718,12 +732,21 @@ internal static class JsonExecution
                 { BoundPageContent = true, DeferImageEncoding = true };
                 ImportedPublication.TransformPagePrograms(model, resolver, locations, request, images, pruneBeforeOptimization,
                     limits, memory, governor, diagnostics, token);
-                if (retirement is not null && before is not null)
-                { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }
             }
+            PdfVersion preparedVersion = model.HeaderVersion;
+            if (placing)
+            {
+                (trailer, preparedVersion, _, _, _) = await PlacementCatalog.ApplyBoundAsync(host, input, model,
+                    trailer, resolver, locations, writer.Underlays, writer.Overlays, false, recovery,
+                    limits, memory, governor, diagnostics, token).ConfigureAwait(false);
+            }
+            if (retirement is not null && before is not null)
+            { GraphReachability.RetireSuperseded(model.Objects, model.CompressedObjects, before, trailer, resolver, retirement, governor, token); }
             memory.Reserve(Json.ImportedModel.AllocationBytes);
-            model = model with { Trailer = trailer, CalledAllPages = true };
+            model = model with { Trailer = trailer, HeaderVersion = preparedVersion, CalledAllPages = true,
+                PushedInheritedResources = model.PushedInheritedResources || placing };
         }
+        if (placing) { model = ImportedPublication.Apply(model, policy, limits, memory, governor, token, out _); }
         model.Trailer.TryGet(PdfName.FromAscii("Root"), out QpdfObject root);
         PdfDictionary? catalog = Content.CatalogCopy.ResolveDictionary(root, resolver, governor, token);
         int level = Content.CatalogCopy.ReadExtensionLevel(catalog, resolver, governor, token);
@@ -731,7 +754,7 @@ internal static class JsonExecution
         RequireEncryptionVersion(security, ref version, ref extensionLevel, writer.ForceVersion, governor);
         using ParserMemoryScope? normalizationMemory = writer.NormalizeContent && writer.Qdf.Enabled ? ParserMemoryScope.Create(governor) : null;
         Json.JsonImport.RenumberedModel renumbered = Json.JsonImport.Renumber(model, limits, governor, diagnostics, memory,
-            splitMemory ?? normalizationMemory, writer.CoalesceContents && !transformContent, out IReadOnlyList<PageLocation>? pages, token);
+            splitMemory ?? normalizationMemory, writer.CoalesceContents && !transformContent && !placing, out IReadOnlyList<PageLocation>? pages, token);
         string mode = ResolveObjectStreamMode(writer.ObjectStreams);
         if (writer.ForceVersion is not null && PdfVersion.CompareParts(version.Major, version.Minor, 1, 5) < 0) { mode = "disable"; }
         List<(IReadOnlyDictionary<int, int> Map, HashSet<int> CompressedOrig)> sources = ParserContainers.CreateList<(IReadOnlyDictionary<int, int>, HashSet<int>)>(memory);
