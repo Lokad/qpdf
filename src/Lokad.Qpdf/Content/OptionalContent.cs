@@ -92,6 +92,41 @@ internal static class OptionalContent
     internal static QpdfObject? Combine(GraphCopier? primaryCopier, IReadOnlyList<GraphCopier> sources, IReadOnlyList<GraphCopier> placements,
         IReadOnlyDictionary<PdfName, QpdfObject>? extras, IReadOnlyDictionary<int, QpdfObject> pool,
         ResourceGovernor governor, CancellationToken token)
+        => CombineCore(primaryCopier, sources, placements, null, extras, pool, governor, token);
+
+    internal static QpdfObject? CombinePlacementLayers(PdfDictionary catalog, GraphCopier primary, PoolResolver resolver,
+        IReadOnlyList<GraphCopier> placements, ParserMemoryScope ownership, ResourceGovernor governor, CancellationToken token)
+    {
+        bool hasLayers = false;
+        foreach (GraphCopier source in placements)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); hasLayers |= source.OptionalContent is not null; }
+        if (!hasLayers) { return null; }
+
+        QpdfObject? role = Read(catalog, "OCProperties"u8, governor, token);
+        GraphCopier? registeredPrimary = null;
+        if (CatalogCopy.ResolveDictionary(role, resolver, governor, token) is PdfDictionary properties
+            && CatalogCopy.ResolveValue(Read(properties, "OCGs"u8, governor, token), resolver, governor, token) is PdfArray members)
+        {
+            for (int index = 0; index < members.Count; index++)
+            {
+                token.ThrowIfCancellationRequested(); governor.CheckCancellation();
+                if (CatalogCopy.ResolveDictionary(members[index], resolver, governor, token) is PdfDictionary group
+                    && !DefaultIntent(Read(group, "Intent"u8, governor, token), resolver, governor, token))
+                { RequireCombinable(OptionalContentFailure.GroupIntent); }
+            }
+            if (primary.RetainsSourceReferences)
+            { role = primary.RetainSourceValue(role ?? properties); }
+            ownership.Reserve(32L);
+            primary.OptionalContent = new(role ?? properties, OptionalContentFailure.None);
+            registeredPrimary = primary;
+        }
+        return CombineCore(registeredPrimary, [], placements, role, null, primary.CopiedObjects, governor, token);
+    }
+
+    private static QpdfObject? CombineCore(GraphCopier? primaryCopier, IReadOnlyList<GraphCopier> sources,
+        IReadOnlyList<GraphCopier> placements, QpdfObject? primaryRaw, IReadOnlyDictionary<PdfName, QpdfObject>? extras,
+        IReadOnlyDictionary<int, QpdfObject> pool,
+        ResourceGovernor governor, CancellationToken token)
     {
         bool any = primaryCopier?.OptionalContent is not null;
         foreach (GraphCopier copier in sources) { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); any |= copier.OptionalContent is not null; }
@@ -100,9 +135,8 @@ internal static class OptionalContent
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
         scratch.Reserve(32L);
         PoolResolver resolver = new(pool);
-        PdfDictionary? primary = null;
-        QpdfObject? primaryRaw = CatalogCopy.ReadExtra(extras, "OCProperties"u8, governor, token);
-        primary = CatalogCopy.ResolveDictionary(primaryRaw, resolver, governor, token);
+        primaryRaw ??= CatalogCopy.ReadExtra(extras, "OCProperties"u8, governor, token);
+        PdfDictionary? primary = CatalogCopy.ResolveDictionary(primaryRaw, resolver, governor, token);
         HashSet<GraphCopier> seen = ParserContainers.CreateSet<GraphCopier>(scratch);
         List<CopiedOptionalContent> contributions = ParserContainers.CreateList<CopiedOptionalContent>(scratch);
         GraphCopier? changedRoots = null;

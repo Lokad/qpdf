@@ -39,6 +39,27 @@ internal static partial class InspectionGraphPreparation
         return PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, reference);
     }
 
+    private static void ApplyInspectionPlacementCatalog(QpdfDocument document, GraphCopier pool, OverlayApplication placements,
+        InspectionGraph lifetime, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    {
+        PdfDictionary trailer = document.Engine.Trailer;
+        using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
+        PoolResolver resolver = pool.CreateResolver(graph.Memory);
+        if (!PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, token, out QpdfObject root)
+            || CatalogCopy.ResolveDictionary(root, resolver, governor, token) is not PdfDictionary catalog)
+        { throw new QpdfParseException("Trailer has no catalog root.", null, null); }
+        QpdfDocument.VersionParts before = document.EffectiveVersionParts;
+        PdfVersion version = governor.PrivateVersion(before.Major, before.Minor);
+        PdfDictionary updated = PlacementCatalog.Apply(catalog, pool, resolver, placements, ref version, memory, graph);
+        if (version.Major != before.Major || version.Minor != before.Minor || placements.ExtensionLevel > 0)
+        { document.Engine.InspectionVersionParts = new(version.Major, version.Minor); }
+        if (!ReferenceEquals(updated, catalog))
+        {
+            document.Engine.SetInspectionTrailer(ReplaceInspectionCatalogRoot(pool, graph, trailer, root, updated, lifetime));
+            graph.Memory.TransferTo(memory, graph.Bytes);
+        }
+    }
+
     private static void ProjectInspectionArticles(QpdfDocument document, GraphCopier pool, List<InspectionPage> pages,
         bool hasBeads, Dictionary<int, PdfReference>? canonicalPages, IReadOnlyDictionary<int, double[]>? frames, InspectionGraph lifetime,
         QpdfLimits limits, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)

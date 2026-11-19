@@ -162,7 +162,7 @@ internal static class SinglePageSelection
                         && (settings.Overlays.Count != 0 || settings.Underlays.Count != 0)
                         ? ParserContainers.CreateSet<int>(copyMemory) : null;
                     bool needAppearances = settings.GenerateAppearances && Content.FlattenAnnotations.NeedsAppearances(document.Engine, governor, cancellationToken);
-                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null, processedContentForms, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
+                    Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, inputPath, occurrences, settings.Underlays, settings.Overlays, singleCompress, singleLevel, recovery, limits, governor, diagnostics, copyMemory, cancellationToken, copier.NextId, null, processedContentForms, true, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
                     copier.AdvanceNextId(overlayApplied.NextId);
 
                     int flattenAllocator = overlayApplied.NextId;

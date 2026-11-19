@@ -33,6 +33,7 @@ internal static class Overlays
         int nextId,
         IIndirectResolver? retainedResolver,
         HashSet<int>? processedContentForms,
+        bool captureOptionalContent,
         bool generateAppearances,
         bool primaryNeedsAppearances)
     {
@@ -190,7 +191,7 @@ internal static class Overlays
             QpdfDocument.VersionParts? version = null; int extensionLevel = 0;
             foreach (OverlaySource source in sources.Values)
             {
-                if (retainedResolver is null)
+                if (captureOptionalContent)
                 {
                     source.Copier.AdvanceNextId(allocator);
                     OptionalContent.Capture(source.Document.Engine, source.Copier, null, ownership, governor, cancellationToken);

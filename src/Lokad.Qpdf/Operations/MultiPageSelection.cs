@@ -391,7 +391,7 @@ internal static class MultiPageSelection
             ApplyRotations(occurrences, ResolveRotationFolds(settings.Rotations, kids.Count, governor, limits, selectionMemory), governor, selectionMemory);
         }
 
-        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
+        Content.OverlayApplication overlayApplied = await Content.Overlays.ApplyAsync(host, primaryInput, occurrences, settings.Underlays, settings.Overlays, multiCompress, multiLevel, recovery, limits, governor, diagnostics, selectionMemory, cancellationToken, nextId, null, processedContentForms, true, settings.GenerateAppearances, needAppearances).ConfigureAwait(false);
 
         needAppearances = IncludeImportedAppearances(settings, overlayApplied, needAppearances, governor, cancellationToken);
         (int multiFlattenAllocator, bool multiGenerated, needAppearances) = CompleteSelectionAppearances(occurrences,

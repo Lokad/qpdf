@@ -45,7 +45,7 @@ public sealed class JsonOperationCompatibilityTests
             string key = setting.Key;
             if (key is not ("linearize" or "qdf" or "removeUnreferencedResources"))
             { yield return [key, "create", "argv"]; }
-            if (key is "qdf" or "linearize" or "overlay" or "underlay")
+            if (key is "qdf" or "linearize")
             { yield return [key, "inspect", "argv"]; }
         }
 
@@ -54,7 +54,7 @@ public sealed class JsonOperationCompatibilityTests
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
             ("overlay", "create", "job"),
             ("flattenAnnotations", "update", "mixed"),
-            ("underlay", "json-output", "argv"),
+            ("underlay", "bound-inspect", "job"),
         ];
         foreach ((string key, string mode, string route) in adapters)
         {

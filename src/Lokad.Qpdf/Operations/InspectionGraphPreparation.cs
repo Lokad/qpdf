@@ -457,7 +457,7 @@ internal static partial class InspectionGraphPreparation
                 Content.OverlayApplication applied = await Content.Overlays.ApplyAsync(host, plan.Input,
                     overlayPages, plan.Underlays, plan.Overlays, false, null, plan.Recovery,
                     limits, governor, diagnostics, memory, cancellationToken, pool.NextId, document.Engine, null,
-                    plan.GenerateAppearances, primaryNeedsAppearances).ConfigureAwait(false);
+                    plan is JsonPlan, plan.GenerateAppearances, primaryNeedsAppearances).ConfigureAwait(false);
                 placementEdits = applied;
                 foreach (GraphCopier source in applied.Copiers)
                 {
@@ -472,6 +472,8 @@ internal static partial class InspectionGraphPreparation
                     UpdateInspectionForm(document, pool, overlayPages, applied.FieldImports,
                         plan.Sources.Count > 0, memory, limits, governor, diagnostics, cancellationToken);
                 }
+                if (plan is JsonPlan)
+                { ApplyInspectionPlacementCatalog(document, pool, applied, lifetime, memory, governor, cancellationToken); }
             }
             if (editAppearances)
             {

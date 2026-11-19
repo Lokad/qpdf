@@ -5745,11 +5745,15 @@
           "source": "manual/cli.rst:1558"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Placement remains unavailable on bound JSON creation, update and export."
+      ],
       "evidence": {
         "positive": [
+          "ReportPlacementTests.JsonOverlayFollowsSelectionAndUsesTheAuthorizedPlacementInput",
+          "ReportPlacementTests.PlacementReportKeepsActiveLayersAndTheOriginalPrivateRegistration",
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "OverlayTests.OverlayStacksStampOnTop",
@@ -5808,6 +5812,7 @@
           "PageInheritanceTests.DifferentAncestorDepthsNullsAndLeafOverridesKeepTheNearestRawValue"
         ],
         "negative": [
+          "ReportPlacementTests.PlacementInputRemainsProtectedFromNamedJsonPublication",
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "AnnotationCoordinateFailureTests.InvalidRecognizedCoordinatesRefusePublicationAndPrivateFieldsStayOpaque",
@@ -8035,11 +8040,14 @@
           "source": "manual/cli.rst:1569"
         }
       ],
-      "status": "complete",
+      "status": "partial",
       "defaultReview": "reviewed",
-      "remainingGaps": [],
+      "remainingGaps": [
+        "Placement remains unavailable on bound JSON creation, update and export."
+      ],
       "evidence": {
         "positive": [
+          "ReportPlacementTests.JsonJobUnderlayPaintsBeforeThePrimaryContent",
           "SignatureSelectionTests.OverlayImportsUseTheSourceSignaturePolicy",
           "SignedAppearanceTests.PlacementKeepsSignatureArtworkAndTheSharedOrdinaryField",
           "OverlayTests.UnderlayGoesBelowOriginal",

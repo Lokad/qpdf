@@ -927,7 +927,7 @@ internal static partial class JobPlanner
             if ((importJson || seenJson || seenJsonOutput)
                 && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate)
                     || importJson && !wantJsonOutput && (flattenAnnotations is not null || generateAppearances || flattenRotation)
-                    || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
+                    || (wantJsonOutput && (qdf || linearize)) || (importJson && (overlays.Count > 0 || underlays.Count > 0))))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
             }
@@ -1079,6 +1079,8 @@ internal static partial class JobPlanner
                     JpegQuality = jpegQuality,
                     Sources = jsonSources,
                     Collation = jsonCollation,
+                    Overlays = overlays,
+                    Underlays = underlays,
                     Rotations = rotations,
                     FlattenAnnotations = flattenAnnotations,
                     GenerateAppearances = generateAppearances,
