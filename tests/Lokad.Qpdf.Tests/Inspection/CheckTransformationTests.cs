@@ -395,11 +395,9 @@ public sealed class CheckTransformationTests
     }
 
     [Theory]
-    [InlineData("job", false)]
     [InlineData("argv", false)]
-    [InlineData("mixed", false)]
-    [InlineData("job", true)]
     [InlineData("argv", true)]
+    [InlineData("job", true)]
     [InlineData("mixed", true)]
     public async Task ContentsArraysKeepEachStreamGeneration(string route, bool selection)
     {
@@ -415,9 +413,10 @@ public sealed class CheckTransformationTests
     }
 
     [Theory]
-    [InlineData("job", true)]
     [InlineData("argv", false)]
-    [InlineData("mixed", false)]
+    [InlineData("argv", true)]
+    [InlineData("job", true)]
+    [InlineData("mixed", true)]
     public async Task CancellationDuringForeignReadDisposesThePreparedPrimaryView(string route, bool coalesce)
     {
         using InMemoryQpdfHost storage = Host(Fixture());

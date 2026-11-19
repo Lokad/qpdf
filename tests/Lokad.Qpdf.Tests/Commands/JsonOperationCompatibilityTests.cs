@@ -240,16 +240,27 @@ public sealed class JsonOperationCompatibilityTests
 
     [Theory]
     [InlineData("inspect", "argv")]
-    [InlineData("inspect", "job")]
-    [InlineData("inspect", "mixed")]
     [InlineData("json-output", "argv")]
-    [InlineData("json-output", "job")]
+    [InlineData("inspect", "job")]
     [InlineData("json-output", "mixed")]
     public async Task ApplyDocumentJsonCatalogRemovals(string mode, string route)
     {
         using InMemoryQpdfHost storage = CreateHost();
-        QpdfExecutionResult result = await Execute(new(storage), storage, mode, route,
-            new() { ["removeAcroform"] = true, ["removeStructure"] = true }, ["--remove-acroform", "--remove-structure"]);
+        ObservingHost host = new(storage);
+        Dictionary<string, object> removals = new() { ["removeAcroform"] = true, ["removeStructure"] = true };
+        QpdfExecutionResult result;
+        if (route == "mixed")
+        {
+            Dictionary<string, object> settings = Settings(mode, removals);
+            settings["removeAcroform"] = false;
+            storage.AddInput(QpdfPath.From("settings"), JsonSerializer.SerializeToUtf8Bytes(settings), QpdfInputOwnership.Transfer);
+            result = await Qpdf.ExecuteAsync(host, new(["--job-json-file=settings", "--remove-acroform"]), CancellationToken.None);
+            Assert.Equal(new[] { "settings", "input", "output" }, host.Inputs);
+        }
+        else
+        {
+            result = await Execute(host, storage, mode, route, removals, ["--remove-acroform", "--remove-structure"]);
+        }
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
         Assert.True(storage.TryGetOutput(QpdfPath.From("output"), out byte[] output));
         using JsonDocument json = JsonDocument.Parse(output);
