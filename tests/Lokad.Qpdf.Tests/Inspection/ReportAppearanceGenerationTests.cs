@@ -110,7 +110,7 @@ public sealed class ReportAppearanceGenerationTests
         return host;
     }
 
-    private static byte[] Fixture() => PdfTestDocument.Assemble([
+    internal static byte[] Fixture() => PdfTestDocument.Assemble([
             (1, "<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R /Audit 7 0 R >>", null),
             (2, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>", null),
             (3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Resources << >> /Annots [5 0 R] /Contents 8 0 R >>", null),

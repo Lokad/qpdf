@@ -132,12 +132,12 @@ internal static partial class AcroFormCopy
             ParserContainers.AddItem(result, copiedFields, link, IntPtr.Size);
         }
         CopiedForm form = DescribeForm(source, resolver, copier.CopiedObjects, copiedFields, hasFields, copier,
-            retainSourceObjects, governor, result, cancellationToken);
+            retainSourceObjects, retainSourceObjects, governor, result, cancellationToken);
         result.TransferTo(ownership); return form;
     }
 
     internal static CopiedForm? ReadBoundForm(PdfDictionary catalog, IIndirectResolver resolver,
-        Dictionary<int, QpdfObject> pool, ref int nextNumber, ParserMemoryScope memory,
+        Dictionary<int, QpdfObject> pool, ref int nextNumber, bool preserveSignatureFlags, ParserMemoryScope memory,
         ResourceGovernor governor, CancellationToken token)
     {
         if (!PdfDictionaryLookup.TryGet(catalog, "AcroForm"u8, governor, token, out QpdfObject raw) || raw is PdfNull)
@@ -169,12 +169,12 @@ internal static partial class AcroFormCopy
         }
         else if (value is not (null or PdfNull))
         { throw new QpdfParseException("Catalog /AcroForm /Fields must be an array.", null, null); }
-        return DescribeForm(form, resolver, pool, fields, value is PdfArray, null, false, governor, memory, token);
+        return DescribeForm(form, resolver, pool, fields, value is PdfArray, null, false, preserveSignatureFlags, governor, memory, token);
     }
 
     private static CopiedForm DescribeForm(PdfDictionary source, IIndirectResolver resolver,
         IReadOnlyDictionary<int, QpdfObject> pool, IReadOnlyList<PdfReference> copiedFields, bool hasFields,
-        GraphCopier? copier, bool retainSourceObjects, ResourceGovernor governor, ParserMemoryScope result,
+        GraphCopier? copier, bool retainSourceObjects, bool preserveSignatureFlags, ResourceGovernor governor, ParserMemoryScope result,
         CancellationToken cancellationToken)
     {
         bool hasNeed = false;
@@ -189,7 +189,7 @@ internal static partial class AcroFormCopy
             PdfName key = sourceEntries.Current.Key;
             QpdfObject raw = sourceEntries.Current.Value;
             ReadOnlySpan<byte> text = key.RawSpan;
-            if (text.SequenceEqual("Fields"u8) || (!retainSourceObjects && text.SequenceEqual("SigFlags"u8)))
+            if (text.SequenceEqual("Fields"u8) || (!preserveSignatureFlags && text.SequenceEqual("SigFlags"u8)))
             {
                 continue;
             }
@@ -287,18 +287,18 @@ internal static partial class AcroFormCopy
 
         ownership.CheckOwner(governor);
         using ParserMemoryScope scratch = ParserMemoryScope.Create(governor);
-        foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
+        if (!ReferenceEquals(copier.CopiedObjects, pool))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            governor.NoteOperation();
-            if (pool.TryGetValue(entry.Key, out QpdfObject? existing) && !ReferenceEquals(existing, entry.Value))
+            foreach (KeyValuePair<int, QpdfObject> entry in copier.CopiedObjects)
             {
-                throw new QpdfException("Form copy encountered conflicting output object identities.");
-            }
-            if (existing is null)
-            {
-                ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
-                pool.Add(entry.Key, entry.Value);
+                cancellationToken.ThrowIfCancellationRequested(); governor.NoteOperation();
+                if (pool.TryGetValue(entry.Key, out QpdfObject? existing) && !ReferenceEquals(existing, entry.Value))
+                { throw new QpdfException("Form copy encountered conflicting output object identities."); }
+                if (existing is null)
+                {
+                    ParserContainers.EnsureEntryCapacity(ownership, pool, IntPtr.Size);
+                    pool.Add(entry.Key, entry.Value);
+                }
             }
         }
         if (part is null && overlayImports.Count == 0 && additionalFields.Count == 0)
@@ -339,7 +339,8 @@ internal static partial class AcroFormCopy
         HashSet<GraphCopier> refreshed = ParserContainers.CreateSet<GraphCopier>(scratch);
         foreach (GraphCopier sourceCopier in allCopiers)
         {
-            if (!ParserContainers.AddSetItem(scratch, refreshed, sourceCopier, IntPtr.Size)) { continue; }
+            if (ReferenceEquals(sourceCopier.CopiedObjects, pool)
+                || !ParserContainers.AddSetItem(scratch, refreshed, sourceCopier, IntPtr.Size)) { continue; }
             foreach (KeyValuePair<int, QpdfObject> entry in sourceCopier.CopiedObjects)
             {
                 cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();

@@ -48,7 +48,7 @@ internal static class JsonSplitPublication
             foreach (int number in pool.Keys)
             { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); maximum = Math.Max(maximum, number); }
             int pagesNumber = checked(++maximum);
-            CopiedForm? form = AcroFormCopy.ReadBoundForm(catalog, resolver, pool, ref maximum, split, governor, token);
+            CopiedForm? form = AcroFormCopy.ReadBoundForm(catalog, resolver, pool, ref maximum, false, split, governor, token);
             HashSet<int> pageNumbers = ParserContainers.CreateSet<int>(split);
             Dictionary<int, PdfReference>? articleAliases = null;
             List<PdfReference> kids = PreparePages(pages, pool, resolver, pagesNumber, ref maximum, pageNumbers,

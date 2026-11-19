@@ -479,11 +479,11 @@ rotation to the authored or patched graph. For either input, `--normalize-conten
 normalizes active page programs before projection using their effective resources.
 Edited programs gain new stream identities and independent aliases retain source
 bytes. Unsupported programs retain their original bytes and report a warning.
-PDF-to-JSON export can generate appearances and flatten annotations. When both
-are requested, flattening paints the generated programs. The active form
-retains surviving fields and clears NeedAppearances after successful generation.
-Baking rotation before PDF-to-JSON projection updates page boxes, page programs,
-annotation geometry, viewports and active navigation together.
+JSON export from a PDF or bound graph can generate appearances and flatten
+annotations. When both are requested, flattening paints the generated programs.
+The active form retains surviving fields and clears NeedAppearances after
+successful generation. Baking rotation before projection updates page boxes,
+page programs, annotation geometry, viewports and active navigation together.
 Export from a PDF can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)

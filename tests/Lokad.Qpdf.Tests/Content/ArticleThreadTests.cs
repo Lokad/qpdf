@@ -104,6 +104,30 @@ public sealed partial class ArticleThreadTests
     }
 
     [Fact]
+    public async Task BoundRotationProjectsAnArticleAcrossRepeatedOccurrences()
+    {
+        using InMemoryQpdfHost host = Host();
+        host.AddInput(QpdfPath.From("patch.json"),
+            """{"qpdf":[{"jsonversion":2},{"obj:2 0 R":{"value":{"/Type":"/Pages","/Kids":["3 0 R","3 0 R","5 0 R"],"/Count":3}}}]}"""u8.ToArray(),
+            QpdfInputOwnership.Transfer);
+        QpdfExecutionResult report = await Run(host, "input.pdf", "--update-from-json=patch.json", "--rotate=90:2",
+            "--flatten-rotation", "--json-output");
+        Assert.Equal(QpdfExitCode.Warning, report.ExitCode);
+        Assert.Contains(report.Diagnostics, item => item.Code == QpdfDiagnosticCode.RecoveryEngaged);
+        host.AddInput(QpdfPath.From("report.json"), System.Text.Encoding.UTF8.GetBytes(Assert.IsType<string>(report.OutputText)),
+            QpdfInputOwnership.Transfer);
+        Assert.Equal(QpdfExitCode.Success, (await Run(host, "--json-input", "report.json", "recreated.pdf")).ExitCode);
+        await using QpdfDocument output = await Open(host, "recreated.pdf");
+        AssertArticle(output, "1:1,2:1,1:2,2:2,3:3", "2,1/2,1/3");
+        AssertPrivate(output, true);
+        PdfDictionary active = Dict(output, Array(output, Value(Catalog(output), "Threads"))[0]);
+        PdfDictionary first = Dict(output, Value(active, "F"));
+        PdfDictionary second = Dict(output, Value(first, "N"));
+        Assert.Equal([10d, 10d, 20d, 30d], Numbers(output, Value(first, "R")));
+        Assert.Equal([10d, 80d, 30d, 90d], Numbers(output, Value(second, "R")));
+    }
+
+    [Fact]
     public async Task BrokenReciprocalChainOmitsBothActiveRoles()
     {
         using InMemoryQpdfHost host = Host(true);

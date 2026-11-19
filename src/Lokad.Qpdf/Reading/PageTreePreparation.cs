@@ -13,7 +13,7 @@ internal static class PageTreePreparation
         [PdfName.FromAscii("CropBox"), PdfName.FromAscii("MediaBox"), PdfName.FromAscii("Resources"), PdfName.FromAscii("Rotate")];
 
     internal sealed record Prepared(PdfDictionary Trailer, Dictionary<int, QpdfObject> Objects,
-        HashSet<PdfReference> AddedReferences, List<PageLocation>? Pages);
+        HashSet<PdfReference> AddedReferences, List<PageLocation>? Pages, Dictionary<int, PdfReference>? ArticleAliases);
 
     internal static Prepared Prepare(DocumentEngine source, bool pushInherited, QpdfLimits limits,
         ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
@@ -29,8 +29,9 @@ internal static class PageTreePreparation
         => PrepareCore(source, trailer, null, allocateNumber, pushInherited, false, limits, values, temporary, governor, token);
 
     internal static Prepared PrepareBoundForInspection(IIndirectResolver source, PdfDictionary trailer, Func<int> allocateNumber,
-        QpdfLimits limits, ParserMemoryScope values, ParserMemoryScope temporary, ResourceGovernor governor, CancellationToken token)
-        => PrepareCore(source, trailer, null, allocateNumber, false, true, limits, values, temporary, governor, token);
+        bool pushInherited, QpdfLimits limits, ParserMemoryScope values, ParserMemoryScope temporary,
+        ResourceGovernor governor, CancellationToken token)
+        => PrepareCore(source, trailer, null, allocateNumber, pushInherited, true, limits, values, temporary, governor, token);
 
     private static Prepared PrepareCore(IIndirectResolver source, PdfDictionary trailer, IReadOnlyDictionary<int, XrefEntry>? xrefs,
         Func<int>? allocateNumber, bool pushInherited, bool collectPages, QpdfLimits limits,
@@ -39,7 +40,7 @@ internal static class PageTreePreparation
         values.CheckOwner(governor); temporary.CheckOwner(governor);
         using ParserMemoryScope traversal = ParserMemoryScope.Create(governor);
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
-        temporary.Reserve(128L);
+        temporary.Reserve(136L);
         Builder builder = new(source, trailer, xrefs, allocateNumber, pushInherited, collectPages, limits, temporary, traversal, graph);
         Prepared prepared = builder.Build();
         // The overlay indexes are temporary; immutable headers may be borrowed
@@ -84,6 +85,7 @@ internal static class PageTreePreparation
         private readonly HashSet<PdfReference> _added;
         private readonly HashSet<int> _containers, _pages;
         private readonly List<PageLocation>? _locations;
+        private Dictionary<int, PdfReference>? _articleAliases;
         private int _greatest;
         private ResourceGovernor Governor => _graph.Governor;
         private CancellationToken Token => _graph.Token;
@@ -140,8 +142,8 @@ internal static class PageTreePreparation
                     _locations[index] = new(reference, Dictionary(reference));
                 }
             }
-            _temporary.Reserve(48L);
-            return new(trailer, _objects, _added, _locations);
+            _temporary.Reserve(56L);
+            return new(trailer, _objects, _added, _locations, _articleAliases);
         }
 
         private void Visit(long depth)
@@ -221,7 +223,12 @@ internal static class PageTreePreparation
                     childRaw = Store(childRaw, leaf);
                     if (childRaw is PdfReference page
                         && !ParserContainers.AddSetItem(_traversal, _pages, page.ObjectNumber, sizeof(int)))
-                    { childRaw = Allocate(Clone(leaf)); }
+                    {
+                        PdfReference duplicate = Allocate(Clone(leaf));
+                        if (_xrefs is null && _locations is not null && _pushInherited)
+                        { ArticleThreads.RememberDuplicate(leaf, duplicate.ObjectNumber, page.ObjectNumber, page.Generation, ref _articleAliases, _graph.Memory); }
+                        childRaw = duplicate;
+                    }
                     if (_locations is not null)
                     { ParserContainers.AddItem(_graph.Memory, _locations, new PageLocation((PdfReference)childRaw, leaf), 16L); }
                 }

@@ -52,9 +52,7 @@ public sealed class JsonOperationCompatibilityTests
         // Sample operation and adapter wiring independently of setting policy.
         (string Key, string Mode, string Route)[] adapters = [
             ("removeUnreferencedResources", "bound-inspect", "mixed"),
-            ("generateAppearances", "bound-inspect", "job"),
             ("overlay", "create", "job"),
-            ("flattenRotation", "bound-inspect", "job"),
             ("flattenAnnotations", "update", "mixed"),
             ("underlay", "json-output", "argv"),
         ];

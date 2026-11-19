@@ -66,9 +66,13 @@ internal static class FlattenAnnotations
             return false;
         }
 
-        return PdfDictionaryLookup.TryGet(formDict, "NeedAppearances"u8, governor, token, out QpdfObject need)
-            && CatalogCopy.ResolveValue(need, engine, governor, token) is PdfBoolean flag && flag.Value;
+        return NeedsAppearances(formDict, engine, governor, token);
     }
+
+    internal static bool NeedsAppearances(PdfDictionary? form, IIndirectResolver resolver, ResourceGovernor governor,
+        CancellationToken token)
+        => form is not null && PdfDictionaryLookup.TryGet(form, "NeedAppearances"u8, governor, token, out QpdfObject need)
+            && CatalogCopy.ResolveValue(need, resolver, governor, token) is PdfBoolean { Value: true };
 
     internal static (int NextId, bool RemovedWidgets) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
@@ -153,7 +157,7 @@ internal static class FlattenAnnotations
             long rotate = 0L;
             page.TryGet(Rotate, out QpdfObject? rotateRaw);
             page.TryGet(Resources, out QpdfObject? resourcesRaw);
-            if (copier.RetainsSourceReferences)
+            if (copier.RetainsSourceReferences || copier.IsBound)
             {
                 PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(resolver, new(null, page),
                     InheritedInputs, limits, governor, cancellationToken);

@@ -29,19 +29,30 @@ internal static class ImportedPublication
             PdfReference source = page.Source ?? throw new InvalidOperationException("Missing prepared page identity.");
             ids.Add(source.ObjectNumber);
         }
-        int largest = 0;
-        foreach (int number in model.Objects.Keys)
-        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
-        if (largest == int.MaxValue)
-        { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
-        GraphCopier copier = GraphCopier.CreateBoundOwned(model.Objects, resolver, governor, limits, largest + 1, memory);
+        int first = NextObjectNumber(model, governor, token);
+        GraphCopier copier = GraphCopier.CreateBoundOwned(model.Objects, resolver, governor, limits, first, memory);
         ContentTransforms.ApplyPageTransforms(copier, ids, request, limits, governor, diagnostics, token);
         if (request.Externalize)
         { ContentTransforms.ExternalizeForms(copier, ids, request, null, limits, governor, diagnostics, token); }
         if (pruneResources)
         { ContentTransforms.ApplyResourcePruning(copier, ids, request.BoundPageContent, limits, governor, diagnostics, token); }
         ImageOptimizer.Apply(copier, ids, images, limits, governor, diagnostics, token);
-        return (largest + 1, copier.NextId);
+        return (first, copier.NextId);
+    }
+
+    internal static int NextObjectNumber(ImportedModel model, ResourceGovernor governor, CancellationToken token)
+    {
+        int largest = 0;
+        foreach (int number in model.Objects.Keys)
+        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
+        if (model.OriginalPairs is { } reserved)
+        {
+            foreach (int number in reserved.Values)
+            { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); largest = Math.Max(largest, number); }
+        }
+        if (largest == int.MaxValue)
+        { throw new QpdfParseException("No object identity is available for content preparation.", null, null); }
+        return largest + 1;
     }
 
     private static void BindImageResources(Dictionary<int, QpdfObject> objects, PoolResolver resolver,
