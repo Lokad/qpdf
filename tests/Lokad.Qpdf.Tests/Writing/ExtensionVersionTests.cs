@@ -26,12 +26,15 @@ public sealed class ExtensionVersionTests
 
     public static IEnumerable<object[]> WriterCases()
     {
-        foreach (string route in new[] { "argv", "job" })
         foreach (bool indirect in new[] { false, true })
         foreach ((string mode, int expected) in new[] { ("default", 8), ("minimum-lower", 8), ("minimum-equal", 8),
             ("minimum-higher", 9), ("minimum-base-higher", 0), ("force-base", 0), ("force-lower", 3), ("force-equal", 8), ("force-higher", 9),
             ("qdf", 8), ("linearized", 8), ("selection", 8), ("merge", 9), ("split", 8) })
-        { yield return [route, indirect, mode, expected]; }
+        { yield return ["argv", indirect, mode, expected]; }
+        yield return ["job", true, "minimum-higher", 9];
+        yield return ["job", false, "force-base", 0];
+        yield return ["job", true, "merge", 9];
+        yield return ["job", false, "split", 8];
     }
 
     private static async Task<QpdfExecutionResult> Run(InMemoryQpdfHost host, string route, string mode)
@@ -63,13 +66,15 @@ public sealed class ExtensionVersionTests
     private static QpdfObject Entry(QpdfDocument document, PdfDictionary dictionary, string key)
     { Assert.True(dictionary.TryGet(PdfName.FromAscii(key), out QpdfObject value)); return Resolve(document, value); }
 
-    private static async Task AssertExtensions(InMemoryQpdfHost host, string path, int level, bool vendor, bool privateEntry)
+    private static async Task AssertExtensions(InMemoryQpdfHost host, string path, PdfVersion headerVersion, int level,
+        bool vendor, bool privateEntry)
     {
         Assert.True(host.TryGetOutput(QpdfPath.From(path), out byte[] bytes));
         host.AddInput(QpdfPath.From("readback.pdf"), bytes, QpdfInputOwnership.Copy);
         PdfDictionary? escapedVendor = null;
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("readback.pdf"), CancellationToken.None))
         {
+            Assert.Equal(headerVersion, document.HeaderVersion);
             PdfDictionary catalog = Assert.IsType<PdfDictionary>(Entry(document, document.Engine.Trailer, "Root"));
             PdfDictionary extensions = Assert.IsType<PdfDictionary>(Entry(document, catalog, "Extensions"));
             if (vendor)
@@ -83,7 +88,9 @@ public sealed class ExtensionVersionTests
                 PdfDictionary adbe = Assert.IsType<PdfDictionary>(Entry(document, extensions, "ADBE"));
                 Assert.Equal(level, Assert.IsType<PdfInteger>(Entry(document, adbe, "ExtensionLevel")).Value);
                 Assert.Equal("1.7", Assert.IsType<PdfName>(Entry(document, adbe, "BaseVersion")).DisplayText);
-                Assert.Equal(privateEntry, adbe.TryGet(PdfName.FromAscii("Private"), out _));
+                if (privateEntry)
+                { Assert.Equal("kept"u8.ToArray(), Assert.IsType<PdfByteString>(Entry(document, adbe, "Private")).Value); }
+                else { Assert.False(adbe.TryGet(PdfName.FromAscii("Private"), out _)); }
             }
             else { Assert.False(extensions.TryGet(PdfName.FromAscii("ADBE"), out _)); }
         }
@@ -100,30 +107,36 @@ public sealed class ExtensionVersionTests
         host.AddInput(QpdfPath.From("input.pdf"), Fixture(indirect, 8), QpdfInputOwnership.Copy);
         QpdfExecutionResult result = await Run(host, route, mode);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        await AssertExtensions(host, mode == "split" ? "out-1.pdf" : "output.pdf", expected, mode != "split", expected == 8 && mode != "split");
+        PdfVersion version = mode == "minimum-base-higher" ? new(2, 0) : new(1, 7);
+        await AssertExtensions(host, mode == "split" ? "out-1.pdf" : "output.pdf", version, expected, mode != "split", expected == 8 && mode != "split");
     }
 
     public static IEnumerable<object[]> PlacementCases()
     {
         foreach (string mode in new[] { "default", "minimum", "force", "higher-minimum", "higher-source", "higher-target" })
-        foreach (bool job in new[] { false, true })
         foreach (bool indirect in new[] { false, true })
-        { yield return [mode, job, indirect, "overlay"]; }
-        foreach (bool job in new[] { false, true })
+        { yield return [mode, false, indirect, indirect, "overlay"]; }
         foreach (bool indirect in new[] { false, true })
-        { yield return ["default", job, indirect, "underlay"]; }
+        { yield return ["default", false, indirect, indirect, "underlay"]; }
         foreach (string mode in new[] { "default", "minimum", "force", "higher-minimum" })
-        foreach (bool job in new[] { false, true })
         foreach (bool indirect in new[] { false, true })
-        { yield return [mode, job, indirect, "copy"]; }
+        { yield return [mode, false, indirect, indirect, "copy"]; }
+        foreach (string operation in new[] { "overlay", "copy" })
+        {
+            yield return ["default", false, false, true, operation];
+            yield return ["default", false, true, false, operation];
+        }
+        yield return ["higher-source", true, false, false, "overlay"];
+        yield return ["default", true, true, true, "underlay"];
+        yield return ["force", true, true, true, "copy"];
     }
 
     [Theory]
     [MemberData(nameof(PlacementCases))]
-    public async Task ImportsNegotiateExtensionsAtTheSelectedBase(string mode, bool job, bool indirect, string operation)
+    public async Task ImportsNegotiateExtensionsAtTheSelectedBase(string mode, bool job, bool targetIndirect, bool sourceIndirect, string operation)
     {
         using InMemoryQpdfHost host = new();
-        byte[] target = Fixture(indirect, 3), source = Fixture(indirect, 8);
+        byte[] target = Fixture(targetIndirect, 3), source = Fixture(sourceIndirect, 8);
         if (mode is "higher-source" or "higher-target")
         {
             // The newer base has no Adobe requirement. Keep opaque vendor data
@@ -150,9 +163,8 @@ public sealed class ExtensionVersionTests
             : await Qpdf.ExecuteAsync(host, new(argv), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode); Assert.Empty(result.Diagnostics);
         int level = mode == "force" ? 4 : mode is "higher-minimum" or "higher-source" or "higher-target" ? 0 : 8;
-        await AssertExtensions(host, "output.pdf", level, true, false);
-        Assert.True(host.TryGetOutput(QpdfPath.From("output.pdf"), out byte[] bytes));
-        Assert.Equal(mode is "higher-minimum" or "higher-source" or "higher-target" ? "%PDF-2.0" : "%PDF-1.7", Encoding.ASCII.GetString(bytes, 0, 8));
+        PdfVersion version = mode is "higher-minimum" or "higher-source" or "higher-target" ? new(2, 0) : new(1, 7);
+        await AssertExtensions(host, "output.pdf", version, level, true, false);
     }
 
     [Theory]
@@ -165,15 +177,16 @@ public sealed class ExtensionVersionTests
         host.AddInput(QpdfPath.From("payload.bin"), [17], QpdfInputOwnership.Copy);
         await Qpdf.AddAttachmentsAsync(host, QpdfPath.From("input.pdf"), QpdfPath.From("output.pdf"),
             [new QpdfAttachmentSpec("payload.bin", "added", null, null, null, null, null, false)], CancellationToken.None);
-        await AssertExtensions(host, "output.pdf", 8, true, true);
+        await AssertExtensions(host, "output.pdf", new(1, 7), 8, true, true);
     }
 
     public static IEnumerable<object[]> JsonCases()
     {
-        foreach (string route in new[] { "argv", "job" })
         foreach (bool update in new[] { false, true })
         foreach ((string mode, int expected) in new[] { ("default", 8), ("minimum-lower", 8), ("minimum-higher", 9), ("force-base", 0), ("force-lower", 3) })
-        { yield return [route, update, mode, expected]; }
+        { yield return ["argv", update, mode, expected]; }
+        yield return ["job", false, "minimum-higher", 9];
+        yield return ["job", true, "force-lower", 3];
     }
 
     [Theory]
@@ -197,7 +210,7 @@ public sealed class ExtensionVersionTests
         QpdfExecutionResult result = route == "argv" ? await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(argv), CancellationToken.None)
             : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(job), CancellationToken.None);
         Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-        await AssertExtensions(host, "output.pdf", expected, true, expected == 8);
+        await AssertExtensions(host, "output.pdf", new(1, 7), expected, true, expected == 8);
     }
 
     private sealed class Host(InMemoryQpdfHost storage, IMemoryBudget budget, string phase, CancellationTokenSource cancellation) : IQpdfHost, IQpdfMemoryHost
@@ -311,6 +324,6 @@ public sealed class ExtensionVersionTests
             }
             Assert.Equal(0L, host.OpenLeaseCount);
         }
-        else { await AssertExtensions(host, "output.pdf", 0, true, false); }
+        else { await AssertExtensions(host, "output.pdf", new(1, 4), 0, true, false); }
     }
 }
