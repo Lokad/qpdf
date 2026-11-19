@@ -483,6 +483,7 @@ internal static class DocumentCheck
         int skipped = 0;
         int aboveLevel = 0;
         using DisplayBuffer failures = DisplayBuffer.Create(governor, false);
+        using PageProgramCache? programs = pages.Count > 1 ? PageProgramCache.TryCreate(governor, cancellationToken) : null;
         int failureCount = 0;
         int pageNumber = 0;
         for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
@@ -511,13 +512,16 @@ internal static class DocumentCheck
 
             QpdfObject? resources = PageInheritance.Find(resolver, location, PdfName.FromAscii("Resources"), limits, governor, cancellationToken);
             if (streams.Count == 0) { continue; }
-            using AnalysisChunks? chunks = streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
+            bool alreadyTokenized = programs?.Contains(streams, resources) == true;
+            using AnalysisChunks? chunks = !alreadyTokenized && streams.Count > 1 ? AnalysisChunks.Create(governor, cancellationToken) : null;
             cache.BeginPage();
             try
             {
                 bool complete = true;
                 bool pageAboveLevel = false;
                 bool unavailable = false;
+                bool usesResources = false;
+                long emissions = diagnostics.EmissionVersion;
                 for (int streamIndex = 0; streamIndex < streams.Count; streamIndex++)
                 {
                     PdfStream stream = streams.Get(streamIndex).Stream;
@@ -530,13 +534,13 @@ internal static class DocumentCheck
                         chunks?.Dispose();
                         continue;
                     }
-                    if (!complete) { continue; }
+                    if (!complete || alreadyTokenized) { continue; }
                     if (chunks is not null)
                     {
                         if (owned) { chunks.Add(bytes.Value, decodedMemory); }
                         else { chunks.AddBorrowed(bytes.Value); }
                     }
-                    else { TokenizeCheckStream(bytes.Value, resources, resolver, limits, governor, diagnostics, cancellationToken); }
+                    else { usesResources = TokenizeCheckStream(bytes.Value, resources, resolver, limits, governor, diagnostics, cancellationToken); }
                 }
                 if (!complete)
                 {
@@ -547,8 +551,10 @@ internal static class DocumentCheck
                 if (chunks is not null)
                 {
                     using JoinedContent joined = chunks.Join();
-                    TokenizeCheckStream(joined.RawBytes, resources, resolver, limits, governor, diagnostics, cancellationToken);
+                    usesResources = TokenizeCheckStream(joined.RawBytes, resources, resolver, limits, governor, diagnostics, cancellationToken);
                 }
+                if (!alreadyTokenized && diagnostics.EmissionVersion == emissions)
+                { programs?.Remember(streams, resources, usesResources); }
                 examined += 1;
             }
             catch (QpdfFilterException ex) when (ex.Reason == QpdfFilterFailureReason.UnsupportedFilter)
@@ -978,7 +984,7 @@ internal static class DocumentCheck
         }
     }
 
-    private static void TokenizeCheckStream(
+    private static bool TokenizeCheckStream(
         ReadOnlyMemory<byte> bytes,
         QpdfObject? resources,
         IIndirectResolver resolver,
@@ -987,6 +993,7 @@ internal static class DocumentCheck
         DiagnosticBag diagnostics,
         CancellationToken cancellationToken)
     {
+        bool usesResources = false;
         ContentTokenizer tokenizer = new(bytes, governor, cancellationToken);
         while (tokenizer.TryReadToken(out ContentToken token))
         {
@@ -994,8 +1001,10 @@ internal static class DocumentCheck
             governor.NoteOperation();
             if (token.Kind == ContentTokenKind.Operator && token.Data.Span.SequenceEqual("ID"u8))
             {
+                usesResources = true;
                 InlineImageStorage.ReadData(tokenizer, resources, resolver, limits, governor, diagnostics, cancellationToken, out _);
             }
         }
+        return usesResources;
     }
 }

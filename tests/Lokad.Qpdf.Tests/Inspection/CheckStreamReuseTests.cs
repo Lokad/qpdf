@@ -1,3 +1,5 @@
+using System.Reflection;
+using Lokad.Qpdf.Content;
 using Lokad.Qpdf.Filters;
 using System.IO.Compression;
 using System.Text;
@@ -81,6 +83,76 @@ public sealed class CheckStreamReuseTests
         Assert.Equal(expected, content.Status);
         if (expected == QpdfCheckStatus.Failed) { Assert.Contains("Page 2 content:", content.Detail); Assert.DoesNotContain("Page 1 content:", content.Detail); }
         Assert.Equal(program.Length, result.Counters.TotalDecodedBytes); Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Fact]
+    public async Task SharedProgramsReuseTokenizationAcrossSeparateArraysAndResources()
+    {
+        byte[] first = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("0 0 m 1 1 l S\n", 1024)));
+        byte[] last = "n\n"u8.ToArray();
+        long single = await CountWork(1);
+        long repeated = await CountWork(24);
+        Assert.True(single > 7000L);
+        Assert.InRange(repeated, single, single * 2L);
+
+        async Task<long> CountWork(int count)
+        {
+            using InMemoryQpdfHost host = new();
+            QpdfPath input = QpdfPath.From("programs.pdf");
+            host.AddInput(input, Document([first, last], Enumerable.Range(0, count).Select(_ => new[] { 0, 1 }).ToArray(),
+                Enumerable.Repeat("<< >>", count).ToArray()), QpdfInputOwnership.Transfer);
+            await using QpdfDocument document = await QpdfDocument.OpenAsync(host, input, CancellationToken.None);
+            QpdfLimits limits = QpdfLimits.Default with { CancellationCheckInterval = long.MaxValue };
+            ResourceGovernor governor = new(limits, CancellationToken.None);
+            DiagnosticBag diagnostics = new(governor);
+            using (DecodedStreamCache cache = DecodedStreamCache.Create(governor, limits, CancellationToken.None))
+            {
+                QpdfCheckOutcome check = DocumentCheck.CheckPageContent(document.Engine, document.PageReferences,
+                    new QpdfCheckOptions(), limits, governor, diagnostics, cache, CancellationToken.None);
+                Assert.Equal(QpdfCheckStatus.Passed, check.Status);
+                Assert.Equal($"{count} page programs tokenized, 0 skipped.", check.Detail);
+                Assert.Empty(diagnostics.Entries);
+                Assert.Equal(first.Length + last.Length, governor.Snapshot().TotalDecodedBytes);
+            }
+            FieldInfo work = typeof(ResourceGovernor).GetField("_operationsSinceCheck", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Missing work counter.");
+            return Assert.IsType<long>(work.GetValue(governor));
+        }
+    }
+
+    [Fact]
+    public async Task ReorderingSharedFragmentsRetainsThePageLocalFailure()
+    {
+        using InMemoryQpdfHost host = new();
+        QpdfPath input = QpdfPath.From("ordered.pdf");
+        byte[] prefix = "(open"u8.ToArray(), suffix = ") Tj\n"u8.ToArray();
+        host.AddInput(input, Document([prefix, suffix], [[0, 1], [1, 0], [0, 1]],
+            ["<< >>", "<< >>", "<< >>"]), QpdfInputOwnership.Transfer);
+        QpdfCheckResult result = await Qpdf.CheckAsync(host, input, CancellationToken.None);
+        QpdfCheckOutcome content = Assert.Single(result.Checks, check => check.Name == "page-content");
+        Assert.Equal(QpdfCheckStatus.Failed, content.Status);
+        Assert.Contains("Page 2 content:", content.Detail);
+        Assert.DoesNotContain("Page 1 content:", content.Detail);
+        Assert.DoesNotContain("Page 3 content:", content.Detail);
+        Assert.Equal(prefix.Length + suffix.Length, result.Counters.TotalDecodedBytes);
+    }
+
+    [Fact]
+    public void EqualBytesInSeparateStreamObjectsKeepSeparateKeys()
+    {
+        ResourceGovernor governor = new(QpdfLimits.Default, CancellationToken.None);
+        PdfDictionary header = new(new Dictionary<PdfName, QpdfObject>());
+        using (PageProgramCache cache = Assert.IsType<PageProgramCache>(PageProgramCache.TryCreate(governor, CancellationToken.None)))
+        using (ContentEntries first = ContentEntries.Create(governor, CancellationToken.None))
+        using (ContentEntries second = ContentEntries.Create(governor, CancellationToken.None))
+        {
+            first.Add(new(null, 0, new PdfStream(header, "q Q\n"u8.ToArray())));
+            second.Add(new(null, 0, new PdfStream(header, "q Q\n"u8.ToArray())));
+            cache.Remember(first, null, false);
+            Assert.True(cache.Contains(first, null));
+            Assert.False(cache.Contains(second, null));
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
     }
 
     [Fact]

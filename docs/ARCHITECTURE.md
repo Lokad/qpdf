@@ -75,9 +75,10 @@ become static stamps using their stored appearances.
 ## Inspection and publication
 
 Checking and listing use the same effective graph. Physical checks use the
-acquired file. A job shares hint analysis across its structural check and
-linearization reports. Attachment reports share a name-tree walker, and page
-reports share inherited image lookup.
+acquired file. Checking reuses successful page tokenization by stream order
+and inline-image resource context. A job shares hint analysis across its
+structural check and linearization reports. Attachment reports share a
+name-tree walker, and page reports share inherited image lookup.
 [Inspection profile](SUPPORTED-PROFILE.md#inspection-profile)
 
 JSON imports and ordinary writes share catalog, version and split policies.
