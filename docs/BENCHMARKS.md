@@ -91,9 +91,12 @@ dotnet $bench --memory-report enabled 30 7 32 security-plain-rewrite security-r4
 Authentication measures a public one-page password predicate including
 acquisition and cleanup. The other workloads open, rewrite or select pages
 from the prepared document through a fresh host. Use the pinned qpdf check
-to validate prepared protected documents with both credentials. Use .NET 10
-for the BenchmarkDotNet security dry run.
+to validate prepared protected documents with both credentials. Run the .NET 10
+BenchmarkDotNet dry job from a checkout containing one benchmark project copy.
 
 ```powershell
 dotnet benchmarks/Lokad.Qpdf.Benchmarks/bin/Release/net10.0/Lokad.Qpdf.Benchmarks.dll --filter '*SecurityBenchmarks*' --job Dry
 ```
+
+The benchmark launcher exits nonzero when a measurement invocation selects no
+workloads or any selected workload fails. Use `--list flat` to inspect selection.

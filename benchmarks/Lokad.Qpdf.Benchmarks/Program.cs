@@ -1,3 +1,8 @@
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.ConsoleArguments;
+using BenchmarkDotNet.ConsoleArguments.ListBenchmarks;
+using BenchmarkDotNet.Loggers;
+using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 
 namespace Lokad.Qpdf.Benchmarks;
@@ -32,14 +37,35 @@ internal static class Program
                 return MemoryReport.Run(args[1..]);
             }
 
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, BenchmarkDotNet.Configs.DefaultConfig.Instance);
-            return 0;
+            return RunBenchmarks(args);
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("qpdfbench: unexpected failure: " + ex.GetType().Name + ": " + ex.Message);
             return 1;
         }
+    }
+
+    private static int RunBenchmarks(string[] args)
+    {
+        IConfig config = DefaultConfig.Instance;
+        Summary[] summaries = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config).ToArray();
+        if (summaries.Length == 0)
+        {
+            if (args is ["--help"] or ["--version"]) { return 0; }
+            // BenchmarkDotNet also returns no summaries for informational
+            // invocations. Use its parser to distinguish those from refusals.
+            var (valid, _, options) = ConfigParser.Parse(args, NullLogger.Instance, config);
+            if (valid && (options.PrintInformation || options.ListBenchmarkCaseMode != ListBenchmarkCaseMode.Disabled))
+            { return 0; }
+            Console.Error.WriteLine("qpdfbench: no benchmark results were produced.");
+            return 1;
+        }
+
+        if (summaries.All(summary => !summary.HasCriticalValidationErrors && !summary.Reports.IsEmpty
+            && summary.Reports.All(report => report.Success && report.ResultStatistics is not null))) { return 0; }
+        Console.Error.WriteLine("qpdfbench: one or more benchmarks did not produce a successful measurement.");
+        return 1;
     }
 
     private static void PrintHelp()
