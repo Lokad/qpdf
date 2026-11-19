@@ -82,6 +82,37 @@ public sealed class GraphReachabilityTests
     }
 
     [Fact]
+    public void RetirementBorrowsDetachedRootsAndPreservesExactAliases()
+    {
+        const long cap = 105_000;
+        Dictionary<int, QpdfObject> objects = new()
+        {
+            [1] = PdfNull.Instance,
+            [2] = PdfNull.Instance,
+            [3] = PdfNull.Instance,
+            [4] = PdfNull.Instance,
+            [5] = Dictionary(false, ("Private", new PdfReference(2, 7)), ("Stale", new PdfReference(3, 7)))
+        };
+        for (int number = 6; number <= 8195; number++) { objects.Add(number, PdfNull.Instance); }
+        HashSet<int> compressed = [1, 2, 3, 4];
+        HashSet<int> before = [1, 2, 3, 4];
+        Resolver resolver = new(reference => (reference.ObjectNumber == 2 ? 7 : 0) == reference.Generation
+            ? objects.GetValueOrDefault(reference.ObjectNumber) : null);
+        ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = cap }, CancellationToken.None);
+        using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
+        {
+            GraphReachability.RetireSuperseded(objects, compressed, before, new PdfReference(1, 0), resolver,
+                memory, governor, CancellationToken.None);
+            Assert.Equal(8193, objects.Count);
+            Assert.Equal(new[] { 1, 2 }, compressed.Order());
+            Assert.Contains(5, objects);
+            Assert.DoesNotContain(3, objects);
+            Assert.DoesNotContain(4, objects);
+        }
+        Assert.Equal(0L, governor.Snapshot().LiveMemoryBytes);
+    }
+
+    [Fact]
     public void DistinctReferencesRefuseWithoutTransferringPartialResults()
     {
         PdfArray root = new(Enumerable.Range(1, 262144).Select(i => (QpdfObject)new PdfReference(i, 0)).ToArray());

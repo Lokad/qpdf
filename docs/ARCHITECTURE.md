@@ -50,7 +50,7 @@ replacements leave independent private aliases intact. Source resources, forms,
 secondary actions and layer context bind while readers are open. The primary's
 catalog, attachments and document protection follow their own policies. Failed
 copies roll back their new objects and mappings. Final-root reachability retires
-superseded graphs.
+superseded graphs while preserving private references from detached declarations.
 
 The page graph supplies inherited attributes, labels and page identity across
 selection, transforms and inspection. Page content, Forms and appearances share

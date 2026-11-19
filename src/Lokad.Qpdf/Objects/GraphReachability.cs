@@ -19,11 +19,7 @@ internal static class GraphReachability
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (!before.Contains(number)) { ParserContainers.AddItem(walk, roots, value); }
         }
-        walk.Reserve(checked(56L + IntPtr.Size * (long)roots.Count));
-        QpdfObject[] items = new QpdfObject[roots.Count];
-        for (int index = 0; index < items.Length; index++)
-        { token.ThrowIfCancellationRequested(); governor.CheckCancellation(); items[index] = roots[index]; }
-        HashSet<int> after = Find(resolver, PdfArray.FromOwnedItems(items), walk, governor);
+        HashSet<int> after = Find(resolver, roots, walk, governor);
         foreach (int number in before)
         {
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
@@ -60,7 +56,8 @@ internal static class GraphReachability
                 if (next < 0)
                 {
                     frames.RemoveAt(frames.Count - 1);
-                    if (values is List<QpdfObject> legacy) { ParserContainers.ReleaseList(scratch, legacy); }
+                    if (!ReferenceEquals(values, roots) && values is List<QpdfObject> legacy)
+                    { ParserContainers.ReleaseList(scratch, legacy); }
                     continue;
                 }
                 frames[^1] = (values, next - 1);
