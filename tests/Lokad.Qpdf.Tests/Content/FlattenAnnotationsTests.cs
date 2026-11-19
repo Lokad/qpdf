@@ -359,12 +359,14 @@ QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvoca
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
 }
 [Fact]
-public async Task FlattenRejectedWithInspection()
+public async Task FlattenRejectedWithNamedStreamExtraction()
 {
 byte[] fixture = TextFixture(string.Empty, new List<(string Dict, byte[]? StreamData)>());
 InMemoryQpdfHost host = HostWith("inputs/a.pdf", fixture);
-QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation(["inputs/a.pdf", "--check", "--flatten-annotations=all"]), CancellationToken.None);
+QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new QpdfCommandInvocation([
+    "inputs/a.pdf", "--show-object=4", "--filtered-stream-data", "--flatten-annotations=all", "outputs/data.bin"]), CancellationToken.None);
 Assert.Equal(QpdfDiagnosticCode.InvalidArguments, SingleError(result).Code);
+Assert.False(host.TryGetOutput(QpdfPath.From("outputs/data.bin"), out _));
 }
 [Fact]
 public async Task JobRoundTripMatchesArgv()

@@ -12,6 +12,7 @@ internal interface IInspectionGraphPlan
     IReadOnlyList<OutputRotation> Rotations { get; }
     IReadOnlyList<OverlaySpec> Overlays { get; }
     IReadOnlyList<OverlaySpec> Underlays { get; }
+    string? FlattenAnnotations { get; }
     bool CoalesceContents { get; }
     bool ExternalizeInlineImages { get; }
     long IiMinBytes { get; }

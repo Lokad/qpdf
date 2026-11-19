@@ -332,8 +332,8 @@ content and forms before listing or extraction. It reports physical header,
 xref-offset and linearization checks as skipped. A failed check stops later
 inspections. Page-tree transforms and physical-layout listings are unavailable here.
 
-Text inspection of a PDF applies content coalescing, inline-image
-externalization, image optimization, document-role removals and authored
+Text inspection of a PDF applies content coalescing, inline-image externalization,
+image optimization, annotation flattening, document-role removals and authored
 page labels before checking or listing the effective graph. Header rotation
 preserves earlier edits to page content and resources. Image thresholds
 and codec requirements follow the [content profile](#page-content-profile).
@@ -400,7 +400,9 @@ JSON export applies `--rotate` to the effective page order. PDF-to-JSON export
 composes rotation with content transforms. Bound export rotates the order
 established by the authored graph and patch. Edited page occurrences can gain
 identities.
-Rotation baking and appearance transforms remain unavailable.
+PDF-to-JSON export can flatten stored annotations. The effective page program
+includes their placed appearances, and the active form retains surviving fields.
+Rotation baking and appearance generation remain unavailable.
 Export from a PDF can apply attachment edits before either report shape.
 Minimal output can recreate the edited collection, including its stream data.
 [Attachment edits](#attachments-profile)

@@ -55,7 +55,7 @@ internal static class PageAssembly
         }
         if (settings.FlattenAnnotations is not null)
         {
-            nextId = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances,
+            (nextId, _) = Content.FlattenAnnotations.Apply(occurrences, settings.FlattenAnnotations, needAppearances,
                 compress, level, limits, governor, diagnostics, token, nextId);
         }
         return (nextId, generated, needAppearances);

@@ -68,6 +68,8 @@ internal sealed partial class GraphCopier
     internal Content.PoolResolver CreateResolver(ParserMemoryScope memory)
         => Content.PoolResolver.Create(memory, _copied, _retainsSourceReferences ? _resolver as DocumentEngine : null);
 
+    internal bool RetainsSourceReferences => _retainsSourceReferences;
+
     private GraphCopier(DocumentEngine engine, ResourceGovernor governor, QpdfLimits limits, int firstId,
         ParserMemoryScope ownership)
         : this(engine, engine.XRefEntries.Count, governor, limits, firstId, ownership, null) { }

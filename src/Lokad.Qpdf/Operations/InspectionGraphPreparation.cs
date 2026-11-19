@@ -79,7 +79,8 @@ internal static partial class InspectionGraphPreparation
         bool authoredLabels = plan.Labels.Count > 0;
         bool publication = authoredLabels || plan.PublicationPolicy.HasRemovals;
         bool editAttachments = plan.HasAttachmentEdits;
-        bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels;
+        bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels
+            || plan.FlattenAnnotations is not null;
         if (!preparePages && !publication && !editAttachments) { return null; }
         if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
             && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
@@ -110,8 +111,8 @@ internal static partial class InspectionGraphPreparation
                     { prunePrimary = prunePolicy.ShouldPrune(document.Engine, limits, governor, cancellationToken); break; }
                 }
             }
-            bool promoteRotatedPages = plan.Rotations.Count > 0 && plan.Sources.Count == 0;
-            using ParserMemoryScope? preparation = content || authoredLabels || promoteRotatedPages
+            bool promoteEditedPages = (plan.Rotations.Count > 0 || plan.FlattenAnnotations is not null) && plan.Sources.Count == 0;
+            using ParserMemoryScope? preparation = content || authoredLabels || promoteEditedPages
                 ? ParserMemoryScope.Create(governor) : null;
             PageTreePreparation.Prepared? prepared = preparation is null ? null
                 : PageTreePreparation.PrepareForInspection(document.Engine, plan.Sources.Count > 0 || overlay,
@@ -141,7 +142,7 @@ internal static partial class InspectionGraphPreparation
                 document.Engine.InspectionCalledAllPages = false;
                 document.Engine.InspectionPushedInheritedResources = false;
                 if (publication)
-                { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
+                { ApplyInspectionPublication(document, pool, plan, lifetime, memory, governor, cancellationToken); }
                 if (editAttachments)
                 { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
                 return lifetime;
@@ -429,6 +430,11 @@ internal static partial class InspectionGraphPreparation
                         plan.Sources.Count > 0, memory, limits, governor, diagnostics, cancellationToken);
                 }
             }
+            if (plan.FlattenAnnotations is string flatten)
+            {
+                FlattenInspectionAnnotations(document, pool, selectedPages, flatten, lifetime, memory,
+                    limits, governor, cancellationToken, diagnostics);
+            }
             List<PageLocation> transformed = ParserContainers.CreateList<PageLocation>(memory);
             foreach (InspectionPage selected in selectedPages)
             {
@@ -440,7 +446,7 @@ internal static partial class InspectionGraphPreparation
             }
             document.SetInspectionPages(transformed);
             if (publication)
-            { lifetime.ReplacedCatalog = ApplyInspectionPublication(document, pool, plan, memory, governor, cancellationToken); }
+            { ApplyInspectionPublication(document, pool, plan, lifetime, memory, governor, cancellationToken); }
             if (editAttachments)
             { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, lifetime, cancellationToken).ConfigureAwait(false); }
             return lifetime;

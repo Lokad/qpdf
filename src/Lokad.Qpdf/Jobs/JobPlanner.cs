@@ -779,8 +779,8 @@ internal static partial class JobPlanner
             {
                 if (output is not null && !attachmentTarget || seenReplaceInput || seenSplitPages
                     || importJson && (seenLabels || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight
-                        || seenOiMinArea || seenKeepInlineImages || seenJpegQuality)
-                    || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
+                        || seenOiMinArea || seenKeepInlineImages || seenJpegQuality || seenFlattenAnnotations)
+                    || seenFlattenRotation || seenGenerateAppearances
                     || seenLinearizePass1
                     || importJson && (seenAddAttachment || seenRemoveAttachment || seenCopyAttachments)
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput
@@ -835,6 +835,7 @@ internal static partial class JobPlanner
                     AttachmentsToRemove = attachmentsToRemove,
                     AttachmentsToCopy = attachmentsToCopy,
                     Rotations = rotations,
+                    FlattenAnnotations = flattenAnnotations,
                     RunCheck = check,
                     Overlays = overlays,
                     Underlays = underlays,
@@ -993,7 +994,7 @@ internal static partial class JobPlanner
             // Bound graphs do not use the physical page assembly path.
             if ((importJson || seenJson || seenJsonOutput)
                 && ((wantJsonOutput && splitPages.HasValue) || (importJson && seenCollate)
-                    || flattenRotation || flattenAnnotations is not null || generateAppearances
+                    || flattenRotation || (importJson && flattenAnnotations is not null) || generateAppearances
                     || (wantJsonOutput && (qdf || linearize)) || overlays.Count > 0 || underlays.Count > 0))
             {
                 throw new QpdfParseException("JSON operations cannot be combined with page transformations or PDF layout settings.", 0L, null);
@@ -1136,6 +1137,7 @@ internal static partial class JobPlanner
                     Sources = jsonSources,
                     Collation = jsonCollation,
                     Rotations = rotations,
+                    FlattenAnnotations = flattenAnnotations,
                     PasswordFiles = passwordFiles,
                     Password = password,
                     EmptyDocument = emptyDocument,

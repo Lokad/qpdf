@@ -59,7 +59,8 @@ public sealed class FlattenResourceStorageTests
         GraphCopier copier = GraphCopier.CreateOwned(engine, governor, QpdfLimits.Default, 1, copierMemory);
         PdfDictionary page = Page(copier, 1, 0, true); QpdfObject appearance = copier.CopiedObjects[2];
         DiagnosticBag diagnostics = new(governor);
-        Assert.Equal(3, FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null, QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 3));
+        Assert.Equal((3, false), FlattenAnnotations.Apply([(copier, 1)], "all", false, false, null,
+            QpdfLimits.Default, governor, diagnostics, CancellationToken.None, 3));
         Assert.Same(page, copier.CopiedObjects[1]); Assert.Same(appearance, copier.CopiedObjects[2]);
         Assert.Equal(2, copier.CopiedObjects.Count); Assert.Contains(diagnostics.Entries, d => d.Message.Contains("keeping the page as is", StringComparison.Ordinal));
     }

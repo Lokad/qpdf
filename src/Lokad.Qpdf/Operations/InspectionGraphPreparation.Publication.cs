@@ -84,20 +84,25 @@ internal static partial class InspectionGraphPreparation
                     : PdfDictionaryRebuild.ReplaceEntry(graph, updated, "Extensions"u8, extensions);
             }
         }
-        PdfReference catalogRef = pool.AddIndirectObjectWithId(updated, pool.NextId);
-        document.Engine.SetInspectionTrailer(PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, catalogRef));
-        lifetime.ReplacedCatalog ??= root as PdfReference;
+        document.Engine.SetInspectionTrailer(ReplaceInspectionCatalogRoot(pool, graph, trailer, root, updated, lifetime));
         graph.Memory.TransferTo(memory, graph.Bytes);
     }
 
-    private static PdfReference? ApplyInspectionPublication(QpdfDocument document, GraphCopier pool, IInspectionGraphPlan plan,
-        ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
+    private static PdfDictionary ReplaceInspectionCatalogRoot(GraphCopier pool, OwnedAllocationBatch graph, PdfDictionary trailer,
+        QpdfObject root, PdfDictionary catalog, InspectionGraph lifetime)
+    {
+        PdfReference reference = pool.AddIndirectObjectWithId(catalog, pool.NextId);
+        lifetime.ReplacedCatalog ??= root as PdfReference;
+        return PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, reference);
+    }
+
+    private static void ApplyInspectionPublication(QpdfDocument document, GraphCopier pool, IInspectionGraphPlan plan,
+        InspectionGraph lifetime, ParserMemoryScope memory, ResourceGovernor governor, CancellationToken token)
     {
         DocumentPublicationPolicy policy = plan.PublicationPolicy;
         using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, token);
         PoolResolver resolver = pool.CreateResolver(graph.Memory);
         PdfDictionary original = document.Engine.Trailer, trailer = original;
-        PdfReference? replacedCatalog = null;
         if (PdfDictionaryLookup.TryGet(trailer, "Root"u8, governor, token, out QpdfObject root)
             && CatalogCopy.ResolveDictionary(root, resolver, governor, token) is PdfDictionary catalog)
         {
@@ -112,9 +117,7 @@ internal static partial class InspectionGraphPreparation
             // Publish a new role; source catalog aliases keep their original header.
             if (!ReferenceEquals(selected, catalog))
             {
-                PdfReference reference = pool.AddIndirectObjectWithId(selected, pool.NextId);
-                trailer = PdfDictionaryRebuild.ReplaceEntry(graph, trailer, "Root"u8, reference);
-                replacedCatalog = root as PdfReference;
+                trailer = ReplaceInspectionCatalogRoot(pool, graph, trailer, root, selected, lifetime);
             }
         }
         if (policy.RemoveInfo)
@@ -127,6 +130,5 @@ internal static partial class InspectionGraphPreparation
         }
         if (!ReferenceEquals(trailer, original)) { document.Engine.SetInspectionTrailer(trailer); }
         graph.Memory.TransferTo(memory, graph.Bytes);
-        return replacedCatalog;
     }
 }

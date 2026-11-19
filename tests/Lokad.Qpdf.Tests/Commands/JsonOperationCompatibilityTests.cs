@@ -45,7 +45,7 @@ public sealed class JsonOperationCompatibilityTests
         foreach ((string key, object value, string[] arguments) in requests)
         {
             if (key is not ("linearize" or "qdf")) { yield return [key, value, arguments, "create", "argv"]; }
-            if (key is "qdf" or "linearize" or "flattenRotation" or "flattenAnnotations"
+            if (key is "qdf" or "linearize" or "flattenRotation"
                 or "generateAppearances" or "overlay" or "underlay")
             { yield return [key, value, arguments, "inspect", "argv"]; }
         }
@@ -57,7 +57,7 @@ public sealed class JsonOperationCompatibilityTests
             ("removeUnreferencedResources", "update", "mixed"),
             ("overlay", "create", "job"),
             ("flattenRotation", "inspect", "job"),
-            ("flattenAnnotations", "json-output", "mixed"),
+            ("flattenAnnotations", "update", "mixed"),
             ("underlay", "json-output", "argv"),
         ];
         foreach ((string key, string mode, string route) in adapters)

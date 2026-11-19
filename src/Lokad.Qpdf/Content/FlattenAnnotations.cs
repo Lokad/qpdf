@@ -11,6 +11,10 @@ namespace Lokad.Qpdf.Content;
 
 internal static class FlattenAnnotations
 {
+    private static readonly PdfName Rotate = PdfName.FromAscii("Rotate");
+    private static readonly PdfName Resources = PdfName.FromAscii("Resources");
+    private static readonly PdfName[] InheritedInputs = [Rotate, Resources];
+
     internal enum AppearanceFit { Invalid, Empty, Painted }
 
     private const int FlagInvisible = 1;
@@ -66,7 +70,7 @@ internal static class FlattenAnnotations
             && CatalogCopy.ResolveValue(need, engine, governor, token) is PdfBoolean flag && flag.Value;
     }
 
-    internal static int Apply(
+    internal static (int NextId, bool RemovedWidgets) Apply(
         IReadOnlyList<(GraphCopier Copier, int Id)> occurrences,
         string mode,
         bool needAppearances,
@@ -108,6 +112,7 @@ internal static class FlattenAnnotations
         int forbidden = FlagInvisible | FlagHidden | (mode == "screen" ? FlagNoView : 0);
         bool warned = false;
         bool warnedOptionalContent = false;
+        bool removedWidgets = false;
         Span<byte> nameBytes = stackalloc byte[16];
         foreach ((GraphCopier copier, int pageId) in occurrences)
         {
@@ -123,7 +128,8 @@ internal static class FlattenAnnotations
                 continue;
             }
 
-            PoolResolver resolver = new(copier.CopiedObjects);
+            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
+            PoolResolver resolver = copier.CreateResolver(graph.Memory);
             QpdfObject annotsTarget = annotsRaw is PdfReference annotsReference
                 ? ResolveOrNull(resolver, annotsReference) ?? annotsRaw
                 : annotsRaw;
@@ -145,22 +151,29 @@ internal static class FlattenAnnotations
             }
 
             long rotate = 0L;
-            page.TryGet(PdfName.FromAscii("Rotate"), out QpdfObject? rotateRaw);
+            page.TryGet(Rotate, out QpdfObject? rotateRaw);
+            page.TryGet(Resources, out QpdfObject? resourcesRaw);
+            if (copier.RetainsSourceReferences)
+            {
+                PageInheritance.InheritedValues inherited = PageInheritance.FindAncestors(resolver, new(null, page),
+                    InheritedInputs, limits, governor, cancellationToken);
+                rotateRaw = inherited[0] ?? rotateRaw;
+                resourcesRaw = inherited[1] ?? resourcesRaw;
+            }
             if (rotateRaw is PdfReference rotateReference)
-            { PdfObjectLookup.TryResolve(rotateReference, copier.CopiedObjects, governor, cancellationToken, out rotateRaw); }
+            { rotateRaw = ResolveOrNull(resolver, rotateReference); }
             if (rotateRaw is PdfInteger rotateInteger)
             {
                 rotate = ((rotateInteger.Value % 360L) + 360L) % 360L;
             }
 
-            PdfDictionary? resources = EnsureResources(page, resolver);
+            PdfDictionary? resources = EnsureResources(resourcesRaw, resolver);
             if (resources is null)
             {
                 diagnostics.Add(QpdfDiagnosticCode.UnsupportedFeature, QpdfDiagnosticSeverity.Warning, "Cannot flatten annotations without page resources; keeping annotations as is.");
                 continue;
             }
 
-            using OwnedAllocationBatch graph = OwnedAllocationBatch.Create(governor, cancellationToken);
             using ContentEntries? entries = page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject rawContents) && rawContents is not PdfNull
                 ? ContentEntries.TryRead(rawContents, resolver, governor, cancellationToken) : ContentEntries.Create(governor, cancellationToken);
             if (entries is null)
@@ -209,12 +222,13 @@ internal static class FlattenAnnotations
                 PdfStream? appearance = FindAppearanceStream(annot, resolver, governor, cancellationToken, out PdfReference? appearanceRaw);
                 if (appearance is null)
                 {
-                    if (HasAppearanceDictionary(annot)) { changed = true; }
+                    if (HasAppearanceDictionary(annot)) { changed = true; removedWidgets |= isWidget; }
                     else { ParserContainers.AddItem(graph.Memory, kept, item, IntPtr.Size); }
                     continue;
                 }
                 string name = UniqueFxoName(xobjects, ref suffix, governor, cancellationToken);
                 changed = true;
+                removedWidgets |= isWidget;
                 if (AppendAppearance(name, annot, appearance.Dictionary, (int)rotate, required, forbidden, resolver, stamped) != AppearanceFit.Painted) { continue; }
                 PdfReference appearanceLink = EnsureAppearanceObject(copier, appearance, appearanceRaw, resolver, governor, cancellationToken, ref allocator);
                 int length = Encoding.ASCII.GetBytes(name.AsSpan(), nameBytes);
@@ -265,14 +279,14 @@ internal static class FlattenAnnotations
             copier.ReplaceCopiedObject(pageId, result); graph.Retain();
         }
 
-        return allocator;
+        return (allocator, removedWidgets);
     }
 
     private static readonly PdfDictionary EmptyResources = new(new Dictionary<PdfName, QpdfObject>());
 
-    private static PdfDictionary? EnsureResources(PdfDictionary page, PoolResolver resolver)
+    private static PdfDictionary? EnsureResources(QpdfObject? raw, PoolResolver resolver)
     {
-        if (!page.TryGet(PdfName.FromAscii("Resources"), out QpdfObject? raw) || raw is null || raw is PdfNull)
+        if (raw is null or PdfNull)
         { return EmptyResources; }
         return (raw is PdfReference reference ? ResolveOrNull(resolver, reference) : raw) as PdfDictionary;
     }

@@ -3608,7 +3608,10 @@
           "FlattenAnnotationsTests.PrintModeFiltersOnFlag",
           "FlattenAnnotationsTests.UncheckedCheckboxIsDropped",
           "FlattenAnnotationsTests.MergeThenFlattenAppliesToFinalPages",
-          "FlattenAnnotationsTests.WidgetAppearanceWithDrFontStampsVerbatim"
+          "FlattenAnnotationsTests.WidgetAppearanceWithDrFontStampsVerbatim",
+          "AppearanceTransformInspectionTests.CheckFlattensStoredAppearanceAndRetainsSourcePairs",
+          "AppearanceTransformInspectionTests.JobJsonKeepsPrivateAnnotationAndFormWhileTheExportRecreatesTheStamp",
+          "AppearanceTransformInspectionTests.FlatteningKeepsWidgetsWhenTheFormNeedsAppearanceGeneration"
         ],
         "negative": [
           "FlattenAnnotationsTests.MalformedFlattenFlagsFail",
@@ -4167,7 +4170,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations."
+        "JSON export rejects rotation baking and appearance generation. Bound JSON export also rejects annotation flattening."
       ],
       "evidence": {
         "positive": [
@@ -4610,7 +4613,7 @@
       "status": "partial",
       "defaultReview": "reviewed",
       "remainingGaps": [
-        "JSON export rejects existing rotation-baking, appearance-generation and annotation-flattening combinations."
+        "JSON export rejects rotation baking and appearance generation. Bound JSON export also rejects annotation flattening."
       ],
       "evidence": {
         "positive": [
