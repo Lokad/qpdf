@@ -330,8 +330,9 @@ preserves opaque streams with an explicit warning or skipped check.
 ## Inspection profile
 
 Checking covers structure, streams, content, forms and linearization, with explicit
-skipped stages. It does not establish rendering or conformance. Object, xref, page,
-image, attachment and outline listings use the shared resolver.
+skipped stages. An empty page tree returns zero from standalone counting and fails
+the page-tree stage during checking. A failed command check suppresses later reports.
+Object, xref, page, image, attachment and outline listings use the shared resolver.
 Argv and job JSON can inspect a graph created from JSON, updated from a PDF,
 or created and then patched in the same job. PDF updates authenticate the
 source before binding the patch.
@@ -343,9 +344,9 @@ checking and listing. The source catalog pair selects the active role, and
 private references retain their stored values.
 Optional `--check` validates the effective page tree, reachable streams, page
 content and forms before listing or extraction. It reports physical header,
-xref-offset and linearization checks as skipped. A failed check stops later
-inspections. `--coalesce-contents` joins page programs after binding and before
-checking or listing. Physical-layout listings require a PDF input.
+xref-offset and linearization checks as skipped. `--coalesce-contents` joins page
+programs after binding and before checking or listing. Physical-layout listings
+require a PDF input.
 
 Text inspection of a PDF applies content coalescing, inline-image externalization,
 image optimization, annotation flattening, document-role removals and authored

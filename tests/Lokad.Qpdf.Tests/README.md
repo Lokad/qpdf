@@ -62,3 +62,31 @@ sequential commits. Feature suites supply their own fixtures and public calls to
 `Foundation/PreparationAdmissionChecks` for admission refusals and refunds.
 `Writing/InspectionFailureTests` covers JSON exception translation, inspection
 scratch and rewrite-source ownership through commit.
+
+## Reference and visual checks
+
+Run from the repository root after the locked Release build. On Windows, the
+installer verifies the archive and executable digests. For a native source
+build, use the pinned commit and record the clean checkout and executable hash.
+[Build](../../README.md#build-from-source) · [Reference pin](../../tools/reference-pin.json)
+
+```powershell
+$run = Join-Path artifacts ('reference-' + [guid]::NewGuid().ToString('N'))
+$oracle = ./tools/install-reference-qpdf.ps1 -Destination (Join-Path $run 'oracle')
+$probe = 'tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll'
+./tools/run-reference-checks.ps1 -QpdfExe $oracle -ProbeDll $probe -WorkRoot (Join-Path $run 'reference')
+
+$renderer = (Get-Command pdftoppm).Source
+pwsh -NoProfile -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer `
+  -ProbeDll $probe -FixtureAssembly tests/Lokad.Qpdf.Tests/bin/Release/net10.0/Lokad.Qpdf.Tests.dll `
+  -WorkRoot (Join-Path $run 'visual')
+```
+
+On other platforms, point `$oracle` at the pinned native build. Omitting
+`-ProbeDll` in the reference runner builds the probe with a locked restore.
+Each lane requires its tools and a fresh workspace. Reference results include
+stage logs and distinguish the supplied native executable hash from the target
+pin. The visual lane needs PowerShell on .NET 10 or later and a test assembly
+with its copied fixtures and dependencies. Its receipt hashes the inputs and
+binaries. Negative controls must reach pixel comparison and exceed tolerance.
+[JPEG fixtures](../Fixtures/JPEG.md)

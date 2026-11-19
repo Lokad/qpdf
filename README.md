@@ -120,7 +120,7 @@ dotnet test Lokad.Qpdf.slnx -c Release --no-build --no-restore
 
 Ordinary builds and tests require no external PDF tools.
 [Package build and checks](https://github.com/Lokad/qpdf/blob/master/AGENTS.md#build-and-checks) ·
-[Reference and visual checks](docs/COMPATIBILITY.md#how-compatibility-is-verified)
+[Reference and visual checks](https://github.com/Lokad/qpdf/blob/master/tests/Lokad.Qpdf.Tests/README.md#reference-and-visual-checks)
 
 - [Compatibility](docs/COMPATIBILITY.md): supported operations and caller-facing differences.
 - [Benchmarks](docs/BENCHMARKS.md) covers methodology, validation, memory admission and dated evidence.

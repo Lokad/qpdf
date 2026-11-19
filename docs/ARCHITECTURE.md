@@ -162,7 +162,7 @@ The core has no runtime NuGet dependencies. Hosts can supply JPEG codecs
 through `IQpdfJpegCodecHost`. The development adapter uses Lokad.Image.
 Ordinary tests need no native tools. Explicit reference and visual lanes
 require their selected tools. [Codec ownership](MEMORY.md#jpeg-codecs) ·
-[Verification commands](COMPATIBILITY.md#how-compatibility-is-verified)
+[Compatibility verification](COMPATIBILITY.md#how-compatibility-is-verified)
 
 Shared semantic owners carry exhaustive cases. Adapter tests sample wiring
 and recording hosts observe resource and publication boundaries.

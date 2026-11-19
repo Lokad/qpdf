@@ -17,9 +17,9 @@ claims. Timing thresholds stay outside CI.
 
 Use a quiet Linux VM with Python 3, GNU time, a C++ toolchain, CMake, zlib/JPEG
 development libraries and the .NET SDKs. Place a full, clean qpdf 12.4.2 checkout
-at the commit in [compatibility](COMPATIBILITY.md) under `external/qpdf`.
+under `external/qpdf` at the pinned commit.
 The static warm driver links to the built-in native crypto provider. Commands
-run from the repository root.
+run from the repository root. [Reference pin](https://github.com/Lokad/qpdf/blob/master/tools/reference-pin.json)
 
 ```bash
 dotnet restore Lokad.Qpdf.slnx --locked-mode

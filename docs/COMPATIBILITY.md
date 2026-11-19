@@ -1,11 +1,11 @@
 # Compatibility
 
 Lokad.qpdf targets **qpdf 12.4.2** structural operations, with R2–R6 password-aware document opening.
-The [supported profile](SUPPORTED-PROFILE.md) defines the current contract;
-the [option inventory](../tests/Compatibility/options.json) records forms, JSON
-mappings, remaining gaps and executable evidence. An accepted option alone does
-not establish implemented behavior. Development changes are in the
-[changelog](../CHANGELOG.md).
+The supported profile defines the caller contract. The option inventory covers
+140 flags in 157 contexts and the fix-QDF and zlib-flate companions. It records
+forms, JSON mappings, exclusions, gaps and executable evidence.
+[Supported profile](SUPPORTED-PROFILE.md) ·
+[Option inventory](../tests/Compatibility/options.json) · [Changelog](../CHANGELOG.md)
 
 ## Limitations that affect callers
 
@@ -22,13 +22,8 @@ not establish implemented behavior. Development changes are in the
 | JPEG | Decoding and recompression use a caller-supplied codec. Output quality can vary across codecs. [Supported JPEG capabilities](SUPPORTED-PROFILE.md#jpeg-codec-capabilities) |
 | Zopfli | Unavailable; requests fail with exit 2. Ordinary Flate works. `QPDF_ZOPFLI` is treated as unset. |
 | Rotation baking | Numeric XYZ/FitR destinations follow the baked frame; Fit/FitB stays unchanged and 180-degree axis fits project their coordinate. Affected nullable positions and quarter-turn H/V/BH/BV fits fail UnsupportedFeature before publication because their general viewer/window state cannot be preserved. |
-| Host effects | Hosts map logical paths, including descriptor keys, to input leases and staged outputs. Fileless results replace ambient stdout. |
 | Resource limits | Host ceilings remain binding under `--no-default-limits`. PDF container and nesting ceilings also apply to JSON imports, where native can ignore them. [Memory admission](MEMORY.md) |
 | Scope | Rendering, OCR, text extraction/layout, general authoring and PDF/A/X/UA conformance are outside the target. |
-
-The inventory covers 140 flags in 157 context entries, plus the fix-qdf and zlib-flate
-companions. Entries record status, executable evidence, remaining gaps and
-exclusion reasons. `cryptoSyntax` identifies option names for parser diagnostics.
 
 ## Entry-point defaults
 
@@ -108,37 +103,5 @@ failures yield `HostOperationFailed`.
 CI runs offline behavior tests, locked builds and isolated package consumers.
 The reference job compares native and managed semantics with an independent
 reader, including ordered page content, parser recovery, password policies and
-decoded JSON payloads. Reference jobs fail when tools are missing.
-[JPEG fixtures and visual evidence](https://github.com/Lokad/qpdf/blob/master/tests/Fixtures/JPEG.md)
-
-Run `tools/run-reference-checks.ps1 -QpdfExe $oracle -WorkRoot artifacts/reference-check`
-from PowerShell with the pinned executable and a fresh workspace. The default
-is a new directory under `artifacts/reference-checks`. The workspace contains
-stage logs, `results.json`, and the reader, content, differential and parser
-evidence. The runner builds the net11.0 probe with a locked restore. Pass
-`-ProbeDll` to use an existing build.
-`tools/bootstrap-qpdf.ps1` checks the supplied executable's version and
-records its SHA-256. The log identifies the official Windows executable when
-its digest matches and records the target source commit separately.
-
-Run the visual lane in a fresh PowerShell process on .NET 10 or later. Supply
-the pinned qpdf and `pdftoppm` executables, the Release probe DLL and a test
-assembly with its dependencies and copied fixtures. Use a fresh workspace.
-The receipt records the checkout and the hashes of the supplied binaries and
-PDF inputs. Negative controls must reach pixel comparison and exceed tolerance.
-
-```powershell
-pwsh -File tools/run-visual-checks.ps1 -QpdfExe $oracle -RendererExe $renderer `
-  -ProbeDll tools/QpdfProbe/bin/Release/net11.0/QpdfProbe.dll `
-  -FixtureAssembly tests/Lokad.Qpdf.Tests/bin/Release/net10.0/Lokad.Qpdf.Tests.dll `
-  -WorkRoot artifacts/visual-check
-```
-
-For qualification on Windows, run `tools/install-reference-qpdf.ps1` with a
-fresh destination. It verifies both the archive and executable digests.
-For source builds, record the clean checkout and the resulting executable
-digest. [Reference pins](https://github.com/Lokad/qpdf/blob/master/tools/reference-pin.json)
-
-Inventory hashes normalize CRLF to LF. The reference runner stops and awaits
-timed-out processes. Native qpdf, renderers, PdfPig and development codecs
-stay in the development tools and tests.
+decoded JSON payloads. An explicit raster lane measures rendered output.
+[Run the reference and visual checks](https://github.com/Lokad/qpdf/blob/master/tests/Lokad.Qpdf.Tests/README.md#reference-and-visual-checks)

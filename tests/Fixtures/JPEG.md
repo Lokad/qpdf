@@ -14,5 +14,5 @@ The `rgb` visual case checks both quality-75 outputs against the original.
 The lane records `documented-codec-difference` when their comparison exceeds
 the cross-encoder bound and both pass the original-image bounds. The
 missing-image control must fail. The development adapter maps quality 0 to 1.
-[Run the visual checks](../../docs/COMPATIBILITY.md#how-compatibility-is-verified) ·
+[Run the visual checks](../Lokad.Qpdf.Tests/README.md#reference-and-visual-checks) ·
 [Recorded Lokad.Image 0.2.0 comparison](https://github.com/Lokad/qpdf/blob/5afca3f2bb21e4b9a0f6c16e8a3c2d9a6ec596d7/tests/Fixtures/JPEG.md)
