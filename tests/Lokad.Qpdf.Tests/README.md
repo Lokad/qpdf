@@ -28,6 +28,8 @@ layout and publication. The option inventory links behavior to evidence.
 | Filters and attachments | Check codec eligibility, recovered bytes and decoded quotas at the filter chain. Use distinct integration cases for named publication, fileless results and typed attachment lifetimes. |
 | Native comparisons | Check ordered listings and exact payloads. For bound image transforms, verify the painted stream with PdfPig and decoded samples with pinned qpdf. |
 
+Run the attachment ownership cases with `dotnet test Lokad.Qpdf.slnx -c Release --filter FullyQualifiedName~Attachment`.
+
 CI retains TRX files and verification logs. Failed or canceled runs can add
 VSTest traces and dumps in `verification-diagnostics-*`. Use short scalar
 theory arguments for stable case identifiers.

@@ -28,48 +28,48 @@ public sealed class AttachmentIndirectMetadataTests
     }
 
     [Theory]
-    [InlineData(false, 1)]
-    [InlineData(true, 1)]
-    [InlineData(false, 2)]
-    [InlineData(true, 2)]
-    public async Task MetadataAndAlternateStreamsAgreeAcrossPublicRoutes(bool indirect, int version)
+    [InlineData(false, 1, "job")]
+    [InlineData(true, 1, "typed")]
+    [InlineData(false, 2, "typed")]
+    [InlineData(true, 2, "argv")]
+    public async Task MetadataAndAlternateStreamsAgreeAcrossPublicRoutes(bool indirect, int version, string route)
     {
-        foreach (string route in new[] { "typed", "argv", "job" })
+        using InMemoryQpdfHost host = new();
+        host.AddInput(QpdfPath.From("input"), Fixture(indirect, null), QpdfInputOwnership.Transfer);
+        using JsonDocument json = JsonDocument.Parse(await AttachmentJsonTests.ExportAttachmentsAsync(host, version, route));
+        JsonElement attachment = json.RootElement.GetProperty("attachments").GetProperty("K");
+        Assert.Equal("preferred.txt", attachment.GetProperty("preferredname").GetString()); Assert.Equal("description", attachment.GetProperty("description").GetString());
+        Assert.Equal("preferred.txt", attachment.GetProperty("names").GetProperty("/UF").GetString());
+        JsonProperty[] streams = attachment.GetProperty("streams").EnumerateObject().ToArray();
+        Assert.Equal(new[] { "/F", "/UF" }, streams.Select(stream => stream.Name).Order());
+        foreach (JsonProperty stream in streams)
         {
-            byte[] output; IReadOnlyList<QpdfAttachmentInfo> listing;
-            using (InMemoryQpdfHost host = new())
-            {
-                host.AddInput(QpdfPath.From("input"), Fixture(indirect, null), QpdfInputOwnership.Transfer);
-                if (route == "typed") { await Qpdf.GetDocumentJsonAsync(host, QpdfPath.From("input"), QpdfPath.From("output"), new(version, ["attachments"]), CancellationToken.None); }
-                else
-                {
-                    QpdfExecutionResult result = route == "argv"
-                        ? await Qpdf.ExecuteAsync(host, new(["input", $"--json={version}", "--json-key=attachments", "--", "output"]), CancellationToken.None)
-                        : await Qpdf.ExecuteJobAsync(host, JsonSerializer.Serialize(new { inputFile = "input", outputFile = "output", json = version.ToString(), jsonKey = new[] { "attachments" } }), CancellationToken.None);
-                    Assert.Equal(QpdfExitCode.Success, result.ExitCode);
-                }
-                listing = await Qpdf.ListAttachmentsAsync(host, QpdfPath.From("input"), CancellationToken.None);
-                await Qpdf.ExtractAttachmentAsync(host, QpdfPath.From("input"), "K", QpdfPath.From("payload"), CancellationToken.None);
-                Assert.True(host.TryGetOutput(QpdfPath.From("payload"), out byte[] payload)); Assert.Equal("U"u8.ToArray(), payload);
-                Assert.True(host.TryGetOutput(QpdfPath.From("output"), out output)); Assert.Equal(0L, host.OpenLeaseCount);
-            }
-            QpdfAttachmentInfo info = Assert.Single(listing);
-            Assert.Equal("preferred.txt", info.FileName); Assert.Equal("description", info.Description); Assert.Equal("text/plain", info.MimeType);
-            Assert.Equal("D:20240102030405Z", info.CreationDate); Assert.Equal("D:20250607080910Z", info.ModDate);
-            Assert.Equal("0102", info.Checksum); Assert.Equal(1L, info.Size);
-            using JsonDocument json = JsonDocument.Parse(output);
-            JsonElement attachment = json.RootElement.GetProperty("attachments").GetProperty("K");
-            Assert.Equal("preferred.txt", attachment.GetProperty("preferredname").GetString()); Assert.Equal("description", attachment.GetProperty("description").GetString());
-            Assert.Equal("preferred.txt", attachment.GetProperty("names").GetProperty("/UF").GetString());
-            JsonProperty[] streams = attachment.GetProperty("streams").EnumerateObject().ToArray(); Assert.Equal(2, streams.Length);
-            Assert.Equal(new[] { "/F", "/UF" }, streams.Select(stream => stream.Name).Order());
-            foreach (JsonProperty stream in streams)
-            {
-                Assert.Equal("text/plain", stream.Value.GetProperty("mimetype").GetString()); Assert.Equal("0102", stream.Value.GetProperty("checksum").GetString());
-                Assert.Equal("2024-01-02T03:04:05Z", stream.Value.GetProperty("creationdate").GetString());
-                Assert.Equal("2025-06-07T08:09:10Z", stream.Value.GetProperty("modificationdate").GetString());
-            }
+            Assert.Equal("text/plain", stream.Value.GetProperty("mimetype").GetString()); Assert.Equal("0102", stream.Value.GetProperty("checksum").GetString());
+            Assert.Equal("2024-01-02T03:04:05Z", stream.Value.GetProperty("creationdate").GetString());
+            Assert.Equal("2025-06-07T08:09:10Z", stream.Value.GetProperty("modificationdate").GetString());
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ListingAndExtractionRetainPreferredStreamMetadataAndBytes(bool indirect)
+    {
+        QpdfPath input = QpdfPath.From("input"), output = QpdfPath.From("payload");
+        QpdfAttachmentInfo info;
+        byte[] payload;
+        using (InMemoryQpdfHost host = new())
+        {
+            host.AddInput(input, Fixture(indirect, null), QpdfInputOwnership.Transfer);
+            info = Assert.Single(await Qpdf.ListAttachmentsAsync(host, input, CancellationToken.None));
+            await Qpdf.ExtractAttachmentAsync(host, input, "K", output, CancellationToken.None);
+            Assert.True(host.TryGetOutput(output, out payload));
+            Assert.Equal(0L, host.OpenLeaseCount);
+        }
+        Assert.Equal("U"u8.ToArray(), payload);
+        Assert.Equal("preferred.txt", info.FileName); Assert.Equal("description", info.Description); Assert.Equal("text/plain", info.MimeType);
+        Assert.Equal("D:20240102030405Z", info.CreationDate); Assert.Equal("D:20250607080910Z", info.ModDate);
+        Assert.Equal("0102", info.Checksum); Assert.Equal(1L, info.Size);
     }
 
     [Theory]

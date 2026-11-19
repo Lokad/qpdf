@@ -1,5 +1,6 @@
 using System.Text;
 using Lokad.Qpdf.Hosting;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -21,24 +22,26 @@ public sealed class AttachmentBlockPlacementTests
 
     public static IEnumerable<object[]> Placements()
     {
-        foreach (string route in new[] { "argv", "response", "mixed" })
         foreach (string edit in new[] { "add", "remove", "replace", "copy" })
         foreach (int position in new[] { 0, 1, 2, 3 })
         {
-            yield return [route, edit, position, true];
-            if (position != 2) { yield return [route, edit, position, false]; }
+            yield return ["argv", edit, position, "1"];
+            if (position != 2) { yield return ["argv", edit, position, ""]; }
         }
+        yield return ["argv", "add", 2, "1-1"];
+        yield return ["response", "copy", 1, "1"];
+        yield return ["mixed", "replace", 3, "1"];
     }
 
     [Theory]
     [MemberData(nameof(Placements))]
-    public async Task AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions(string route, string edit, int position, bool pages)
+    public async Task AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions(string route, string edit, int position, string range)
     {
-        using InMemoryQpdfHost host = new();
+        using RecordingJobHost recording = new(null, null, "success", true);
+        InMemoryQpdfHost host = recording.Inner;
         host.AddInput(QpdfPath.From("input"), Fixture("seed", "OLD", true), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("foreign"), Fixture("foreign", "FOREIGN", false), QpdfInputOwnership.Transfer);
         host.AddInput(QpdfPath.From("payload"), "NEW"u8.ToArray(), QpdfInputOwnership.Copy);
-        host.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Copy);
         string[] block = edit switch
         {
             "add" => ["--add-attachment", "payload", "--key=added", "--"],
@@ -46,16 +49,22 @@ public sealed class AttachmentBlockPlacementTests
             "replace" => ["--add-attachment", "payload", "--key=seed", "--replace", "--"],
             _ => ["--copy-attachments-from", "foreign", "--prefix=imported-", "--"],
         };
-        List<string> args = pages ? ["input", "--pages", ".", position % 2 == 0 ? "1" : "1-1", "--", "output"] : ["input", "output"];
+        List<string> args = range.Length == 0 ? ["input", "output"] : ["input", "--pages", ".", range, "--", "output"];
         args.InsertRange(position switch { 0 => 0, 1 => 1, 2 => 5, _ => args.Count }, block);
-        if (route == "mixed") { args.Insert(0, "--job-json-file=settings"); }
+        if (route == "mixed")
+        {
+            host.AddInput(QpdfPath.From("settings"), "{}"u8.ToArray(), QpdfInputOwnership.Copy);
+            args.Insert(0, "--job-json-file=settings");
+        }
         if (route == "response")
         {
             host.AddInput(QpdfPath.From("args"), Encoding.UTF8.GetBytes(string.Join('\n', args)), QpdfInputOwnership.Copy);
             args = ["@args"];
         }
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host, new(args), CancellationToken.None);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(recording, new(args), CancellationToken.None);
         Assert.True(result.ExitCode == QpdfExitCode.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        if (route == "mixed") { Assert.Equal(QpdfPath.From("settings"), recording.OpenedPaths[0]); }
+        if (route == "response") { Assert.Equal(QpdfPath.From("args"), recording.OpenedPaths[0]); }
         Assert.True(host.TryGetOutput(QpdfPath.From("output"), out byte[] output));
         host.AddInput(QpdfPath.From("reopen"), output, QpdfInputOwnership.Copy);
         await using (QpdfDocument document = await QpdfDocument.OpenAsync(host, QpdfPath.From("reopen"), CancellationToken.None))

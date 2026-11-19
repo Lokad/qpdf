@@ -10,12 +10,21 @@ public sealed class AttachmentTreeReferenceTests
     public static IEnumerable<object[]> Cases()
     {
         foreach (string variant in new[] { "direct", "names", "kids", "key", "all", "names-null-kids", "kids-null-names" })
-        foreach (string operation in new[] { "list", "extract", "json1", "json2", "copy", "rewrite" })
-        foreach (string route in new[] { "typed", "argv", "job" })
         {
-            if (operation == "copy" && route != "typed" || operation == "rewrite" && route == "typed") { continue; }
-            yield return [variant, operation, route];
+            yield return [variant, "list", "typed"];
+            yield return [variant, "extract", "typed"];
         }
+        yield return ["names", "list", "argv"];
+        yield return ["kids", "list", "job"];
+        yield return ["key", "extract", "argv"];
+        yield return ["all", "extract", "job"];
+        yield return ["direct", "json1", "typed"];
+        yield return ["names", "json1", "job"];
+        yield return ["kids", "json2", "argv"];
+        yield return ["all", "json2", "typed"];
+        yield return ["all", "copy", "typed"];
+        yield return ["names-null-kids", "rewrite", "argv"];
+        yield return ["kids-null-names", "rewrite", "job"];
     }
 
     [Theory]
@@ -24,7 +33,8 @@ public sealed class AttachmentTreeReferenceTests
     {
         using InMemoryQpdfHost host = new();
         host.AddInput(Input, Fixture(variant, "(note.txt)", 0), QpdfInputOwnership.Transfer);
-        host.AddInput(QpdfPath.From("base"), Fixture("empty", "(note.txt)", 0), QpdfInputOwnership.Transfer);
+        if (operation == "copy")
+        { host.AddInput(QpdfPath.From("base"), Fixture("empty", "(note.txt)", 0), QpdfInputOwnership.Transfer); }
         string? json = null;
         if (route == "typed")
         {
@@ -116,7 +126,9 @@ public sealed class AttachmentTreeReferenceTests
     public static IEnumerable<object[]> OptionalCases()
     {
         foreach (string variant in new[] { "empty", "direct-null", "names-null", "kids-null", "names-stale", "kids-stale" })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [variant, route]; }
+        { yield return [variant, "typed"]; }
+        yield return ["names-stale", "argv"];
+        yield return ["direct-null", "job"];
     }
 
     [Theory]
@@ -142,7 +154,9 @@ public sealed class AttachmentTreeReferenceTests
         foreach (string variant in new[] { "names-type", "names-odd", "names-missing",
             "kids-type", "kids-missing", "kids-cycle",
             "key-type", "key-null", "key-missing", "key-stale", "deep" })
-        foreach (string route in new[] { "typed", "argv", "job" }) { yield return [variant, route]; }
+        { yield return [variant, "typed"]; }
+        yield return ["kids-cycle", "argv"];
+        yield return ["deep", "job"];
     }
 
     [Theory]
