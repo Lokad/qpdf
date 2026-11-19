@@ -1,4 +1,3 @@
-#if !QPDF_MEMORY_BASELINE
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -142,4 +141,3 @@ internal static class SecurityWorkloads
         { throw new InvalidOperationException(name + " failed: " + string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.Message))); }
     }
 }
-#endif

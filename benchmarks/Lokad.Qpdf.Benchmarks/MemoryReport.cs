@@ -4,9 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Image;
-#if !QPDF_MEMORY_BASELINE
 using Lokad.Qpdf.TestSupport;
-#endif
 
 namespace Lokad.Qpdf.Benchmarks;
 
@@ -34,11 +32,7 @@ internal static class MemoryReport
             || !int.TryParse(args[3], out int batch) || batch is < 1 or > 1024)
         { throw new ArgumentException("memory-report needs mode, warmups, samples, batch-size and optional scenario names; counts are 1..1024."); }
         string mode = args[0];
-#if QPDF_MEMORY_BASELINE
-        if (mode != "baseline") { throw new ArgumentException("This preserved build requires baseline mode."); }
-#else
         if (mode is not ("disabled" or "enabled")) { throw new ArgumentException("Mode must be disabled or enabled."); }
-#endif
         string[] names = args.Length == 4
             ? ["tiny", "select-sparse", "rewrite-objects", "merge", "split", "json", "flate", "photo", "linearize",
                 "config-text", "config-dense", "config-argv", "import-text", "import-dense", "import-unicode", "import-escaped"]
@@ -46,10 +40,7 @@ internal static class MemoryReport
         foreach (string name in names)
         {
             Scenario scenario = Create(name);
-            object? budget = null;
-#if !QPDF_MEMORY_BASELINE
-            if (mode == "enabled") { budget = new RecordingMemoryBudget(4294967296L, false); }
-#endif
+            using RecordingMemoryBudget? budget = mode == "enabled" ? new(4294967296L, false) : null;
             long warmStart = Stopwatch.GetTimestamp(), quietStart = warmStart;
             long warmJit = System.Runtime.JitInfo.GetCompiledMethodCount(false);
             double warmJitMs = System.Runtime.JitInfo.GetCompilationTime(false).TotalMilliseconds;
@@ -113,24 +104,15 @@ internal static class MemoryReport
     private static long? Max(long? left, long? right) => right is null ? left : Math.Max(left ?? 0L, right.Value);
     private static int? Max(int? left, int? right) => right is null ? left : Math.Max(left ?? 0, right.Value);
 
-    private static async Task<Job> Execute(Scenario scenario, object? budget)
+    private static async Task<Job> Execute(Scenario scenario, RecordingMemoryBudget? root)
     {
-#if !QPDF_MEMORY_BASELINE
-        RecordingMemoryBudget? root = (RecordingMemoryBudget?)budget;
         root?.ResetMetrics();
         using IMemoryScope? owner = root?.CreateScope();
         using InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance, owner);
-#else
-        InMemoryQpdfHost host = new(QpdfLimits.Default, LokadImageJpegCodec.Instance);
-#endif
         for (int index = 0; index < scenario.Inputs.Length; index++)
         { host.AddInput(QpdfPath.From("input" + index), scenario.Inputs[index], QpdfInputOwnership.Copy); }
-#if !QPDF_MEMORY_BASELINE
         using IMemoryScope? invocation = owner?.CreateScope();
         IQpdfHost view = invocation is null ? host : new MemoryHost(host, invocation);
-#else
-        IQpdfHost view = host;
-#endif
         QpdfExecutionResult? result = await Qpdf.ExecuteAsync(view,
             new QpdfCommandInvocation(scenario.Arguments), CancellationToken.None).ConfigureAwait(false);
         if (result.Status != QpdfExecutionStatus.Completed || result.ExitCode != scenario.ExpectedExitCode)
@@ -140,7 +122,6 @@ internal static class MemoryReport
                 && diagnostic.Message.EndsWith(": " + expectedPages, StringComparison.Ordinal)))
         { throw new InvalidOperationException(scenario.Name + " returned an unexpected page count."); }
         long localPeak = result.Counters.PeakMemoryBytes, localResult = result.Counters.LiveMemoryBytes;
-#if !QPDF_MEMORY_BASELINE
         long? retained = root?.ReservedBytes;
         host.Dispose();
         long? afterHost = root?.ReservedBytes;
@@ -150,12 +131,8 @@ internal static class MemoryReport
         { throw new InvalidOperationException("Job owners failed to refund."); }
         return new(localPeak, localResult, root?.PeakBytes,
             retained, afterHost, root?.ReservedBytes, root?.ReserveCalls, root?.ResizeCalls, root?.PeakReservations);
-#else
-        return new(localPeak, localResult, null, null, null, null, null, null, null);
-#endif
     }
 
-#if !QPDF_MEMORY_BASELINE
     private sealed class MemoryHost(InMemoryQpdfHost storage, IMemoryBudget budget) : IQpdfHost, IQpdfMemoryHost, IQpdfJpegCodecHost
     {
         public IMemoryBudget MemoryBudget => budget;
@@ -163,11 +140,9 @@ internal static class MemoryReport
         public ValueTask<IQpdfInput> OpenInputAsync(QpdfPath path, CancellationToken token) => storage.OpenInputAsync(path, token);
         public ValueTask<IQpdfOutputTransaction> CreateOutputAsync(QpdfPath path, CancellationToken token) => storage.CreateOutputAsync(path, token);
     }
-#endif
 
     private static Scenario Create(string name)
     {
-#if !QPDF_MEMORY_BASELINE
         if (name.StartsWith("shared-widgets-", StringComparison.Ordinal)
             && int.TryParse(name.AsSpan("shared-widgets-".Length), out int widgets)
             && widgets is 16 or 32 or 64 or 128)
@@ -183,7 +158,6 @@ internal static class MemoryReport
             SecurityWorkloads.ValidateAsync(workload).GetAwaiter().GetResult();
             return new(name, [workload.Input], workload.Arguments) { ExpectedExitCode = workload.ExpectedExitCode };
         }
-#endif
         if (name == "config-layered")
         {
             return new(name, [PdfScenarioBuilder.BuildTextDocument(1), "{\"compressStreams\":\"n\",\"forceVersion\":\"1.6\"}"u8.ToArray()],

@@ -1,4 +1,3 @@
-#if !QPDF_MEMORY_BASELINE
 using BenchmarkDotNet.Attributes;
 
 namespace Lokad.Qpdf.Benchmarks;
@@ -26,4 +25,3 @@ public class SecurityBenchmarks
     public Task CompletePublicOperation()
         => SecurityWorkloads.ExecuteAsync(_workload ?? throw new InvalidOperationException("Security benchmark was not prepared."));
 }
-#endif

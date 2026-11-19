@@ -62,8 +62,9 @@ result identities, input hashes, validation and per-batch samples.
 ## Cooperative memory admission
 
 Run each invocation in a dedicated process. Optional scenario names narrow
-the run. Enabled mode shares a recording budget across fresh job and host
-owners. The report includes allocation, JIT/GC, charged peaks and residuals.
+the run. Both modes use the same build. Enabled mode shares a recording
+budget across fresh job and host owners. The report includes allocation,
+JIT/GC, charged peaks and residuals.
 Closing the last owner must refund all charges.
 
 ```sh
