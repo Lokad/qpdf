@@ -265,7 +265,7 @@ internal static class SinglePageSelection
                     {
                         (copier.SourceToDestination, compressedOrig),
                     };
-                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, settings.Edits, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
+                    AttachmentAssembly singleAttached = await AssembleAttachmentsAsync(host, singleExisting, singlePool, 3, settings.Edits, singleCompress, singleLevel, streamMode == "preserve", singleSources, recovery, limits, governor, diagnostics, copyMemory, cancellationToken).ConfigureAwait(false);
                     if (settings.ForceVersion is null)
                     {
                         IncludeVersionRequirement(ref negotiated, ref negotiatedExtension, singleAttached.Version, singleAttached.ExtensionLevel, governor);

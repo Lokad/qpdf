@@ -77,6 +77,7 @@ internal static class AttachmentAssembler
         IQpdfHost host,
         SortedDictionary<string, AttachmentReference> existing,
         Dictionary<int, QpdfObject> pool,
+        int firstNewObject,
         AttachmentEdits edits,
         bool compress,
         int? level,
@@ -120,9 +121,10 @@ internal static class AttachmentAssembler
             return new AttachmentAssembly(null, false, 0, false, null, 0);
         }
 
-        int nextId = 3;
+        int nextId = firstNewObject;
         foreach (int number in pool.Keys)
         {
+            cancellationToken.ThrowIfCancellationRequested(); governor.CheckCancellation();
             if (number >= nextId)
             {
                 nextId = checked(number + 1);

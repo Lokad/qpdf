@@ -791,7 +791,7 @@ internal static partial class JobPlanner
                     || seenFlattenRotation || seenFlattenAnnotations || seenGenerateAppearances
                     || seenLinearizePass1
                     || seenOptimizeImages || seenOiMinWidth || seenOiMinHeight || seenOiMinArea || seenKeepInlineImages || seenJpegQuality
-                    || seenAddAttachment || seenRemoveAttachment || seenCopyAttachments
+                    || importJson && (seenAddAttachment || seenRemoveAttachment || seenCopyAttachments)
                     || seenJson || seenJsonKey || seenJsonObject || seenJsonStreamData || seenJsonStreamPrefix || seenJsonOutput
                     || !importJson && seenJsonInput
                     || seenTestJsonSchema)
@@ -824,6 +824,9 @@ internal static partial class JobPlanner
                     Sources = inspectionSources,
                     Collation = inspectionCollation,
                     CoalesceContents = coalesceContents,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
                     Rotations = rotations,
                     RunCheck = check,
                     Overlays = overlays,
@@ -967,7 +970,7 @@ internal static partial class JobPlanner
                 throw new QpdfParseException("Job JSON requires \"outputFile\".", 0L, null);
             }
 
-            if ((seenJson || seenJsonOutput) && (wantAttachments || attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0))
+            if ((seenJson || seenJsonOutput) && (wantAttachments || importJson && (attachmentsToAdd.Count > 0 || attachmentsToRemove.Count > 0 || attachmentsToCopy.Count > 0)))
             {
                 throw new QpdfParseException("Job \"json\" cannot be combined with attachment keys.", 0L, null);
             }
@@ -1115,6 +1118,9 @@ internal static partial class JobPlanner
                     RemoveAcroform = removeAcroform,
                     RemoveStructure = removeStructure,
                     RemoveLabels = removeLabels,
+                    AttachmentsToAdd = attachmentsToAdd,
+                    AttachmentsToRemove = attachmentsToRemove,
+                    AttachmentsToCopy = attachmentsToCopy,
                     Labels = labels,
                     OiMinWidth = oiMinWidth,
                     OiMinHeight = oiMinHeight,

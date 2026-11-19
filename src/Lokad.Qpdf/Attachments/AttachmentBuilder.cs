@@ -5,7 +5,7 @@ using Lokad.Qpdf.Runtime;
 
 namespace Lokad.Qpdf.Attachments;
 
-internal readonly record struct AttachmentReference(PdfByteString Name, PdfReference? Spec);
+internal readonly record struct AttachmentReference(PdfByteString Name, QpdfObject? Spec);
 
 internal static class AttachmentBuilder
 {
@@ -136,7 +136,7 @@ internal static class AttachmentBuilder
         {
             ordering.Reserve(32L + 2L * IntPtr.Size * pairs.Count);
             token.ThrowIfCancellationRequested(); governor.CheckCancellation();
-            KeyValuePair<PdfByteString, PdfReference>[] encoded = new KeyValuePair<PdfByteString, PdfReference>[pairs.Count];
+            KeyValuePair<PdfByteString, QpdfObject>[] encoded = new KeyValuePair<PdfByteString, QpdfObject>[pairs.Count];
             int index = 0;
             bool sorted = true;
             EncodedKeyOrder order = new(governor, token);
@@ -160,9 +160,9 @@ internal static class AttachmentBuilder
         return Dictionary(governor, memory, token, [("Names", PdfArray.FromOwnedItems(items))]);
     }
 
-    private readonly struct EncodedKeyOrder(ResourceGovernor governor, CancellationToken token) : IComparer<KeyValuePair<PdfByteString, PdfReference>>
+    private readonly struct EncodedKeyOrder(ResourceGovernor governor, CancellationToken token) : IComparer<KeyValuePair<PdfByteString, QpdfObject>>
     {
-        public int Compare(KeyValuePair<PdfByteString, PdfReference> left, KeyValuePair<PdfByteString, PdfReference> right)
+        public int Compare(KeyValuePair<PdfByteString, QpdfObject> left, KeyValuePair<PdfByteString, QpdfObject> right)
         {
             ReadOnlySpan<byte> first = left.Key.ValueMemory.Span, second = right.Key.ValueMemory.Span;
             int length = Math.Min(first.Length, second.Length);

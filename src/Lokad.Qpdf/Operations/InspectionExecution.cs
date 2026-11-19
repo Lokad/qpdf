@@ -529,6 +529,7 @@ internal static class InspectionExecution
             if (plan.Import is null && plan.ShowNpages && !plan.EmptyDocument && !plan.RunCheck && !plan.ShowEncryption
                 && !plan.ShowPages && !plan.ShowXref && plan.ObjectSelector is null && !plan.ListAttachments
                 && plan.AttachmentKey is null && !plan.CheckLinearization && !plan.ShowLinearization
+                && !plan.HasAttachmentEdits
                 && !plan.CoalesceContents && plan.Sources.Count == 0 && plan.Rotations.Count == 0
                 && plan.Overlays.Count == 0 && plan.Underlays.Count == 0)
             {

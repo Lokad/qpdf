@@ -387,6 +387,9 @@ JSON export applies Info, XML metadata, AcroForm, structure and page-label
 removals to the active roles. Independent aliases retain their original values.
 Authored labels replace removed or existing labels in the final page order.
 Other form and frame transforms remain unavailable during JSON export.
+Export from a PDF can apply attachment edits before either report shape.
+Minimal output can recreate the edited collection, including its stream data.
+[Attachment edits](#attachments-profile)
 
 Typed `GetDocumentJsonAsync` returns JSON. An explicit output path also
 publishes the report. None and inline stream modes can return reports without
@@ -510,6 +513,10 @@ Typed APIs, argv and job JSON support listing, extraction and attachment edits.
 The full typed overloads accept `QpdfRecoveryMode` for primary, copy-source and
 encryption-template inputs. Typed listing with explicit recovery returns immutable
 metadata, warnings and closed-handle counters in `QpdfAttachmentListResult`.
+Text inspection and JSON export of a PDF apply add, remove and copy before
+reporting. Text extraction uses the resulting collection. An independent
+reference to the old name tree continues to resolve against the source graph.
+Editing attachments while binding JSON input remains unavailable.
 
 - Match decoded ordinal keys; sort output by encoded bytes. Full-collection
   operations reject duplicate logical keys; selective extraction uses the first match.

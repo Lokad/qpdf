@@ -62,7 +62,7 @@ public sealed class AttachmentConstructionTests
         SortedDictionary<string, AttachmentReference> existing, bool compress, QpdfLimits limits,
         ResourceGovernor governor, ParserMemoryScope memory, CancellationToken token)
     {
-        await AttachmentAssembler.AssembleAttachmentsAsync(host, existing, pool, edits, compress, null, false,
+        await AttachmentAssembler.AssembleAttachmentsAsync(host, existing, pool, 3, edits, compress, null, false,
             [], QpdfRecoveryMode.Strict, limits, governor, new DiagnosticBag(governor), memory, token);
 
     }
@@ -248,7 +248,7 @@ public sealed class AttachmentConstructionTests
         RecordingMemoryBudget root = new(4096L); using IMemoryScope caller = root.CreateScope();
         Host host = new([], null, shared ? caller : null);
         ResourceGovernor governor = new(QpdfLimits.Default with { MaxMemoryBytes = shared ? 1048576L : 4096L }, CancellationToken.None, host);
-        AttachmentReference[] pairs = Enumerable.Range(0, 1024).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new(i + 1, 0))).ToArray();
+        AttachmentReference[] pairs = Enumerable.Range(0, 1024).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new PdfReference(i + 1, 0))).ToArray();
         using (ParserMemoryScope prior = ParserMemoryScope.Create(governor))
         {
             prior.Reserve(17L); long baseline = governor.Snapshot().LiveMemoryBytes;
@@ -271,7 +271,7 @@ public sealed class AttachmentConstructionTests
         using CancellationTokenSource cancellation = new();
         Host host = new([], null, new CancelingGrowth(caller, cancellation));
         ResourceGovernor governor = new(QpdfLimits.Default, governorToken ? cancellation.Token : CancellationToken.None, host);
-        AttachmentReference[] pairs = Enumerable.Range(0, 8192).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new(i + 1, 0))).ToArray();
+        AttachmentReference[] pairs = Enumerable.Range(0, 8192).Select(i => new AttachmentReference(new PdfByteString("key"u8.ToArray(), false), new PdfReference(i + 1, 0))).ToArray();
         using (ParserMemoryScope memory = ParserMemoryScope.Create(governor))
         {
             long before = GC.GetAllocatedBytesForCurrentThread();

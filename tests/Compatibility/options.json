@@ -2522,6 +2522,7 @@
           "AttachmentBlockPlacementTests.MalformedBlocksRejectBeforePdfAccessAndPreservePriorTarget"
         ],
         "interaction": [
+          "AttachmentEditInspectionTests.AdditionRetainsAnExistingDirectFilespec",
           "AttachmentEditTests.AddPreservesExisting",
           "ZeroPageRewriteTests.TypedAttachmentEditsAcceptRealZeroPageInput",
           "ZeroPageRewriteTests.WholeFileRewritePreservesZeroPageCatalogAndPayloads",
@@ -2540,6 +2541,7 @@
           "ZeroPageRewriteTests.EmptyEditsRefundEverySharedAdmissionRefusal"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "diff:attachments-add",
           "diff:attachments-boundaries"
         ]
@@ -3008,6 +3010,7 @@
           "AttachmentImportReuseTests.ASecondCredentialAuthenticatesBeforeReusingAnyGraph"
         ],
         "interaction": [
+          "AttachmentEditInspectionTests.InspectionProjectsEditsAndKeepsTheOriginalNameTree",
           "AttachmentCopyTests.JobCopyRoundTrip",
           "AttachmentBlockPlacementTests.AttachmentBlocksKeepTheirMeaningAtMainArgumentPositions",
           "ZeroPageRewriteTests.ZeroPageEditsApplyThroughSharedAttachmentPipeline",
@@ -3024,6 +3027,7 @@
           "AttachmentPreparationAdmissionTests.PreparedAttachmentsRefundOwnersAndRespectPublication"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "diff:attachments-copy",
           "diff:security-sources"
         ]
@@ -4163,6 +4167,7 @@
       ],
       "evidence": {
         "positive": [
+          "AttachmentEditInspectionTests.InspectionProjectsEditsAndKeepsTheOriginalNameTree",
           "AttachmentTreeReferenceTests.EquivalentTreesWorkAcrossPublicOperations",
           "JsonInspectionTests.DefaultVersionIsTwo",
           "JsonInspectionTests.JsonWithoutFileReturnsText",
@@ -4293,6 +4298,7 @@
           "JsonResourcePruningTests.PreparationAndPublicationFailuresProtectTheActualReportAndRefundOwners"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:json-pages",
           "diff:json-structure",
@@ -4663,6 +4669,7 @@
           "JsonCompositionTests.NamedProjectionSeparatesSameNumberStreamGenerations"
         ],
         "resource": [
+          "AttachmentEditInspectionTests.EditedReportKeepsThePriorTargetOnRefusal",
           "JsonPublicationTransformTests.PreparationAndPublicationFailuresKeepTheActualTargetAndRefundAdmission",
           "ResourceEnforcementTests.JsonInspectionYieldsToExhaustedBudget",
           "JsonStringIdentityTests.EveryObservedMemoryRefusalPreservesTheTargetAndRefunds",
@@ -4682,6 +4689,7 @@
           "JsonCompositionTests.AProjectedSidecarCannotReplaceABoundInput"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "tools/ReferenceJsonPublication.ps1: Invoke-ReferenceJsonPublication",
           "diff:json-output",
           "diff:security-json",
@@ -5104,6 +5112,7 @@
           "AttachmentTests.BrokenTreeFails"
         ],
         "interaction": [
+          "AttachmentEditInspectionTests.TextInspectionCanRemoveAndExtractFromTheEditedCollection",
           "AttachmentTests.DanglingEntryWarnsButListsRest",
           "AttachmentTests.JobListSucceedsWithoutOutput",
           "AttachmentTests.MalformedAttachmentsFail",
@@ -5121,6 +5130,7 @@
           "SubtreeReuseTests.EveryTraversalAdmissionRefusalRefundsItsPrivateState"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "diff:attachments-list",
           "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceJsonCheck"
         ]
@@ -6507,6 +6517,7 @@
           "AttachmentEditTests.MalformedEditsFail"
         ],
         "interaction": [
+          "AttachmentEditInspectionTests.TextInspectionCanRemoveAndExtractFromTheEditedCollection",
           "AttachmentEditTests.RemoveThenReaddWins",
           "AttachmentEditReachabilityTests.PruningKeepsCompressedQdfAndLinearizedModelsCoherent",
           "AttachmentEditTests.JobAddRemoveRoundTrip"
@@ -6518,6 +6529,7 @@
           "AttachmentEditReachabilityTests.RemovalPublicationFailuresPreservePriorOutput"
         ],
         "oracle": [
+          "tools/ReferenceJsonCheck.ps1: Invoke-ReferenceAttachmentInspectionEdits",
           "diff:attachments-remove"
         ]
       }

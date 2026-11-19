@@ -21,4 +21,8 @@ internal interface IInspectionGraphPlan
     long OiMinArea { get; }
     bool KeepInlineImages { get; }
     int? JpegQuality { get; }
+    IReadOnlyList<AttachmentAdd> AttachmentsToAdd { get; }
+    IReadOnlyList<string> AttachmentsToRemove { get; }
+    IReadOnlyList<AttachmentCopy> AttachmentsToCopy { get; }
+    bool HasAttachmentEdits { get; }
 }

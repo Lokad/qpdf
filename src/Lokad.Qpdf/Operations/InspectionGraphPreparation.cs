@@ -78,8 +78,9 @@ internal static partial class InspectionGraphPreparation
         bool authoredLabels = json is not null && json.Labels.Count > 0;
         bool publication = json is not null && (authoredLabels || json.RemoveInfo || json.RemoveMetadata
             || json.RemoveAcroform || json.RemoveStructure || json.RemoveLabels);
+        bool editAttachments = plan.HasAttachmentEdits;
         bool preparePages = plan.Sources.Count > 0 || plan.Rotations.Count > 0 || overlay || content || authoredLabels;
-        if (!preparePages && !publication) { return null; }
+        if (!preparePages && !publication && !editAttachments) { return null; }
         if (plan.Sources.Count > 0 && plan.Collation is PdfPageCollation collation
             && collation.GroupSizes.Count != 1 && collation.GroupSizes.Count != plan.Sources.Count)
         { throw new ArgumentException("Collation requires one size or one size per source."); }
@@ -132,12 +133,15 @@ internal static partial class InspectionGraphPreparation
             }
             if (greatest == int.MaxValue) { throw new QpdfParseException("No object identity is available for page transformations.", null, null); }
             GraphCopier pool = GraphCopier.CreateInspectionOwned(document.Engine, governor, limits, greatest + 1, memory, true);
-            if (!preparePages && json is not null)
+            if (!preparePages)
             {
                 document.Engine.SetInspectionObjects(pool.CopiedObjects);
                 document.Engine.InspectionCalledAllPages = false;
                 document.Engine.InspectionPushedInheritedResources = false;
-                ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken);
+                if (publication && json is not null)
+                { ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken); }
+                if (editAttachments)
+                { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
                 return lifetime;
             }
             if (prunePrimary && pruneSources is not null && pruningMemory is not null)
@@ -448,6 +452,8 @@ internal static partial class InspectionGraphPreparation
             document.SetInspectionPages(transformed);
             if (publication && json is not null)
             { ApplyInspectionPublication(document, pool, json, memory, governor, cancellationToken); }
+            if (editAttachments)
+            { await ApplyInspectionAttachmentsAsync(host, document, pool, plan, limits, governor, diagnostics, memory, cancellationToken).ConfigureAwait(false); }
             return lifetime;
         }
         catch (ArgumentException ex)

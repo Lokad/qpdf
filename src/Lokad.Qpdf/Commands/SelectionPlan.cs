@@ -102,6 +102,8 @@ internal abstract record JobPlan(QpdfPath Input)
 
     public IReadOnlyList<AttachmentCopy> AttachmentsToCopy { get; init; } = [];
 
+    public bool HasAttachmentEdits => AttachmentsToAdd.Count > 0 || AttachmentsToRemove.Count > 0 || AttachmentsToCopy.Count > 0;
+
     public IReadOnlyList<OverlaySpec> Overlays { get; init; } = [];
 
     public IReadOnlyList<OverlaySpec> Underlays { get; init; } = [];

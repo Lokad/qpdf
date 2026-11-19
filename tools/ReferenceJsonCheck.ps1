@@ -1,3 +1,59 @@
+# Exercise edits against an independently authored attachment graph.
+function Invoke-ReferenceAttachmentInspectionEdits {
+  $case = New-Case 'attachment-inspection-edits'
+  Copy-Item -LiteralPath "$fixtureDir/minimal-1page.pdf" -Destination "$case/inputs/page.pdf"
+  [byte[]]$original = @(0, 254, 92, 10)
+  [byte[]]$added = @(65, 0, 255, 40)
+  [IO.File]::WriteAllBytes("$case/inputs/original.bin", $original)
+  [IO.File]::WriteAllBytes("$case/inputs/added.bin", $added)
+  if ((Invoke-Oracle $case @('inputs/page.pdf','--add-attachment','inputs/original.bin','--key=old','--','inputs/seed.pdf')) -ne 0) {
+    throw 'Could not author the attachment inspection source.'
+  }
+  if ((Invoke-Oracle $case @('inputs/seed.pdf','--list-attachments')) -ne 0 -or
+      (Get-Content -Raw -LiteralPath "$case/ora-stdout.txt") -notmatch '(?m)^old -> \d+,\d+') {
+    throw 'The attachment inspection source has no original key.'
+  }
+  @{inputFile='inputs/seed.pdf';listAttachments='';removeAttachment=@('old')} | ConvertTo-Json |
+    Set-Content -LiteralPath "$case/removed.json"
+  if ((Invoke-Oracle $case @('--job-json-file=removed.json')) -ne 0 -or
+      (Get-Content -Raw -LiteralPath "$case/ora-stdout.txt") -match ' -> ') {
+    throw 'Native text inspection still lists the removed attachment.'
+  }
+  $managed = Invoke-ReferenceProbeRequest -WorkingDirectory $case -Arguments @('emit-job','--workdir',$case,'--job',"$case/removed.json")
+  $listing = Get-Content -Raw -LiteralPath $managed.StandardOutput
+  if ($managed.ExitCode -ne 0 -or $listing -notmatch 'has no embedded files' -or $listing -match ' -> ') {
+    throw 'Managed text inspection did not report the explicitly empty collection.'
+  }
+  Write-Output '[attachment-inspection-edits/remove] text listing has no active attachment keys.'
+
+  $flags = @('inputs/seed.pdf','--remove-attachment=old','--add-attachment','inputs/added.bin','--key=added','--',
+      '--copy-attachments-from','inputs/seed.pdf','--prefix=copy-','--')
+  $formats = @('--json=2','--json-stream-data=inline','--json-key=attachments','--json-key=qpdf')
+  if ((Invoke-Oracle $case ($flags + $formats + @('native.json'))) -ne 0 -or
+      (Invoke-Emit $case (@('emit','--workdir',$case,'--out',"report.json=$case/managed.json",'--') + $flags + $formats + @('report.json'))) -ne 0) {
+    throw 'An edited attachment JSON report failed.'
+  }
+  foreach ($file in @('native.json', 'managed.json')) {
+    $json = Get-Content -Raw -LiteralPath "$case/$file" | ConvertFrom-Json -AsHashtable
+    $keys = ($json.attachments.Keys | Sort-Object) -join ','
+    if ($keys -cne 'added,copy-old') { throw "$file has the wrong edited attachment keys." }
+    foreach ($row in @(@{Key='added';Bytes=$added}, @{Key='copy-old';Bytes=$original})) {
+      $pair = $json.attachments[$row.Key].preferredcontents
+      if ($json.qpdf[1]["obj:$pair"].stream.data -cne [Convert]::ToBase64String($row.Bytes)) {
+        throw "$file no longer addresses the exact $($row.Key) payload."
+      }
+    }
+  }
+  if ((Invoke-Emit $case (@('emit','--workdir',$case,'--out',"minimal.json=$case/minimal.json",'--') + $flags + @('--json-output','minimal.json'))) -ne 0 -or
+      (Invoke-Oracle $case @('--json-input','minimal.json','recreated.pdf')) -ne 0 -or
+      (Invoke-Oracle $case @('--check','recreated.pdf')) -ne 0 -or
+      (Invoke-Oracle $case @('recreated.pdf','--show-attachment=added')) -ne 0 -or
+      [Convert]::ToHexString([IO.File]::ReadAllBytes("$case/ora-stdout.txt")) -cne [Convert]::ToHexString($added)) {
+    throw 'The edited minimal report did not independently recreate the attachment bytes.'
+  }
+  Write-Output '[attachment-inspection-edits/export] edited keys, stream addresses and recreated bytes agree.'
+}
+
 function Invoke-ReferenceJsonCheck {
   $case = New-Case 'json-check'
   Copy-Item -LiteralPath (Join-Path $fixtureDir 'minimal-1page.pdf') -Destination "$case/inputs/source.pdf"
