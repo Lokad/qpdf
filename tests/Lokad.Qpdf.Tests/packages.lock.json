@@ -112,7 +112,7 @@
         "type": "Project",
         "dependencies": {
           "Lokad.Image": "[0.2.1, 0.2.1]",
-          "Lokad.qpdf": "[0.2.0-dev.7, )"
+          "Lokad.qpdf": "[0.2.0, )"
         }
       },
       "qpdfprobe": {
@@ -120,7 +120,7 @@
         "dependencies": {
           "Lokad.Image": "[0.2.1, 0.2.1]",
           "Lokad.Qpdf.Image": "[1.0.0, )",
-          "Lokad.qpdf": "[0.2.0-dev.7, )",
+          "Lokad.qpdf": "[0.2.0, )",
           "PdfPig": "[0.1.16, 0.1.16]"
         }
       }
@@ -236,7 +236,7 @@
         "type": "Project",
         "dependencies": {
           "Lokad.Image": "[0.2.1, 0.2.1]",
-          "Lokad.qpdf": "[0.2.0-dev.7, )"
+          "Lokad.qpdf": "[0.2.0, )"
         }
       },
       "qpdfprobe": {
@@ -244,7 +244,7 @@
         "dependencies": {
           "Lokad.Image": "[0.2.1, 0.2.1]",
           "Lokad.Qpdf.Image": "[1.0.0, )",
-          "Lokad.qpdf": "[0.2.0-dev.7, )",
+          "Lokad.qpdf": "[0.2.0, )",
           "PdfPig": "[0.1.16, 0.1.16]"
         }
       }

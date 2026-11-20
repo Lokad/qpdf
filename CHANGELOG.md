@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 0.2.0-dev.7
+## 0.2.0
 
 ### PDF JSON and inspection
 
