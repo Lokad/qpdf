@@ -23,12 +23,6 @@ $testRoot = Join-Path $repoRoot ('artifacts/consumer-tests/' + [guid]::NewGuid()
 $consumerDirectory = Join-Path $testRoot 'tests/Lokad.Qpdf.PackageConsumer'
 $toolDirectory = Join-Path $testRoot 'tools'
 New-Item -ItemType Directory -Path $consumerDirectory, $toolDirectory | Out-Null
-foreach ($name in @('global.json', 'Directory.Build.props', 'Directory.Build.targets', 'Directory.Packages.props')) {
-    Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot
-}
-foreach ($name in @('Lokad.Qpdf.PackageConsumer.csproj', 'Program.cs', 'RecordingMemoryBudget.cs', 'PageCountChecks.cs')) {
-    Copy-Item -LiteralPath (Join-Path $repoRoot ('tests/Lokad.Qpdf.PackageConsumer/' + $name)) -Destination $consumerDirectory
-}
 $seedPath = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer/packages.lock.json'
 $seedText = Get-Content -LiteralPath $seedPath -Raw
 $seedHash = (Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash
