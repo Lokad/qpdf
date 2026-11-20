@@ -6,7 +6,7 @@
         "type": "Direct",
         "requested": "[0.2.0, )",
         "resolved": "0.2.0",
-        "contentHash": "5OSh7XxTOynXbaF/hbeaHdRkIygUalJAmMEGCOLTUNJO78UwOxvfePn1V4o/SFx+zd/CqiJAeKMba6040DaQQA=="
+        "contentHash": "d9cRvVr1m9/KJ5RuxN9Vf9aBQJbbQYYJ/xOWbk70zWZQneQO41q4IhRuzZqZTyOHbVpzw7T0+9XCeazZtvYQtQ=="
       }
     },
     "net11.0": {
@@ -14,7 +14,7 @@
         "type": "Direct",
         "requested": "[0.2.0, )",
         "resolved": "0.2.0",
-        "contentHash": "5OSh7XxTOynXbaF/hbeaHdRkIygUalJAmMEGCOLTUNJO78UwOxvfePn1V4o/SFx+zd/CqiJAeKMba6040DaQQA=="
+        "contentHash": "d9cRvVr1m9/KJ5RuxN9Vf9aBQJbbQYYJ/xOWbk70zWZQneQO41q4IhRuzZqZTyOHbVpzw7T0+9XCeazZtvYQtQ=="
       }
     }
   }

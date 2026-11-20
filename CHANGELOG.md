@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.2.0
+## 0.2.0 (2026-11-20)
+
+[Published on NuGet](https://www.nuget.org/packages/Lokad.qpdf/0.2.0).
 
 ### PDF JSON and inspection
 
