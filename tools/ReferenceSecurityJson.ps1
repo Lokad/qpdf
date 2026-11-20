@@ -24,6 +24,20 @@ function Assert-SecurityJsonPayloads {
 }
 
 function Invoke-ReferenceSecurityJson {
+  $fixtureProject = Join-Path $repoRoot 'tests/Lokad.Qpdf.Tests/Lokad.Qpdf.Tests.csproj'
+  $stagedFixtures = Join-Path $diffRoot 'compressed-fixtures'
+  Push-Location -LiteralPath $repoRoot
+  try {
+    & dotnet msbuild $fixtureProject -nologo -v:quiet -t:StageCompressedFixtures `
+      '-p:TargetFramework=net11.0' "-p:QpdfFixtureStageDirectory=$stagedFixtures"
+    if ($LASTEXITCODE -ne 0) { throw "Compressed fixture staging failed ($LASTEXITCODE)." }
+  } finally { Pop-Location }
+  $generationFixture = Join-Path $stagedFixtures 'security-r4-generations.pdf'
+  $manifest = Get-Content -LiteralPath "$fixtureDir/manifest.json" -Raw | ConvertFrom-Json
+  $expectedFixture = $manifest.fixtures | Where-Object file -CEQ 'security-r4-generations.pdf'
+  if ((Get-FileHash -LiteralPath $generationFixture -Algorithm SHA256).Hash -ne $expectedFixture.sha256) {
+    throw 'Staged R4 generation fixture differs from the manifest.'
+  }
   foreach ($profile in @(
     @('r2', 2, 40, -64), @('r3', 3, 128, -3388), @('r4', 4, 128, -3388),
     @('r4-rc4', 4, 128, -3388), @('r5', 5, 256, -3388), @('r6', 6, 256, -3388),
@@ -35,8 +49,8 @@ function Invoke-ReferenceSecurityJson {
       foreach ($mode in $modes) {
         $name = "security-json-$($profile[0])-$route-$mode"
         $case = New-Case $name
-        $fixture = if ($profile[0] -eq 'r4-generations') { 'security-r4-generations.pdf' } else { "security-$($profile[0])-ascii.pdf" }
-        Copy-Item -LiteralPath "$fixtureDir/$fixture" -Destination "$case/inputs/a.pdf"
+        $fixture = if ($profile[0] -eq 'r4-generations') { $generationFixture } else { "$fixtureDir/security-$($profile[0])-ascii.pdf" }
+        Copy-Item -LiteralPath $fixture -Destination "$case/inputs/a.pdf"
         $nativeOptions = @('--password=reader', '--json-output=2', "--json-stream-data=$mode")
         if ($mode -eq 'file') { $nativeOptions += '--json-stream-prefix=inputs/native-stream' }
         $native = Invoke-Oracle $case (@('inputs/a.pdf', "$case/native.json") + $nativeOptions)

@@ -969,6 +969,7 @@
     },
     {
       "file": "security-r4-generations.pdf",
+      "archive": "security-r4-generations.pdf.zip",
       "sha256": "c720c3093e4807b49d3c5ef06d28f6cf35565c386570442270014aa9ce7beeca",
       "bytes": 1322272,
       "expectedNpages": 1,

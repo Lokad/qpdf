@@ -29,4 +29,15 @@
     <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../tools/Lokad.Qpdf.Image/Lokad.Qpdf.Image.csproj" />
   </ItemGroup>
+  <Target Name="StageCompressedFixtures" BeforeTargets="CopyFilesToOutputDirectory"
+          Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <QpdfFixtureStageDirectory Condition="'$(QpdfFixtureStageDirectory)' == ''">$(TargetDir)Fixtures</QpdfFixtureStageDirectory>
+    </PropertyGroup>
+    <Unzip SourceFiles="$(MSBuildProjectDirectory)/../Fixtures/security-r4-generations.pdf.zip"
+           DestinationFolder="$(QpdfFixtureStageDirectory)" SkipUnchangedFiles="false" />
+    <ItemGroup>
+      <FileWrites Include="$(QpdfFixtureStageDirectory)/security-r4-generations.pdf" />
+    </ItemGroup>
+  </Target>
 </Project>
