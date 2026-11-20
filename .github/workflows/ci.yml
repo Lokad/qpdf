@@ -104,7 +104,10 @@ jobs:
             artifacts/ci/logs/
             artifacts/ci/tool-controls/
             artifacts/ci/test-results/**/*.trx
+            artifacts/package-consumer/*/*.log
+            artifacts/package-consumer/*/receipt.json
             artifacts/consumer-tests/**/*.log
+            artifacts/consumer-tests/*/receipt.json
           retention-days: 14
           if-no-files-found: error
       - name: Preserve failed test diagnostics

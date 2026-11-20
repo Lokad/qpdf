@@ -5,24 +5,30 @@
   Requires a packed unsigned Lokad.qpdf artifact, PowerShell and the pinned SDK.
   Mutates copied consumer locks and package manifests under artifacts.
   The supplied package and tracked lock remain unchanged.
+  Successful runs keep logs and hashes. Use -KeepWorkspace to retain the
+  copied cases on success.
 #>
 param(
     [Parameter(Mandatory = $true)]
     [string] $PackagePath,
     [switch] $CheckReleaseBuild,
-    [string] $ArtifactsPath
+    [string] $ArtifactsPath,
+    [switch] $KeepWorkspace
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'PackageArchive.ps1')
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $resolvedPackage = (Resolve-Path -LiteralPath $PackagePath).Path
 $packageHash = (Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256).Hash
 $originalSymbols = [IO.Path]::ChangeExtension($resolvedPackage, '.snupkg')
 $symbolHash = (Get-FileHash -LiteralPath $originalSymbols -Algorithm SHA256).Hash
 $testRoot = Join-Path $repoRoot ('artifacts/consumer-tests/' + [guid]::NewGuid().ToString('N'))
-$consumerDirectory = Join-Path $testRoot 'tests/Lokad.Qpdf.PackageConsumer'
-$toolDirectory = Join-Path $testRoot 'tools'
+$workspace = Join-Path $testRoot 'work'
+$consumerDirectory = Join-Path $workspace 'tests/Lokad.Qpdf.PackageConsumer'
+$toolDirectory = Join-Path $workspace 'tools'
 New-Item -ItemType Directory -Path $consumerDirectory, $toolDirectory | Out-Null
+Write-Output "Consumer control evidence: $testRoot"
 $seedPath = Join-Path $repoRoot 'tests/Lokad.Qpdf.PackageConsumer/packages.lock.json'
 $seedText = Get-Content -LiteralPath $seedPath -Raw
 $seedHash = (Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash
@@ -30,9 +36,10 @@ $testLockPath = Join-Path $consumerDirectory 'packages.lock.json'
 $verifier = Join-Path $toolDirectory 'verify-package-consumer.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'verify-package-consumer.ps1') -Destination $verifier
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'PackageArchive.ps1') -Destination $toolDirectory
+$caseReceipts = [ordered]@{}
 
 function Copy-PackageCase([string] $name) {
-    $directory = Join-Path $testRoot $name
+    $directory = Join-Path $workspace $name
     New-Item -ItemType Directory -Path $directory | Out-Null
     $artifact = Join-Path $directory ([IO.Path]::GetFileName($resolvedPackage))
     Copy-Item -LiteralPath $resolvedPackage -Destination $artifact
@@ -40,11 +47,30 @@ function Copy-PackageCase([string] $name) {
     return $artifact
 }
 
-function Assert-Rejection {
-    param([string] $Name, [string] $ExpectedPattern, [string] $ToolPath, [string] $ArtifactPath, [string[]] $ExtraArguments)
+function Invoke-PackageControl {
+    param([string] $Name, [string] $ToolPath, [string] $ArtifactPath, [string[]] $ExtraArguments)
     $output = & pwsh -NoProfile -File $ToolPath -PackagePath $ArtifactPath @ExtraArguments 2>&1 | Out-String
     $code = $LASTEXITCODE
-    [System.IO.File]::WriteAllText((Join-Path $testRoot ($Name + '.log')), $output)
+    $log = Join-Path $testRoot ($Name + '.log')
+    [IO.File]::WriteAllText($log, $output)
+    $caseReceipt = [ordered]@{
+        exitCode = $code
+        logSha256 = (Get-FileHash -LiteralPath $log -Algorithm SHA256).Hash
+        packageSha256 = (Get-FileHash -LiteralPath $ArtifactPath -Algorithm SHA256).Hash
+        symbolsSha256 = (Get-FileHash -LiteralPath ([IO.Path]::ChangeExtension($ArtifactPath, '.snupkg')) -Algorithm SHA256).Hash
+    }
+    if ($ToolPath -ceq $verifier) {
+        $caseReceipt.lockSha256 = (Get-FileHash -LiteralPath $testLockPath -Algorithm SHA256).Hash
+    }
+    $caseReceipts[$Name] = $caseReceipt
+    return [pscustomobject]@{ Output = $output; ExitCode = $code }
+}
+
+function Assert-Rejection {
+    param([string] $Name, [string] $ExpectedPattern, [string] $ToolPath, [string] $ArtifactPath, [string[]] $ExtraArguments)
+    $result = Invoke-PackageControl $Name $ToolPath $ArtifactPath $ExtraArguments
+    $output = $result.Output
+    $code = $result.ExitCode
     # PowerShell wraps exception text at the terminal width and adds a gutter.
     $message = $output -replace '\r?\n[ \t]*\|[ \t]*', ' '
     if ($code -eq 0 -or $message -notmatch $ExpectedPattern -or
@@ -210,9 +236,9 @@ if ($CheckReleaseBuild) {
             } finally { $stream.Dispose() }
         } finally { $archive.Dispose() }
     }
-    $paired = & pwsh -NoProfile -File $packageVerifier -PackagePath $artifact 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0) { throw "Expected the substituted DLL and PDB to match: $paired" }
-    $receipt = Join-Path $testRoot "$name.json"
+    $paired = Invoke-PackageControl "$name-portable-match" $packageVerifier $artifact
+    if ($paired.ExitCode -ne 0) { throw "Expected the substituted DLL and PDB to match: $($paired.Output)" }
+    $receipt = Join-Path $workspace "$name.json"
     $extra = @('-ReleaseReceiptPath', $receipt)
     if ($ArtifactsPath) { $extra += @('-ArtifactsPath', $ArtifactsPath) }
     Assert-Rejection $name 'differs from the tested Release build for net10.0' $packageVerifier $artifact $extra
@@ -260,9 +286,8 @@ foreach ($case in @(
             else { 'Package Markdown link target is missing' }
         Assert-Rejection $case.Name $issue (Join-Path $PSScriptRoot 'verify-package.ps1') $artifact
     } else {
-        $output = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'verify-package.ps1') -PackagePath $artifact 2>&1 | Out-String
-        [IO.File]::WriteAllText((Join-Path $testRoot ($case.Name + '.log')), $output)
-        if ($LASTEXITCODE -ne 0) { throw "$($case.Name) rejected a valid package link. See $testRoot." }
+        $result = Invoke-PackageControl $case.Name $packageVerifier $artifact
+        if ($result.ExitCode -ne 0) { throw "$($case.Name) rejected a valid package link. See $testRoot." }
         Write-Output "PASS $($case.Name)"
     }
 }
@@ -276,6 +301,14 @@ if ((Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256).Hash -cne $pa
 if ((Get-FileHash -LiteralPath $originalSymbols -Algorithm SHA256).Hash -cne $symbolHash) {
     throw 'Negative verification changed the supplied symbols.'
 }
+[ordered]@{
+    packageSha256 = $packageHash
+    symbolsSha256 = $symbolHash
+    reviewedLockSha256 = $seedHash
+    releaseBuildChecked = $CheckReleaseBuild.IsPresent
+    cases = $caseReceipts
+} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $testRoot 'receipt.json') -Encoding utf8
+if (!$KeepWorkspace) { Remove-PackageCheckWorkspace $testRoot }
 Write-Output "Consumer verification negative cases passed; evidence: $testRoot"
 # Expected child failures leave LASTEXITCODE nonzero in a calling pwsh step.
 exit 0

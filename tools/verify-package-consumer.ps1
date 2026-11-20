@@ -4,7 +4,8 @@
 .DESCRIPTION
   Uses a new consumer directory, feed and package cache for every run. The copied
   lock binds only Lokad.qpdf's content hash to the supplied unsigned artifact;
-  all versions and dependency constraints stay locked.
+  all versions and dependency constraints stay locked. Successful runs keep
+  logs and hashes. Use -KeepWorkspace to keep the full workspace on success.
 .LINK
   https://learn.microsoft.com/en-us/nuget/consume-packages/package-source-mapping
 .LINK
@@ -12,7 +13,8 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [string] $PackagePath
+    [string] $PackagePath,
+    [switch] $KeepWorkspace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,9 +67,10 @@ try {
 finally { $package.Dispose() }
 
 $runRoot = Join-Path $repoRoot ('artifacts/package-consumer/' + [guid]::NewGuid().ToString('N'))
-$projectDirectory = Join-Path $runRoot 'consumer'
-$feedDirectory = Join-Path $runRoot 'feed'
-$packagesDirectory = Join-Path $runRoot 'packages'
+$workspace = Join-Path $runRoot 'work'
+$projectDirectory = Join-Path $workspace 'consumer'
+$feedDirectory = Join-Path $workspace 'feed'
+$packagesDirectory = Join-Path $workspace 'packages'
 New-Item -ItemType Directory -Path $projectDirectory, $feedDirectory, $packagesDirectory | Out-Null
 Write-Output "Fresh consumer evidence: $runRoot"
 
@@ -85,7 +88,7 @@ $copiedLock = Join-Path $projectDirectory 'packages.lock.json'
 $copiedLockHash = (Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash
 $project = Join-Path $projectDirectory 'Consumer.csproj'
 Copy-Item -LiteralPath $sourceProject -Destination $project
-$fixtureDirectory = Join-Path $runRoot 'Fixtures'
+$fixtureDirectory = Join-Path $workspace 'Fixtures'
 New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
 
 function Get-ConsumerItems([string] $ProjectPath, [string] $Framework) {
@@ -139,7 +142,7 @@ foreach ($framework in $frameworks) {
     foreach ($item in $items.EmbeddedResource) { $null = Get-ConsumerRelativePath $fixtureDirectory $item.FullPath }
 }
 
-$configPath = Join-Path $runRoot 'nuget.config'
+$configPath = Join-Path $workspace 'nuget.config'
 $escapedFeed = [System.Security.SecurityElement]::Escape($feedDirectory)
 $config = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -155,13 +158,16 @@ $config = @"
 </configuration>
 "@
 [System.IO.File]::WriteAllText($configPath, $config + "`n")
-& dotnet restore $project --locked-mode --packages $packagesDirectory --configfile $configPath --no-http-cache
+& dotnet restore $project --locked-mode --packages $packagesDirectory --configfile $configPath --no-http-cache 2>&1 |
+    Tee-Object -FilePath (Join-Path $runRoot 'restore.log')
 if ($LASTEXITCODE -ne 0) { throw "Fresh locked consumer restore failed ($LASTEXITCODE)." }
 if ((Get-FileHash -LiteralPath $copiedLock -Algorithm SHA256).Hash -cne $copiedLockHash) {
     throw 'Locked restore changed the prepared consumer lock.'
 }
-& dotnet build $project -c Release --no-restore --nologo -v quiet
+& dotnet build $project -c Release --no-restore --nologo -v quiet 2>&1 |
+    Tee-Object -FilePath (Join-Path $runRoot 'build.log')
 if ($LASTEXITCODE -ne 0) { throw "Fresh consumer build failed ($LASTEXITCODE)." }
+$buildHashes = [ordered]@{}
 Write-Output "Artifact SHA-512: $artifactHash"
 foreach ($framework in $frameworks) {
     $restoredLibrary = Join-Path $projectDirectory "bin/Release/$framework/Lokad.Qpdf.dll"
@@ -169,9 +175,14 @@ foreach ($framework in $frameworks) {
         throw "Consumer assembly differs from the supplied $framework package assembly."
     }
     Write-Output "Consumer $framework library SHA-256: $($expectedLibraryHashes[$framework])"
-    & dotnet run --project $project -f $framework -c Release --no-build --no-restore
+    & dotnet run --project $project -f $framework -c Release --no-build --no-restore 2>&1 |
+        Tee-Object -FilePath (Join-Path $runRoot "$framework-consumer.log")
     if ($LASTEXITCODE -ne 0) { throw "Fresh $framework consumer smoke failed ($LASTEXITCODE)." }
     $consumerDll = Join-Path $projectDirectory "bin/Release/$framework/Lokad.Qpdf.PackageConsumer.dll"
+    $buildHashes[$framework] = [ordered]@{
+        librarySha256 = $expectedLibraryHashes[$framework]
+        consumerSha256 = (Get-FileHash -LiteralPath $consumerDll -Algorithm SHA256).Hash
+    }
     foreach ($mode in @('quiet-input', 'raw-input', 'engine-input', 'quiet-output', 'raw-output', 'engine-output')) {
         $start = [System.Diagnostics.ProcessStartInfo]::new('dotnet')
         $start.UseShellExecute = $false
@@ -186,13 +197,16 @@ foreach ($framework in $frameworks) {
         try {
             $stdout = $child.StandardOutput.ReadToEndAsync()
             $stderr = $child.StandardError.ReadToEndAsync()
-            if (-not $child.WaitForExit(30000)) {
+            $exited = $child.WaitForExit(30000)
+            if (-not $exited) {
                 $child.Kill($true)
                 $child.WaitForExit()
-                throw "Capped lease check timed out: $mode."
             }
-            Write-Output $stdout.GetAwaiter().GetResult()
+            $output = $stdout.GetAwaiter().GetResult()
             $errorText = $stderr.GetAwaiter().GetResult()
+            [IO.File]::WriteAllText((Join-Path $runRoot "$framework-$mode.log"), $output + $errorText)
+            Write-Output $output
+            if (-not $exited) { throw "Capped lease check timed out: $mode." }
             if ($child.ExitCode -ne 0) { throw "Capped lease check failed: $mode. $errorText" }
         }
         finally {
@@ -204,4 +218,12 @@ foreach ($framework in $frameworks) {
 if ((Get-FileHash -LiteralPath $seedPath -Algorithm SHA256).Hash -cne $seedHash) {
     throw 'The tracked consumer lock changed during verification.'
 }
+[ordered]@{
+    packageSha256 = (Get-FileHash -LiteralPath $feedPackage -Algorithm SHA256).Hash
+    packageSha512 = $artifactHash
+    reviewedLockSha256 = $seedHash
+    stagedLockSha256 = $copiedLockHash
+    frameworks = $buildHashes
+} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $runRoot 'receipt.json') -Encoding utf8
+if (!$KeepWorkspace) { Remove-PackageCheckWorkspace $runRoot }
 Write-Output 'Fresh artifact consumer passed; dependency graph stayed locked and the tracked lock is unchanged.'

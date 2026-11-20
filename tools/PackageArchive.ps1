@@ -21,3 +21,22 @@ function Assert-DependencyFreePackage([Xml.XmlElement] $metadata) {
         throw 'The core package must have no runtime package dependencies.'
     }
 }
+
+function Remove-PackageCheckWorkspace([string] $EvidenceDirectory) {
+    $evidence = Get-Item -LiteralPath $EvidenceDirectory -ErrorAction Stop
+    $expected = [IO.Path]::GetFullPath((Join-Path $evidence.FullName 'work'))
+    $workspace = Get-Item -LiteralPath $expected -ErrorAction Stop
+    if ($workspace -isnot [IO.DirectoryInfo] -or $workspace.FullName -cne $expected -or
+        $workspace.Parent.FullName -cne $evidence.FullName) {
+        throw "Unexpected package check workspace: $expected"
+    }
+    foreach ($directory in @($workspace, $evidence, $evidence.Parent, $evidence.Parent.Parent)) {
+        if ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            throw "Package check workspace path contains a filesystem link: $($directory.FullName)"
+        }
+    }
+    $link = Get-ChildItem -LiteralPath $workspace.FullName -Force -Recurse -Attributes ReparsePoint |
+        Select-Object -First 1
+    if ($null -ne $link) { throw "Package check workspace contains a filesystem link: $($link.FullName)" }
+    Remove-Item -LiteralPath $workspace.FullName -Recurse -Force -ErrorAction Stop
+}

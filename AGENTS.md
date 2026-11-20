@@ -32,6 +32,8 @@ The Release receipt checks the packaged DLLs and PDBs against the copies used
 by the test project on both targets.
 The consumer uses an isolated feed and cache with the reviewed lock. Its project
 defines the sources and fixtures staged for both targets.
+Package checks retain logs and hash receipts. Failed checks keep their
+workspaces. Use `-KeepWorkspace` to retain a successful workspace.
 
 After an intentional dependency change, restore without locked mode once,
 review and commit the new lock files, then verify locked mode again.
