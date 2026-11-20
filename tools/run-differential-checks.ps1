@@ -38,7 +38,22 @@ $diffRoot = [IO.Path]::GetFullPath($WorkRoot)
 if (Test-Path -LiteralPath $diffRoot) { throw "Differential workspace already exists: $diffRoot" }
 New-Item -ItemType Directory -Path $diffRoot | Out-Null
 Write-Output "Differential artifacts: $diffRoot"
-$fixtureDir = Join-Path $repoRoot 'tests/Fixtures'
+$fixtureDir = Join-Path $diffRoot 'fixtures'
+$fixtureProject = Join-Path $repoRoot 'tests/Lokad.Qpdf.Tests/Lokad.Qpdf.Tests.csproj'
+Push-Location -LiteralPath $repoRoot
+try {
+  & dotnet msbuild $fixtureProject -nologo -v:quiet -t:StageFixtureCorpus `
+    '-p:TargetFramework=net11.0' "-p:QpdfFixtureStageDirectory=$fixtureDir"
+  if ($LASTEXITCODE -ne 0) { throw "Reference fixture staging failed ($LASTEXITCODE)." }
+} finally { Pop-Location }
+$manifest = Get-Content -LiteralPath "$fixtureDir/manifest.json" -Raw | ConvertFrom-Json -AsHashtable
+foreach ($fixture in $manifest.fixtures) {
+  $path = Join-Path $fixtureDir $fixture.file
+  if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Reference fixture is missing: $($fixture.file)" }
+  if ($fixture.ContainsKey('archive') -and (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $fixture.sha256) {
+    throw "Staged reference fixture differs from the manifest: $($fixture.file)"
+  }
+}
 $script:failures = 0
 $referenceTemp = Join-Path $diffRoot 'temp'
 New-Item -ItemType Directory -Path $referenceTemp | Out-Null

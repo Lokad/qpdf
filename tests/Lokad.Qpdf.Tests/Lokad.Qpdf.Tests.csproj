@@ -4,9 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="QpdfSourceRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))" />
-    <None Include="../Fixtures/security-*.json" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../Fixtures/*.pdf" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../Fixtures/cmyk-8x8.jpg" Link="Fixtures/cmyk-8x8.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <QpdfFixture Include="../Fixtures/security-*.json;../Fixtures/*.pdf;../Fixtures/cmyk-8x8.jpg;../Fixtures/manifest.json" />
+    <None Include="@(QpdfFixture)" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../Lokad.Qpdf.PackageConsumer/RecordingMemoryBudget.cs" Link="Support/RecordingMemoryBudget.cs" />
     <EmbeddedResource Include="Content/InlineImageNativeCases.json" />
     <EmbeddedResource Include="Pages/RangeGroupNativeCases.json" />
@@ -26,7 +25,6 @@
     <Using Include="Xunit" />
     <None Include="../Compatibility/options.json" Link="Compatibility/options.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Compatibility/oracle-evidence.json" Link="Compatibility/oracle-evidence.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../Fixtures/manifest.json" Link="Fixtures/manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../tools/Lokad.Qpdf.Image/Lokad.Qpdf.Image.csproj" />
   </ItemGroup>
   <Target Name="StageCompressedFixtures" BeforeTargets="CopyFilesToOutputDirectory"
@@ -39,5 +37,10 @@
     <ItemGroup>
       <FileWrites Include="$(QpdfFixtureStageDirectory)/security-r4-generations.pdf" />
     </ItemGroup>
+  </Target>
+  <Target Name="StageFixtureCorpus" DependsOnTargets="StageCompressedFixtures"
+          Condition="'$(TargetFramework)' != ''">
+    <Copy SourceFiles="@(QpdfFixture)" DestinationFolder="$(QpdfFixtureStageDirectory)"
+          SkipUnchangedFiles="true" />
   </Target>
 </Project>

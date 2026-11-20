@@ -6,8 +6,9 @@ security and native vectors use independent construction.
 The fixture manifest records checksums, page counts and which inputs PdfPig
 also opens. [Fixture manifest](../Fixtures/manifest.json)
 
-The test build and reference lane use the same MSBuild target to expand the
-archived R4 generation fixture. The manifest describes the expanded PDF.
+The test build and differential lane share one fixture list and extraction
+target. The differential lane stages its corpus in the run workspace.
+The manifest describes the expanded R4 generation PDF.
 
 `TestDocumentEngine` supplies an admitted graph for component tests.
 `MemoryBudgetHost` borrows storage and a caller budget. Probe tests use the
