@@ -99,7 +99,7 @@ internal static class Program
         Console.WriteLine("compare-raster exits 2 for a measured difference outside tolerance and 1 for invalid inputs or crops.");
         Console.WriteLine("emit runs the managed library over <dir>/inputs through the public API and writes mapped outputs to disk.");
         Console.WriteLine("validate --allow-empty explicitly accepts an independently observed zero-page document.");
-    Console.WriteLine("probe-jpeg exercises the pinned Lokad.Image 0.2.0 JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK PDF policy, bounds, cancellation).");
+        Console.WriteLine("probe-jpeg exercises the pinned Lokad.Image JPEG codec (grayscale/RGB round-trips, quality endpoints, CMYK/YCCK PDF policy, bounds, cancellation).");
         Console.WriteLine("Missing executables or inputs are explicit failures, never silent skips.");
     }
 

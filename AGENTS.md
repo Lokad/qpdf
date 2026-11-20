@@ -44,7 +44,7 @@ review and commit the new lock files, then verify locked mode again.
 - No vendored code, qpdf-related dependencies, native PDF engines, interop or
   runtime subprocess bridges. Public upstream code is reference material only.
 - The core package has no runtime NuGet dependencies. JPEG codecs are supplied
-  by callers through the host capability. Lokad.Image **0.2.0** is pinned for
+  by callers through the host capability. Lokad.Image **0.2.1** is pinned for
   development-only codecs and fixtures; never add it to the core package.
 - Runtime storage, descriptors, environment and publication must be host-mediated.
   Physical filesystem/process adapters belong in development tools or hosts.

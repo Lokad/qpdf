@@ -4,9 +4,9 @@
     "net10.0": {
       "Lokad.Image": {
         "type": "Direct",
-        "requested": "[0.2.0, 0.2.0]",
-        "resolved": "0.2.0",
-        "contentHash": "yT8xaMimwbNofwMAM2xzldtKQA18AQ69jSwrozX8bwARz+nJPjg7kQ+xvhIOOGtq7c6u35mVAP5zldYH/FNLIA=="
+        "requested": "[0.2.1, 0.2.1]",
+        "resolved": "0.2.1",
+        "contentHash": "pNGkwMU1Xfo8aG/E7so87C/JSkMnwnvXu9mvYsi4fIwEs0nNXW+plLz18wlyLYfFbzC+SIthj5P/G0EGPo5Erg=="
       },
       "lokad.qpdf": {
         "type": "Project"
@@ -15,9 +15,9 @@
     "net11.0": {
       "Lokad.Image": {
         "type": "Direct",
-        "requested": "[0.2.0, 0.2.0]",
-        "resolved": "0.2.0",
-        "contentHash": "yT8xaMimwbNofwMAM2xzldtKQA18AQ69jSwrozX8bwARz+nJPjg7kQ+xvhIOOGtq7c6u35mVAP5zldYH/FNLIA=="
+        "requested": "[0.2.1, 0.2.1]",
+        "resolved": "0.2.1",
+        "contentHash": "pNGkwMU1Xfo8aG/E7so87C/JSkMnwnvXu9mvYsi4fIwEs0nNXW+plLz18wlyLYfFbzC+SIthj5P/G0EGPo5Erg=="
       },
       "lokad.qpdf": {
         "type": "Project"

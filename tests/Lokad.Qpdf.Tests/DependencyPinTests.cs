@@ -13,7 +13,7 @@ public sealed class DependencyPinTests
             .Where(element => string.Equals(element.Attribute("Include")?.Value, "Lokad.Image", StringComparison.Ordinal))
             .Select(element => element.Attribute("Version")?.Value)
             .SingleOrDefault();
-        Assert.Equal("[0.2.0]", codec);
+        Assert.Equal("[0.2.1]", codec);
         Assert.DoesNotContain(versions.Descendants("PackageVersion"), element =>
             string.Equals(element.Attribute("Include")?.Value, "SixLabors.ImageSharp", StringComparison.Ordinal));
         string? reader = versions.Descendants("PackageVersion")
