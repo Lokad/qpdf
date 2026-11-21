@@ -28,7 +28,7 @@ public sealed class PageTreeRoleTests
 
         await using QpdfDocument document = await QpdfDocument.OpenInspectionCore(host, path, null, QpdfLimits.Default,
             governor, new DiagnosticBag(governor), QpdfRecoveryMode.Strict, CancellationToken.None,
-            false, false, new PageTreeRoleSet(roles, storage));
+            false, PublicationInputRole.Ordinary, new PageTreeRoleSet(roles, storage));
 
         Assert.Equal(1, document.PageCount);
         Assert.Equal([1, 2, 3, 4, 7, 8], roles.Order());

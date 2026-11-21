@@ -7007,6 +7007,7 @@
           "SplitReplaceTests.ReplaceInputPublishesAtInputPathWithoutChangingMemoryHostRegistration",
           "SplitReplaceTests.JobReplaceMatchesArgv",
           "SplitReplaceTests.JobReplaceRotatesInPlace",
+          "SplitReplaceTests.ReplacementAcceptsPageSourceAliasAfterClosingLeases",
           "SplitReplaceTests.ReplaceYieldsToExhaustedBudgetLeavingInputUntouched",
           "JsonReplacementTests.ReplacementClosesInputsBeforeStagingAndPublishesAtTheSourceKey"
         ],
@@ -7015,10 +7016,13 @@
           "SplitReplaceTests.JobReplaceRejectsMalformed",
           "JsonReplacementTests.ReplacementRejectsAuxiliaryInputCollisions",
           "JsonReplacementTests.SameKeyRequiresExplicitReplacementOnAPdfUpdate",
-          "NamedPublicationAliasTests.ReplacementExemptsOnlyThePrimaryAcquisition"
+          "NamedPublicationAliasTests.ReplacementRejectsAnOverlayAliasingThePrimaryInput"
         ],
         "interaction": [
           "SplitReplaceTests.JobReplaceRotatesInPlace",
+          "SplitReplaceTests.ReplacementKeepsPageStreamSharingScopedToTheSourceSpelling",
+          "SplitReplaceTests.ReplacementReadsADifferentDocumentWhenTheHostResolvesTheAliasSeparately",
+          "SplitReplaceTests.ReplacementAuthenticatesThePageSourceAliasSeparately",
           "EmptyFilenameTests.EmptyOutputDeclarationsRespectReplaceInputOrder",
           "JsonReplacementTests.JobReplacementAuthenticatesAndPreservesProtection"
         ],

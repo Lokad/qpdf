@@ -321,21 +321,21 @@ public sealed partial class QpdfDocument : IAsyncDisposable
         ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
         CancellationToken cancellationToken, bool borrowInputStreams)
         => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken,
-            borrowInputStreams, false);
+            borrowInputStreams, PublicationInputRole.Ordinary);
 
     internal static ValueTask<QpdfDocument> OpenInspectionCore(
         IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken, bool borrowInputStreams, bool replacementSource)
+        CancellationToken cancellationToken, bool borrowInputStreams, PublicationInputRole publicationRole)
         => OpenInspectionCore(host, path, password, limits, governor, diagnostics, recovery, cancellationToken,
-            borrowInputStreams, replacementSource, null);
+            borrowInputStreams, publicationRole, null);
 
     internal static async ValueTask<QpdfDocument> OpenInspectionCore(
         IQpdfHost host, QpdfPath path, QpdfPassword? password, QpdfLimits limits,
         ResourceGovernor governor, DiagnosticBag diagnostics, QpdfRecoveryMode recovery,
-        CancellationToken cancellationToken, bool borrowInputStreams, bool replacementSource, PageTreeRoleSet? roles)
+        CancellationToken cancellationToken, bool borrowInputStreams, PublicationInputRole publicationRole, PageTreeRoleSet? roles)
     {
-        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken, replacementSource).ConfigureAwait(false);
+        IQpdfInput input = await GovernedHost.OpenInputAsync(host, path, governor, cancellationToken, publicationRole).ConfigureAwait(false);
         return await OpenInputDocument(input, path, limits, governor, diagnostics, recovery, cancellationToken,
             false, borrowInputStreams && host is Hosting.InMemoryQpdfHost, false, InputReadMode.Complete, password, roles).ConfigureAwait(false);
     }

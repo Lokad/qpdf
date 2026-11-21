@@ -95,17 +95,21 @@ public sealed class NamedPublicationAliasTests
         AssertIntact(host, null);
     }
 
-    [Fact]
-    public async Task ReplacementExemptsOnlyThePrimaryAcquisition()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReplacementRejectsAnOverlayAliasingThePrimaryInput(bool alsoSelectPages)
     {
         using RecordingJobHost host = await Prepare(null);
-        QpdfExecutionResult result = await Qpdf.ExecuteAsync(new OutputAliasHost(host, Primary, Source), new([
-            Source.Value, "--replace-input", "--overlay", Primary.Value, "--"]), CancellationToken.None);
+        List<string> args = [Source.Value, "--replace-input"];
+        if (alsoSelectPages) { args.AddRange(["--pages", Primary.Value, "1", "--"]); }
+        args.AddRange(["--overlay", Primary.Value, "--"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(new OutputAliasHost(host, Primary, Source), new(args), CancellationToken.None);
 
         Assert.Equal(QpdfExecutionStatus.Failed, result.Status);
         Assert.Contains(result.Diagnostics, item => item.Code == QpdfDiagnosticCode.InvalidArguments
             && item.Message.Contains(Source.Value, StringComparison.Ordinal));
-        Assert.Equal([Source, Source], host.OpenedPaths);
+        Assert.Equal(alsoSelectPages ? [Source, Source, Source] : [Source, Source], host.OpenedPaths);
         AssertIntact(host, result);
     }
 

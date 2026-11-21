@@ -2,6 +2,13 @@ using Lokad.Qpdf.Syntax;
 
 namespace Lokad.Qpdf.Runtime;
 
+internal enum PublicationInputRole : byte
+{
+    Ordinary,
+    ReplacementSource,
+    ReplacementPageSource
+}
+
 // Protect the inputs consumed by a publication, including retired leases.
 internal sealed class PublicationInputAliases : IDisposable
 {
@@ -11,6 +18,7 @@ internal sealed class PublicationInputAliases : IDisposable
     private enum KeyKind : byte { Path = 1, Identity = 2 }
     private Dictionary<string, KeyKind>? _inputs;
     private (QpdfPath Requested, QpdfPath Opened, string Identity)? _replacement;
+    private List<(QpdfPath Requested, QpdfPath Opened, string Identity)>? _replacementPageSources;
 
     internal static PublicationInputAliases? BeginIfNeeded(ResourceGovernor governor)
     {
@@ -35,14 +43,23 @@ internal sealed class PublicationInputAliases : IDisposable
         _governor = governor;
     }
 
-    internal void Remember(QpdfPath requested, QpdfPath opened, string identity, bool replacementSource)
+    internal void Remember(QpdfPath requested, QpdfPath opened, string identity, PublicationInputRole role)
     {
-        if (replacementSource)
+        if (role == PublicationInputRole.ReplacementSource)
         {
             if (_replacement is not null) { throw new InvalidOperationException("Multiple replacement sources."); }
             _memory.Reserve(GovernedText.StringBytes(opened.Value.Length));
             _memory.Reserve(GovernedText.StringBytes(identity.Length));
             _replacement = (requested, opened, identity);
+            return;
+        }
+        if (role == PublicationInputRole.ReplacementPageSource)
+        {
+            // Page assembly may acquire the primary after its aliases.
+            _memory.Reserve(GovernedText.StringBytes(opened.Value.Length));
+            _memory.Reserve(GovernedText.StringBytes(identity.Length));
+            _replacementPageSources ??= ParserContainers.CreateList<(QpdfPath, QpdfPath, string)>(_memory);
+            ParserContainers.AddItem(_memory, _replacementPageSources, (requested, opened, identity), 3L * IntPtr.Size);
             return;
         }
         RememberPath(requested.Value);
@@ -107,7 +124,8 @@ internal sealed class PublicationInputAliases : IDisposable
                 token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
                 if (!isCapture && _replacement is { } primary && path == primary.Requested)
                 {
-                    if (ContainsPath(primary.Opened.Value) || Contains(primary.Identity, KeyKind.Identity))
+                    if (ContainsPath(primary.Opened.Value) || Contains(primary.Identity, KeyKind.Identity)
+                        || ContainsPageSource(primary.Opened.Value, null, primary.Identity))
                     { throw Alias(path.Value); }
                     return;
                 }
@@ -120,6 +138,7 @@ internal sealed class PublicationInputAliases : IDisposable
                     token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
                     string identity = input.Identity;
                     if (ContainsPath(input.Path.Value) || Contains(identity, KeyKind.Identity)
+                        || ContainsPageSource(input.Path.Value, identity, null)
                         || _replacement is { } source && (identity == source.Identity || input.Path == source.Opened))
                     { throw Alias(path.Value); }
                     if (claimed is null) { return; }
@@ -134,13 +153,28 @@ internal sealed class PublicationInputAliases : IDisposable
         void CheckPath(string name, bool isCapture)
         {
             token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
-            if (ContainsPath(name) || _replacement is { } source
-                && (isCapture || name != source.Requested.Value) && (name == source.Requested.Value || name == source.Opened.Value))
+            bool replacing = !isCapture && name == _replacement?.Requested.Value;
+            if (ContainsPath(name) || ContainsPageSource(name, null, replacing ? _replacement?.Identity : null)
+                || !replacing && _replacement is { } source
+                    && (name == source.Requested.Value || name == source.Opened.Value))
             { throw Alias(name); }
             if (!isCapture && capture?.Value == name)
             {
                 throw new QpdfParseException("The first-pass output must differ from every main PDF output.", null, null);
             }
+        }
+
+        bool ContainsPageSource(string path, string? identity, string? exemptIdentity)
+        {
+            if (_replacementPageSources is null) { return false; }
+            foreach ((QpdfPath requested, QpdfPath opened, string sourceIdentity) in _replacementPageSources)
+            {
+                token.ThrowIfCancellationRequested(); _governor.CheckCancellation();
+                if (sourceIdentity != exemptIdentity
+                    && (path == requested.Value || path == opened.Value || identity == sourceIdentity))
+                { return true; }
+            }
+            return false;
         }
 
         QpdfParseException Alias(string name) => new($"{outputKind} output '{name}' aliases an input.", null, null);
@@ -151,6 +185,7 @@ internal sealed class PublicationInputAliases : IDisposable
         if (ReferenceEquals(_governor.PublicationInputs, this)) { _governor.PublicationInputs = null; }
         _inputs = null;
         _replacement = null;
+        _replacementPageSources = null;
         _memory.Dispose();
     }
 }

@@ -164,12 +164,18 @@ internal static class MultiPageSelection
             IReadOnlyList<int> sourceGroupIndices = catalogOnly ? Array.Empty<int>() : sourceGroups[sources[s].Input.Value];
             if (!catalogOnly && sourceGroupIndices[0] != s) { continue; }
             QpdfPath sourcePath = catalogOnly ? primaryInput : sources[s].Input;
+            PublicationInputRole publicationRole = PublicationInputRole.Ordinary;
+            if (replaceInput && !emptyPrimary)
+            {
+                publicationRole = sourcePath == primaryInput
+                    ? PublicationInputRole.ReplacementSource : PublicationInputRole.ReplacementPageSource;
+            }
             // Multisource graphs survive each reader. Independent payloads let
             // catalog-only and mostly unused inputs retire after their copies.
             await using QpdfDocument document = !catalogOnly && preparedSource is not null ? preparedSource
                 : await QpdfDocument.OpenInspectionCore(host, sourcePath, catalogOnly ? settings.PrimaryPassword : sources[s].Password,
                     limits, governor, diagnostics, recovery, cancellationToken, !catalogOnly && sources.Count == 1,
-                    replaceInput && !emptyPrimary && sourcePath == primaryInput).ConfigureAwait(false);
+                    publicationRole).ConfigureAwait(false);
             try
             {
                 // The existing source transfer funds a single complete input
@@ -812,7 +818,7 @@ internal static class MultiPageSelection
         await using QpdfDocument document = plan.EmptyDocument
             ? await QpdfDocument.OpenEmptyDocument(plan.Input, limits, governor, diagnostics, plan.Recovery, cancellationToken, false).ConfigureAwait(false)
             : await QpdfDocument.OpenInspectionCore(host, plan.Input, password, limits, governor, diagnostics, plan.Recovery,
-                cancellationToken, true, plan.ReplaceInput).ConfigureAwait(false);
+                cancellationToken, true, plan.ReplaceInput ? PublicationInputRole.ReplacementSource : PublicationInputRole.Ordinary).ConfigureAwait(false);
         int total = document.PageReferences.Count;
         if ((long)total > limits.MaxContainerSize)
         {

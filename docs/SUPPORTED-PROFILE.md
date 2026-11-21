@@ -592,10 +592,13 @@ unreferenced preservation includes eligible detached roots in every part.
 Naming, capture and publication follow the ordinary split rules. Fresh
 protection uses a separate key for each part.
 
-`--replace-input` / `replaceInput` updates a PDF in place. The source lease
-closes before staging and the host commits to the source key. Named output
-and typed updates require a distinct target. Splitting is unavailable with
-replacement or inspection. [Publication checks](#governance)
+`--replace-input` / `replaceInput` updates a PDF in place. Input leases close
+before staging and the host commits to the primary key. In ordinary page
+assembly, a page source may resolve to the primary input's host identity.
+Page sources with distinct keys are authenticated separately and have
+independent copied objects.
+Named output and typed updates require a distinct target. Splitting is
+unavailable with replacement or inspection. [Publication checks](#governance)
 
 ## Writer profile
 
@@ -713,9 +716,10 @@ readable target identities without requesting payload bytes. JSON reports
 and sidecars probe after closing their input leases. A write-only or absent
 target can report `Unsupported` or `NotFound`.
 
-Explicit replacement may reuse the designated primary PDF acquisition.
-Configuration, patch, sidecar, password-file and template inputs remain
-protected, including after their leases close.
+Explicit replacement may reuse the designated primary PDF acquisition and
+ordinary page-source acquisitions with the same host identity. Overlay,
+underlay, attachment, configuration, patch, sidecar, password-file and
+template inputs remain protected, including after their leases close.
 
 Commit is the replacement boundary. Failure or cancellation before replacement
 preserves the prior target. A successful replacement survives cancellation and

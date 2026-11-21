@@ -3,6 +3,7 @@ using Lokad.Qpdf.Hosting;
 using Lokad.Qpdf.Jobs;
 using Lokad.Qpdf.Runtime;
 using Lokad.Qpdf.Objects;
+using Lokad.Qpdf.Tests.Foundation;
 
 namespace Lokad.Qpdf.Tests.Commands;
 
@@ -204,6 +205,106 @@ public sealed class SplitReplaceTests
         }
 
         Assert.Equal(0L, host.OpenLeaseCount);
+    }
+
+    [Theory]
+    [InlineData("argv")]
+    [InlineData("response")]
+    [InlineData("job")]
+    public async Task ReplacementAcceptsPageSourceAliasAfterClosingLeases(string route)
+    {
+        QpdfPath input = QpdfPath.From("input.pdf");
+        QpdfPath alias = QpdfPath.From("./input.pdf");
+        using RecordingJobHost host = new(await HostWithFixture(input.Value, "minimal-2page.pdf"), "create", input, "success", true);
+        host.Inner.AddInput(QpdfPath.From("args.txt"),
+            "input.pdf\n--pages\n./input.pdf\n2\n--\n--replace-input\n"u8.ToArray(), QpdfInputOwnership.Transfer);
+        IQpdfHost aliases = new OutputAliasHost(host, alias, input);
+        Task<QpdfExecutionResult> executing = (route switch
+        {
+            "argv" => Qpdf.ExecuteAsync(aliases, new([input.Value, "--pages", alias.Value, "2", "--", "--replace-input"]), CancellationToken.None),
+            "response" => Qpdf.ExecuteAsync(aliases, new(["@args.txt"]), CancellationToken.None),
+            _ => Qpdf.ExecuteJobAsync(aliases,
+                """{"inputFile":"input.pdf","pages":[{"file":"./input.pdf","range":"2"}],"replaceInput":""}""", CancellationToken.None),
+        }).AsTask();
+        try
+        {
+            Assert.Same(host.Entered, await Task.WhenAny(host.Entered, executing).WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(0L, host.Inner.OpenLeaseCount);
+            Assert.Equal(input, Assert.Single(host.CreatedPaths));
+            Assert.Empty(host.Committed);
+            Assert.Equal(2, host.OpenedPaths.Count(path => path == input));
+            host.Resume();
+            QpdfExecutionResult result = await executing;
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(input, Assert.Single(host.Committed));
+            Assert.Equal(["Second"], PageText(host.Inner, input.Value));
+            ExecutionJobFixtures.AssertClosed(host, result);
+        }
+        finally { host.Resume(); await executing; }
+    }
+
+    [Theory]
+    [InlineData(".", true)]
+    [InlineData("./input.pdf", false)]
+    public async Task ReplacementKeepsPageStreamSharingScopedToTheSourceSpelling(string secondSource, bool shared)
+    {
+        QpdfPath input = QpdfPath.From("input.pdf");
+        using RecordingJobHost host = new(await HostWithFixture(input.Value, "minimal-2page.pdf"), null, null, "success", true);
+        IQpdfHost aliases = new OutputAliasHost(host, QpdfPath.From("./input.pdf"), input);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(aliases,
+            new([input.Value, "--pages", ".", "1", secondSource, "1", "--", "--replace-input"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        await using QpdfDocument output = await Reopen(host.Inner, input.Value);
+        Assert.Equal(2, output.PageCount);
+        PdfReference first = PageContents(output.PageReferences[0].Page);
+        PdfReference second = PageContents(output.PageReferences[1].Page);
+        Assert.Equal(shared, first.Equals(second));
+        Assert.Equal(["First", "First"], PageText(host.Inner, input.Value));
+    }
+
+    [Fact]
+    public async Task ReplacementReadsADifferentDocumentWhenTheHostResolvesTheAliasSeparately()
+    {
+        using InMemoryQpdfHost host = await HostWithFixture("input.pdf", "minimal-2page.pdf");
+        host.AddInput(QpdfPath.From("./input.pdf"), await File.ReadAllBytesAsync(Path.Combine(FixtureDir(), "minimal-1page.pdf")), QpdfInputOwnership.Transfer);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(host,
+            new(["input.pdf", "--pages", "./input.pdf", "1", "--", "--replace-input"]), CancellationToken.None);
+        Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+        Assert.False(host.TryGetOutput(QpdfPath.From("./input.pdf"), out _));
+        Assert.Equal(["Hello"], PageText(host, "input.pdf"));
+    }
+
+    [Theory]
+    [InlineData(null, QpdfDiagnosticCode.PasswordRequired)]
+    [InlineData("wrong", QpdfDiagnosticCode.InvalidPassword)]
+    [InlineData("reader", null)]
+    public async Task ReplacementAuthenticatesThePageSourceAliasSeparately(string? password, QpdfDiagnosticCode? error)
+    {
+        QpdfPath input = QpdfPath.From("input.pdf");
+        using RecordingJobHost host = new(await HostWithFixture(input.Value, "security-r6-ascii.pdf"), null, null, "success", true);
+        IQpdfHost aliases = new OutputAliasHost(host, QpdfPath.From("./input.pdf"), input);
+        List<string> args = [input.Value, "--password=reader", "--pages", "./input.pdf"];
+        if (password is not null) { args.Add("--password=" + password); }
+        args.AddRange(["1", "--", "--replace-input"]);
+        QpdfExecutionResult result = await Qpdf.ExecuteAsync(aliases, new(args), CancellationToken.None);
+        if (error is QpdfDiagnosticCode code)
+        {
+            Assert.Equal(code, SingleError(result).Code);
+            Assert.Empty(host.CreatedPaths);
+            Assert.Empty(host.Committed);
+        }
+        else
+        {
+            Assert.Equal(QpdfExitCode.Success, result.ExitCode);
+            Assert.Equal(input, Assert.Single(host.Committed));
+        }
+        ExecutionJobFixtures.AssertClosed(host, result);
+    }
+
+    private static PdfReference PageContents(PdfDictionary page)
+    {
+        Assert.True(page.TryGet(PdfName.FromAscii("Contents"), out QpdfObject contents));
+        return Assert.IsType<PdfReference>(contents);
     }
 
     [Fact]

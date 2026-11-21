@@ -62,16 +62,16 @@ internal static class GovernedHost
 
     internal static ValueTask<IQpdfInput> OpenInputAsync(
         IQpdfHost host, QpdfPath path, ResourceGovernor governor, CancellationToken cancellationToken)
-        => OpenInputAsync(host, path, governor, cancellationToken, false);
+        => OpenInputAsync(host, path, governor, cancellationToken, PublicationInputRole.Ordinary);
 
     internal static ValueTask<IQpdfInput> OpenInputAsync(
-        IQpdfHost host, QpdfPath path, ResourceGovernor governor, CancellationToken cancellationToken, bool replacementSource)
+        IQpdfHost host, QpdfPath path, ResourceGovernor governor, CancellationToken cancellationToken, PublicationInputRole publicationRole)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(governor);
         ValueTask<IQpdfInput> pending = OpenInputCoreAsync(host, path, governor, cancellationToken);
         return governor.PublicationInputs is PublicationInputAliases aliases
-            ? RememberInputAsync(pending, aliases, path, replacementSource) : pending;
+            ? RememberInputAsync(pending, aliases, path, publicationRole) : pending;
     }
 
     private static ValueTask<IQpdfInput> OpenInputCoreAsync(
@@ -99,12 +99,12 @@ internal static class GovernedHost
     }
 
     private static async ValueTask<IQpdfInput> RememberInputAsync(ValueTask<IQpdfInput> pending,
-        PublicationInputAliases aliases, QpdfPath path, bool replacementSource)
+        PublicationInputAliases aliases, QpdfPath path, PublicationInputRole publicationRole)
     {
         IQpdfInput input = await pending.ConfigureAwait(false);
         try
         {
-            aliases.Remember(path, input.Path, input.Identity, replacementSource);
+            aliases.Remember(path, input.Path, input.Identity, publicationRole);
             return input;
         }
         catch

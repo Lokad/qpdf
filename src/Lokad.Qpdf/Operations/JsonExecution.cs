@@ -623,7 +623,8 @@ internal static class JsonExecution
         using PublicationInputAliases? ownedAliases = PublicationInputAliases.BeginIfNeeded(governor);
         await using QpdfDocument? document = sourcePdf is QpdfPath input
             ? await QpdfDocument.OpenInspectionCore(host, input, password, limits, governor, diagnostics, recovery,
-                cancellationToken, false, replaceInput, sourceRoles).ConfigureAwait(false)
+                cancellationToken, false, replaceInput ? PublicationInputRole.ReplacementSource : PublicationInputRole.Ordinary,
+                sourceRoles).ConfigureAwait(false)
             : null;
         using ParserMemoryScope importMemory = ParserMemoryScope.Create(governor);
         (QpdfPath Path, string Identity)? replacement = replaceInput && document is not null
